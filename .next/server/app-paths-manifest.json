@@ -1,10 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
   "/business-profile/page": "app/business-profile/page.js",
-  "/login/page": "app/login/page.js",
-  "/signup/page": "app/signup/page.js",
   "/page": "app/page.js",
-  "/(app)/bookkeeping/page": "app/(app)/bookkeeping/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/login/page": "app/login/page.js",
+  "/(app)/reports/page": "app/(app)/reports/page.js",
   "/(app)/dashboard/page": "app/(app)/dashboard/page.js",
-  "/(app)/reports/page": "app/(app)/reports/page.js"
+  "/(app)/bookkeeping/page": "app/(app)/bookkeeping/page.js"
 }

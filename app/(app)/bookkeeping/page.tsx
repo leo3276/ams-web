@@ -51,6 +51,7 @@ export default function BookkeepingPage() {
       .from('businesses')
       .select('id')
       .eq('user_id', userId)
+      .order('created_at', { ascending: true })
       .limit(1);
 
     const bId = businesses?.[0]?.id;

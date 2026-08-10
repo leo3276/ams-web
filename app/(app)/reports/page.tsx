@@ -103,7 +103,7 @@ export default function ReportsPage() {
     <div>
       <h1 className="text-2xl font-medium text-textPrimary mb-6">Reports</h1>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         <TabButton label="P&L" active={tab === 'pnl'} onClick={() => setTab('pnl')} />
         <TabButton label="Balance sheet" active={tab === 'balance_sheet'} onClick={() => setTab('balance_sheet')} />
         <TabButton label="Cash flow" active={tab === 'cash_flow'} onClick={() => setTab('cash_flow')} />
@@ -228,7 +228,7 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-lg text-sm ${
+      className={`px-3 py-1.5 rounded-lg text-sm shrink-0 ${
         active ? 'bg-textPrimary text-white' : 'bg-surface2 border border-border text-textPrimary'
       }`}
     >

@@ -176,8 +176,8 @@ export default function BookkeepingPage() {
 
       {errorMsg && <p className="text-sm text-danger mb-4">{errorMsg}</p>}
 
-      <div className="border border-border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="border border-border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="bg-surface1 text-left text-textSecondary">
               <th className="px-3 py-2 font-medium">Date</th>

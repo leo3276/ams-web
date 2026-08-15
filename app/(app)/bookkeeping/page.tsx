@@ -193,7 +193,7 @@ export default function BookkeepingPage() {
               <th className="px-3 py-2 font-medium">Type</th>
               <th className="px-3 py-2 font-medium">Category</th>
               <th className="px-3 py-2 font-medium">Depr. %</th>
-              <th className="px-3 py-2 font-medium">Paid via</th>
+              <th className="px-3 py-2 font-medium">Paid/Received Via</th>
               <th className="px-3 py-2 font-medium text-right">Amount</th>
               <th className="px-3 py-2 w-10"></th>
             </tr>
@@ -288,7 +288,7 @@ export default function BookkeepingPage() {
                     }
                     onBlur={() => saveRow(row)}
                     placeholder="0.00"
-                    className="w-full px-2 py-1.5 rounded text-right focus:outline-none focus:bg-accentBg"
+                    className="w-50 px-2 py-1.5 rounded text-right focus:outline-none focus:bg-accentBg"
                   />
                 </td>
                 <td className="px-1 py-1 text-center">

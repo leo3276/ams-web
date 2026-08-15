@@ -2,20 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Transaction, TransactionType } from '@/lib/types';
-
-const TYPE_OPTIONS: { label: string; value: TransactionType }[] = [
-  { label: 'Revenue', value: 'revenue' },
-  { label: 'Cost of goods', value: 'cost_of_goods' },
-  { label: 'Operating expense', value: 'operating_expense' },
-  { label: 'Asset', value: 'asset' },
-  { label: 'Liability', value: 'liability' },
-];
+import { Transaction, TransactionType, TRANSACTION_TYPE_OPTIONS } from '@/lib/types';
 
 interface Row extends Partial<Transaction> {
   _localId: string; // stable key for unsaved rows before they get a real id
   _saving?: boolean;
   _dirty?: boolean;
+  _depreciationPercent?: string; // kept as a display string while editing
 }
 
 function emptyRow(): Row {
@@ -26,6 +19,8 @@ function emptyRow(): Row {
     type: 'operating_expense',
     category: '',
     amount: 0,
+    depreciation_rate: null,
+    _depreciationPercent: '',
   };
 }
 
@@ -74,7 +69,11 @@ export default function BookkeepingPage() {
       return;
     }
 
-    const loadedRows: Row[] = (data ?? []).map((t) => ({ ...t, _localId: t.id }));
+    const loadedRows: Row[] = (data ?? []).map((t) => ({
+      ...t,
+      _localId: t.id,
+      _depreciationPercent: t.depreciation_rate != null ? String(t.depreciation_rate * 100) : '',
+    }));
     // Always keep one empty row at the top ready for new entry.
     setRows([emptyRow(), ...loadedRows]);
     setLoading(false);
@@ -97,22 +96,31 @@ export default function BookkeepingPage() {
       return;
     }
 
+    // Depreciation only applies to fixed assets, and only if a rate was actually typed in.
+    let depreciationRate: number | null = null;
+    if (row.type === 'fixed_asset' && row._depreciationPercent && row._depreciationPercent.trim()) {
+      const pct = parseFloat(row._depreciationPercent);
+      if (!isNaN(pct) && pct >= 0 && pct <= 100) {
+        depreciationRate = pct / 100;
+      }
+    }
+
     setRows((prev) =>
       prev.map((r) => (r._localId === row._localId ? { ...r, _saving: true } : r))
     );
 
+    const payload = {
+      vendor: row.vendor,
+      amount: row.amount,
+      type: row.type,
+      category: row.category || row.type,
+      transaction_date: row.transaction_date,
+      depreciation_rate: depreciationRate,
+    };
+
     if (row.id) {
       // Existing row — update it.
-      const { error } = await supabase
-        .from('transactions')
-        .update({
-          vendor: row.vendor,
-          amount: row.amount,
-          type: row.type,
-          category: row.category || row.type,
-          transaction_date: row.transaction_date,
-        })
-        .eq('id', row.id);
+      const { error } = await supabase.from('transactions').update(payload).eq('id', row.id);
 
       if (error) {
         setErrorMsg(error.message);
@@ -124,14 +132,7 @@ export default function BookkeepingPage() {
       // New row — insert it, then turn this row into a saved row and add a fresh empty one on top.
       const { data, error } = await supabase
         .from('transactions')
-        .insert({
-          business_id: businessId,
-          vendor: row.vendor,
-          amount: row.amount,
-          type: row.type,
-          category: row.category || row.type,
-          transaction_date: row.transaction_date,
-        })
+        .insert({ business_id: businessId, ...payload })
         .select()
         .single();
 
@@ -145,7 +146,11 @@ export default function BookkeepingPage() {
 
       setRows((prev) => {
         const withoutThisRow = prev.filter((r) => r._localId !== row._localId);
-        const savedRow: Row = { ...data, _localId: data.id };
+        const savedRow: Row = {
+          ...data,
+          _localId: data.id,
+          _depreciationPercent: data.depreciation_rate != null ? String(data.depreciation_rate * 100) : '',
+        };
         return [emptyRow(), savedRow, ...withoutThisRow];
       });
     }
@@ -171,19 +176,21 @@ export default function BookkeepingPage() {
       <h1 className="text-2xl font-medium text-textPrimary mb-1">Bookkeeping</h1>
       <p className="text-sm text-textSecondary mb-6">
         Log the day&apos;s sales, expenses, and other activity. Rows save automatically once vendor
-        and amount are filled in.
+        and amount are filled in. For a Fixed asset, you can optionally set a depreciation % — leave
+        it blank if it doesn&apos;t depreciate.
       </p>
 
       {errorMsg && <p className="text-sm text-danger mb-4">{errorMsg}</p>}
 
       <div className="border border-border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="w-full text-sm min-w-[760px]">
           <thead>
             <tr className="bg-surface1 text-left text-textSecondary">
               <th className="px-3 py-2 font-medium">Date</th>
               <th className="px-3 py-2 font-medium">Vendor / Description</th>
               <th className="px-3 py-2 font-medium">Type</th>
               <th className="px-3 py-2 font-medium">Category</th>
+              <th className="px-3 py-2 font-medium">Depr. %</th>
               <th className="px-3 py-2 font-medium text-right">Amount</th>
               <th className="px-3 py-2 w-10"></th>
             </tr>
@@ -214,13 +221,13 @@ export default function BookkeepingPage() {
                   <select
                     value={row.type ?? 'operating_expense'}
                     onChange={(e) => {
-                      updateRow(row._localId, { type: e.target.value as TransactionType });
-                      // select changes can save immediately, no need to wait for blur
-                      saveRow({ ...row, type: e.target.value as TransactionType });
+                      const newType = e.target.value as TransactionType;
+                      updateRow(row._localId, { type: newType });
+                      saveRow({ ...row, type: newType });
                     }}
                     className="w-full px-2 py-1.5 rounded focus:outline-none focus:bg-accentBg bg-transparent"
                   >
-                    {TYPE_OPTIONS.map((opt) => (
+                    {TRANSACTION_TYPE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -236,6 +243,23 @@ export default function BookkeepingPage() {
                     placeholder="Optional"
                     className="w-full px-2 py-1.5 rounded focus:outline-none focus:bg-accentBg"
                   />
+                </td>
+                <td className="px-1 py-1">
+                  {row.type === 'fixed_asset' ? (
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={row._depreciationPercent ?? ''}
+                      onChange={(e) => updateRow(row._localId, { _depreciationPercent: e.target.value })}
+                      onBlur={() => saveRow(row)}
+                      placeholder="—"
+                      className="w-full px-2 py-1.5 rounded focus:outline-none focus:bg-accentBg"
+                    />
+                  ) : (
+                    <span className="text-textMuted px-2">—</span>
+                  )}
                 </td>
                 <td className="px-1 py-1">
                   <input

@@ -13,10 +13,18 @@ interface PnL {
 }
 interface BalanceSheet {
   cash: number;
-  fixed_assets: number;
+  current_assets_other: number;
+  total_current_assets: number;
+  fixed_assets_cost: number;
+  accumulated_depreciation: number;
+  fixed_assets_nbv: number;
   total_assets: number;
+  short_term_liabilities: number;
+  long_term_liabilities: number;
   total_liabilities: number;
-  equity: number;
+  owners_equity: number;
+  net_profit_to_date: number;
+  drawings_to_date: number;
 }
 interface CashFlow {
   operating_activities: number;
@@ -124,20 +132,41 @@ export default function ReportsPage() {
 
       {!loading && !errorMsg && tab === 'balance_sheet' && balanceSheet && (
         <Card title="Balance sheet · as of today">
-          <p className="text-xs uppercase text-textMuted mb-1 mt-1">Assets</p>
+          <p className="text-xs uppercase text-textMuted mb-1 mt-1">Current assets</p>
           <Row label="Cash" value={balanceSheet.cash} />
-          <Row label="Fixed assets" value={balanceSheet.fixed_assets} />
+          <Row label="Other current assets" value={balanceSheet.current_assets_other} />
+          <SubtotalRow label="Total current assets" value={balanceSheet.total_current_assets} />
+
+          <p className="text-xs uppercase text-textMuted mb-1 mt-4">Fixed assets</p>
+          <Row label="Cost" value={balanceSheet.fixed_assets_cost} />
+          <Row label="Accumulated depreciation" value={-balanceSheet.accumulated_depreciation} />
+          <SubtotalRow label="Net book value" value={balanceSheet.fixed_assets_nbv} />
+
           <TotalRow label="Total assets" value={balanceSheet.total_assets} />
-          <p className="text-xs uppercase text-textMuted mb-1 mt-4">Liabilities &amp; Equity</p>
-          <Row label="Total liabilities" value={balanceSheet.total_liabilities} />
-          <Row label="Equity" value={balanceSheet.equity} />
-          <TotalRow
-            label="Total liabilities + equity"
-            value={balanceSheet.total_liabilities + balanceSheet.equity}
-          />
+
+          <p className="text-xs uppercase text-textMuted mb-1 mt-4">Liabilities</p>
+          <Row label="Short-term liabilities" value={balanceSheet.short_term_liabilities} />
+          <Row label="Long-term liabilities" value={balanceSheet.long_term_liabilities} />
+          <SubtotalRow label="Total liabilities" value={balanceSheet.total_liabilities} />
+
+          <TotalRow label="Owner's equity" value={balanceSheet.owners_equity} />
+
+          <div className="bg-surface2 rounded-lg p-4 mt-4">
+            <p className="text-xs uppercase font-medium text-textSecondary mb-2">
+              What moved equity (informational)
+            </p>
+            <Row label="Net profit to date" value={balanceSheet.net_profit_to_date} />
+            <Row label="Drawings to date" value={-balanceSheet.drawings_to_date} />
+            <p className="text-xs text-textMuted mt-2 leading-relaxed">
+              Shown for context only — already reflected inside Owner&apos;s equity above via cash,
+              not added again on top of it.
+            </p>
+          </div>
+
           <p className="text-xs text-textMuted mt-4 leading-relaxed">
-            Simplified estimate — cash and equity are inferred from your logged transactions, not a
-            tracked bank balance.
+            Cash is worked out from your transaction history, not a tracked bank balance.
+            Depreciation reduces equity here but isn&apos;t subtracted from net profit in the P&amp;L
+            — that gap is the depreciation expense.
           </p>
         </Card>
       )}
@@ -209,6 +238,15 @@ function Row({ label, value }: { label: string; value: number }) {
     <div className="flex justify-between py-1.5 border-b border-border text-sm">
       <span className="text-textPrimary">{label}</span>
       <span className="text-textPrimary">{value.toLocaleString()}</span>
+    </div>
+  );
+}
+
+function SubtotalRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex justify-between py-1.5 pt-2 border-t border-border text-sm">
+      <span className="text-textPrimary font-medium">{label}</span>
+      <span className="text-textPrimary font-medium">{value.toLocaleString()}</span>
     </div>
   );
 }

@@ -8,6 +8,8 @@ export type TransactionType =
   | 'long_term_liability'
   | 'drawings';
 
+export type PaymentMethod = 'cash' | 'bank';
+
 export interface Transaction {
   id: string;
   business_id: string;
@@ -19,6 +21,7 @@ export interface Transaction {
   document_url: string | null;
   created_at: string;
   depreciation_rate: number | null; // decimal fraction, e.g. 0.20 for 20% — only meaningful for fixed_asset
+  payment_method: PaymentMethod;
 }
 
 export const TRANSACTION_TYPE_OPTIONS: { label: string; value: TransactionType }[] = [

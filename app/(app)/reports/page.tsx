@@ -13,6 +13,7 @@ interface PnL {
 }
 interface BalanceSheet {
   cash: number;
+  bank: number;
   current_assets_other: number;
   total_current_assets: number;
   fixed_assets_cost: number;
@@ -134,6 +135,7 @@ export default function ReportsPage() {
         <Card title="Balance sheet · as of today">
           <p className="text-xs uppercase text-textMuted mb-1 mt-1">Current assets</p>
           <Row label="Cash" value={balanceSheet.cash} />
+          <Row label="Bank" value={balanceSheet.bank} />
           <Row label="Other current assets" value={balanceSheet.current_assets_other} />
           <SubtotalRow label="Total current assets" value={balanceSheet.total_current_assets} />
 

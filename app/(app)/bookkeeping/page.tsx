@@ -21,6 +21,7 @@ function emptyRow(): Row {
     amount: 0,
     depreciation_rate: null,
     _depreciationPercent: '',
+    payment_method: 'cash',
   };
 }
 
@@ -116,6 +117,7 @@ export default function BookkeepingPage() {
       category: row.category || row.type,
       transaction_date: row.transaction_date,
       depreciation_rate: depreciationRate,
+      payment_method: row.payment_method || 'cash',
     };
 
     if (row.id) {
@@ -183,7 +185,7 @@ export default function BookkeepingPage() {
       {errorMsg && <p className="text-sm text-danger mb-4">{errorMsg}</p>}
 
       <div className="border border-border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm min-w-[760px]">
+        <table className="w-full text-sm min-w-[860px]">
           <thead>
             <tr className="bg-surface1 text-left text-textSecondary">
               <th className="px-3 py-2 font-medium">Date</th>
@@ -191,6 +193,7 @@ export default function BookkeepingPage() {
               <th className="px-3 py-2 font-medium">Type</th>
               <th className="px-3 py-2 font-medium">Category</th>
               <th className="px-3 py-2 font-medium">Depr. %</th>
+              <th className="px-3 py-2 font-medium">Paid via</th>
               <th className="px-3 py-2 font-medium text-right">Amount</th>
               <th className="px-3 py-2 w-10"></th>
             </tr>
@@ -260,6 +263,20 @@ export default function BookkeepingPage() {
                   ) : (
                     <span className="text-textMuted px-2">—</span>
                   )}
+                </td>
+                <td className="px-1 py-1">
+                  <select
+                    value={row.payment_method ?? 'cash'}
+                    onChange={(e) => {
+                      const newMethod = e.target.value as 'cash' | 'bank';
+                      updateRow(row._localId, { payment_method: newMethod });
+                      saveRow({ ...row, payment_method: newMethod });
+                    }}
+                    className="w-full px-2 py-1.5 rounded focus:outline-none focus:bg-accentBg bg-transparent"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="bank">Bank</option>
+                  </select>
                 </td>
                 <td className="px-1 py-1">
                   <input

@@ -34,3 +34,11 @@ export const TRANSACTION_TYPE_OPTIONS: { label: string; value: TransactionType }
   { label: 'Long-term liability', value: 'long_term_liability' },
   { label: 'Drawings', value: 'drawings' },
 ];
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit_cost: number;
+  unit_price: number;
+}

@@ -288,7 +288,7 @@ export default function BookkeepingPage() {
                     }
                     onBlur={() => saveRow(row)}
                     placeholder="0.00"
-                    className="w-50 px-2 py-1.5 rounded text-right focus:outline-none focus:bg-accentBg"
+                    className="w-full px-2 py-1.5 rounded text-right focus:outline-none focus:bg-accentBg"
                   />
                 </td>
                 <td className="px-1 py-1 text-center">

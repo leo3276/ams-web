@@ -69,7 +69,7 @@ export default function CustomersPage() {
     <div>
       <h1 className="text-2xl font-medium text-textPrimary mb-1">Customers</h1>
       <p className="text-sm text-textSecondary mb-6">
-        Sorted by total paid — your best customers first. Built automatically from your invoices.
+        Sorted by total paid your best customers first. Built automatically from your invoices.
       </p>
 
       {customers.length === 0 ? (

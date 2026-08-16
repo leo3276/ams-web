@@ -235,7 +235,7 @@ export default function InventoryPage() {
       <h1 className="text-2xl font-medium text-textPrimary mb-1">Inventory</h1>
       <p className="text-sm text-textSecondary mb-6">
         Add and manage your product catalog here. Increasing a quantity records a restock (asks
-        Cash or Bank) — decreasing it is treated as a correction and doesn&apos;t touch your ledger.
+        Cash or Bank) decreasing it is treated as a correction and doesn&apos;t touch your ledger.
         The mobile app can also restock by scanning a purchase receipt.
       </p>
 

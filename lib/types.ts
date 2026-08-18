@@ -20,7 +20,7 @@ export interface Transaction {
   transaction_date: string; // YYYY-MM-DD
   document_url: string | null;
   created_at: string;
-  depreciation_rate: number | null; // decimal fraction, e.g. 0.20 for 20% — only meaningful for fixed_asset
+  depreciation_rate: number | null; // decimal fraction, e.g. 0.20 for 20%
   payment_method: PaymentMethod;
 }
 
@@ -41,4 +41,31 @@ export interface InventoryItem {
   quantity: number;
   unit_cost: number;
   unit_price: number;
+}
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+
+export interface Invoice {
+  id: string;
+  business_id: string;
+  invoice_number: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone?: string | null;
+  amount: number;
+  description: string | null;
+  due_date: string;
+  status: InvoiceStatus;
+  created_at: string;
+}
+
+export interface CustomerSummary {
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone?: string | null;
+  invoice_count: number;
+  total_invoiced: number;
+  total_paid: number;
+  total_outstanding: number;
+  last_invoice_date: string | null;
 }

@@ -7,10 +7,13 @@ import { supabase } from '@/lib/supabase';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: '📊' },
+  { label: 'Invoices', href: '/invoices', icon: '🧾' },
   { label: 'Bookkeeping', href: '/bookkeeping', icon: '📋' },
   { label: 'Inventory', href: '/inventory', icon: '📦' },
   { label: 'Customers', href: '/customers', icon: '👥' },
   { label: 'Reports', href: '/reports', icon: '📈' },
+  { label: 'Accountant', href: '/accountant', icon: '💼' },
+  { label: 'Tax Prep', href: '/tax', icon: '🏛️' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

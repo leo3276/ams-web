@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: 'Reports', href: '/reports', icon: '📈' },
   { label: 'Accountant', href: '/accountant', icon: '💼' },
   { label: 'Tax Prep', href: '/tax', icon: '🏛️' },
+  { label: 'Pricing & Plans', href: '/pricing', icon: '✨' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   : 'text-textPrimary hover:bg-surface1'
               }`}
             >
+              <span className="mr-2">{item.icon}</span>
               {item.label}
             </Link>
           ))}

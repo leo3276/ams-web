@@ -4,9 +4,35 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const INDUSTRIES = ['Food and beverage', 'Retail', 'Services', 'Other'];
-const CURRENCIES = ['GHS', 'USD', 'NGN', 'EUR'];
-const FISCAL_STARTS = ['January', 'April', 'July'];
+const INDUSTRIES = [
+  'Retail & Supermarket / Provision Shop',
+  'Food & Beverage / Restaurant / Bar / Bakery',
+  'Wholesale Distribution & FMCG',
+  'Fashion, Boutique & Apparel / Tailoring',
+  'Pharmacy, Chemist & Health Store',
+  'Electronics, Phones & Computer Accessories',
+  'Hardware, Building Materials & Timber',
+  'Beauty Salon, Barbershop & Cosmetics',
+  'Auto Parts, Mechanic & Vehicle Services',
+  'Agriculture, Poultry & Farming',
+  'Construction, Carpentry & Real Estate',
+  'Transportation, Haulage & Logistics',
+  'Professional Services, Legal & Consulting',
+  'IT, Software, Graphic Design & Digital Agency',
+  'Hospitality, Hotels & Guest Houses',
+  'Education, Schools & Training Centers',
+  'Printing, Publishing & Stationeries',
+  'Energy, Fuel Station & Solar Solutions',
+  'Media, Event Planning & Photography',
+  'Healthcare, Clinics & Diagnostic Labs',
+  'Manufacturing & Light Industrial',
+  'General Trading & Import/Export',
+];
+const CURRENCIES = ['GHS', 'USD', 'NGN', 'EUR', 'GBP', 'KES', 'ZAR'];
+const FISCAL_STARTS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 export default function BusinessProfilePage() {
   const router = useRouter();

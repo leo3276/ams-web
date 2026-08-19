@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem } from '@/lib/types';
 
@@ -16,6 +16,7 @@ function emptyRow(): Row {
   return {
     _localId: crypto.randomUUID(),
     name: '',
+    barcode: '',
     quantity: 0,
     unit_cost: 0,
     unit_price: 0,
@@ -33,6 +34,18 @@ export default function InventoryPage() {
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out' | 'in'>('all');
+
+  // Barcode Scanner & POS Pop-Up Modal
+  const [barcodeQuery, setBarcodeQuery] = useState('');
+  const [scannedItem, setScannedItem] = useState<Row | null>(null);
+  const [saleQty, setSaleQty] = useState('1');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank'>('cash');
+  const [actionProcessing, setActionProcessing] = useState(false);
+  const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
+
+  // Buffer for fast hardware USB/Bluetooth barcode scanner input
+  const barcodeBufferRef = useRef<string>('');
+  const lastKeyTimeRef = useRef<number>(0);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -77,6 +90,7 @@ export default function InventoryPage() {
     const loadedRows: Row[] = (data ?? []).map((item) => ({
       id: item.id,
       name: item.name,
+      barcode: item.barcode || '',
       quantity: Number(item.quantity),
       unit_cost: Number(item.unit_cost),
       unit_price: Number(item.unit_price),
@@ -92,18 +106,73 @@ export default function InventoryPage() {
     loadData();
   }, [loadData]);
 
+  // Global listener for USB/Bluetooth handheld barcode laser scanners
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+      const now = Date.now();
+      const timeDiff = now - lastKeyTimeRef.current;
+      lastKeyTimeRef.current = now;
+
+      if (e.key === 'Enter') {
+        const potentialBarcode = barcodeBufferRef.current.trim();
+        barcodeBufferRef.current = '';
+
+        if (potentialBarcode.length >= 3) {
+          handleBarcodeScan(potentialBarcode);
+        }
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (timeDiff < 60 || !isInput) {
+          barcodeBufferRef.current += e.key;
+        } else {
+          barcodeBufferRef.current = e.key;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [rows]);
+
+  const handleBarcodeScan = (code: string) => {
+    const cleanCode = code.trim();
+    if (!cleanCode) return;
+
+    const matched = rows.find(
+      (r) =>
+        r.id &&
+        ((r.barcode && r.barcode.toLowerCase() === cleanCode.toLowerCase()) ||
+          r.name?.toLowerCase() === cleanCode.toLowerCase())
+    );
+
+    if (matched) {
+      setScannedItem(matched);
+      setSaleQty('1');
+      setActionSuccessMsg(null);
+    } else {
+      alert(`No product found with barcode or SKU: "${cleanCode}". You can enter this barcode directly into any item row.`);
+    }
+  };
+
   const updateRow = (localId: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r._localId === localId ? { ...r, ...patch } : r)));
   };
 
-  // Saves name/unit_cost/unit_price directly
+  // Saves name/barcode/unit_cost/unit_price directly
   const saveDetails = async (row: Row) => {
     if (!businessId || !row.name || !row.name.trim()) return;
 
     if (row.id) {
       await supabase
         .from('inventory_items')
-        .update({ name: row.name.trim(), unit_cost: row.unit_cost, unit_price: row.unit_price })
+        .update({
+          name: row.name.trim(),
+          barcode: row.barcode?.trim() || null,
+          unit_cost: row.unit_cost,
+          unit_price: row.unit_price,
+        })
         .eq('id', row.id);
     } else if ((row.quantity ?? 0) === 0) {
       const { data, error } = await supabase
@@ -111,6 +180,7 @@ export default function InventoryPage() {
         .insert({
           business_id: businessId,
           name: row.name.trim(),
+          barcode: row.barcode?.trim() || null,
           quantity: 0,
           unit_cost: row.unit_cost ?? 0,
           unit_price: row.unit_price ?? 0,
@@ -124,27 +194,42 @@ export default function InventoryPage() {
           const savedRow: Row = {
             id: data.id,
             name: data.name,
+            barcode: data.barcode || '',
             quantity: Number(data.quantity),
             unit_cost: Number(data.unit_cost),
             unit_price: Number(data.unit_price),
             _localId: data.id,
             _lastSavedQuantity: Number(data.quantity),
           };
-          return [emptyRow(), savedRow, ...withoutThisRow];
+          return [emptyRow(), savedRow, ...withoutThisRow.filter((r) => r.id)];
         });
       }
     }
   };
 
-  const handleQuantityBlur = (row: Row) => {
-    const newQty = Number(row.quantity ?? 0);
-    const delta = newQty - row._lastSavedQuantity;
+  const handleQuantityBlur = async (row: Row) => {
+    const targetQty = Number(row.quantity ?? 0);
+    const lastSaved = row._lastSavedQuantity;
 
-    if (delta > 0) {
+    if (targetQty === lastSaved) return;
+
+    if (targetQty > lastSaved) {
+      const delta = targetQty - lastSaved;
       updateRow(row._localId, { _pendingPayment: true, _pendingDelta: delta });
-    } else if (delta < 0 && row.id) {
-      supabase.from('inventory_items').update({ quantity: newQty }).eq('id', row.id);
-      updateRow(row._localId, { _lastSavedQuantity: newQty });
+    } else {
+      if (!row.id) return;
+      updateRow(row._localId, { _saving: true });
+      const { error } = await supabase
+        .from('inventory_items')
+        .update({ quantity: targetQty })
+        .eq('id', row.id);
+
+      if (error) {
+        setErrorMsg(error.message);
+        updateRow(row._localId, { quantity: lastSaved, _saving: false });
+      } else {
+        updateRow(row._localId, { _lastSavedQuantity: targetQty, _saving: false });
+      }
     }
   };
 
@@ -160,6 +245,7 @@ export default function InventoryPage() {
         .insert({
           business_id: businessId,
           name: row.name?.trim() || 'New Item',
+          barcode: row.barcode?.trim() || null,
           quantity: 0,
           unit_cost: row.unit_cost ?? 0,
           unit_price: row.unit_price ?? 0,
@@ -195,6 +281,7 @@ export default function InventoryPage() {
       const savedRow: Row = {
         id: itemId,
         name: row.name,
+        barcode: row.barcode || '',
         quantity: newQuantity,
         unit_cost: row.unit_cost,
         unit_price: row.unit_price,
@@ -219,6 +306,99 @@ export default function InventoryPage() {
       await supabase.from('inventory_items').delete().eq('id', row.id);
     }
     setRows((prev) => prev.filter((r) => r._localId !== row._localId));
+  };
+
+  // Instant POS Sale from Barcode Pop-Up
+  const handleExecuteQuickSale = async () => {
+    if (!scannedItem || !businessId || !scannedItem.id) return;
+    const qty = parseInt(saleQty, 10);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Please enter a valid sale quantity.');
+      return;
+    }
+
+    const currentQty = Number(scannedItem.quantity || 0);
+    if (qty > currentQty) {
+      alert(`Cannot sell ${qty} units. Only ${currentQty} in stock.`);
+      return;
+    }
+
+    setActionProcessing(true);
+    const unitPrice = Number(scannedItem.unit_price || 0);
+    const totalAmount = qty * unitPrice;
+    const newQty = currentQty - qty;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { error: stockErr } = await supabase
+      .from('inventory_items')
+      .update({ quantity: newQty })
+      .eq('id', scannedItem.id);
+
+    if (stockErr) {
+      alert('Could not update stock: ' + stockErr.message);
+      setActionProcessing(false);
+      return;
+    }
+
+    await supabase.from('transactions').insert({
+      business_id: businessId,
+      transaction_date: today,
+      vendor: `Sale: ${qty}x ${scannedItem.name}`,
+      type: 'revenue',
+      category: 'Inventory Sales',
+      amount: totalAmount,
+      payment_method: paymentMethod,
+    });
+
+    updateRow(scannedItem._localId, { quantity: newQty, _lastSavedQuantity: newQty });
+    setScannedItem({ ...scannedItem, quantity: newQty, _lastSavedQuantity: newQty });
+    setActionSuccessMsg(`Sold ${qty}x ${scannedItem.name} for ${currency} ${totalAmount.toFixed(2)} ✓`);
+    setActionProcessing(false);
+  };
+
+  // Instant Quick Restock from Barcode Pop-Up
+  const handleExecuteQuickRestock = async () => {
+    if (!scannedItem || !businessId || !scannedItem.id) return;
+    const qty = parseInt(saleQty, 10);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Please enter a valid restock quantity.');
+      return;
+    }
+
+    setActionProcessing(true);
+    const currentQty = Number(scannedItem.quantity || 0);
+    const unitCost = Number(scannedItem.unit_cost || 0);
+    const totalCost = qty * unitCost;
+    const newQty = currentQty + qty;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { error: stockErr } = await supabase
+      .from('inventory_items')
+      .update({ quantity: newQty })
+      .eq('id', scannedItem.id);
+
+    if (stockErr) {
+      alert('Could not restock: ' + stockErr.message);
+      setActionProcessing(false);
+      return;
+    }
+
+    if (totalCost > 0) {
+      await supabase.from('transactions').insert({
+        business_id: businessId,
+        transaction_date: today,
+        vendor: `Restock: ${qty}x ${scannedItem.name}`,
+        type: 'cost_of_goods',
+        category: 'Inventory Restock',
+        amount: totalCost,
+        payment_method: paymentMethod,
+      });
+    }
+
+    updateRow(scannedItem._localId, { quantity: newQty, _lastSavedQuantity: newQty });
+    setScannedItem({ ...scannedItem, quantity: newQty, _lastSavedQuantity: newQty });
+    setActionSuccessMsg(`Restocked +${qty} units. New stock: ${newQty} ✓`);
+    setActionProcessing(false);
   };
 
   // Valuation Metrics
@@ -266,7 +446,9 @@ export default function InventoryPage() {
     const existingRows = rows.filter((r) => r.id);
 
     const filtered = existingRows.filter((r) => {
-      const matchesSearch = (r.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch =
+        (r.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.barcode || '').toLowerCase().includes(searchTerm.toLowerCase());
       if (!matchesSearch) return false;
 
       const qty = r.quantity || 0;
@@ -286,7 +468,7 @@ export default function InventoryPage() {
       return;
     }
 
-    let csvContent = 'Item Name,Quantity,Unit Cost,Unit Price,Profit Per Unit,Margin %,Total Cost Value,Total Retail Value\n';
+    let csvContent = 'Item Name,Barcode / SKU,Quantity,Unit Cost,Unit Price,Profit Per Unit,Margin %,Total Cost Value,Total Retail Value\n';
     realRows.forEach((r) => {
       const cost = r.unit_cost || 0;
       const price = r.unit_price || 0;
@@ -296,7 +478,7 @@ export default function InventoryPage() {
       const costVal = (qty * cost).toFixed(2);
       const retailVal = (qty * price).toFixed(2);
 
-      csvContent += `"${(r.name || '').replace(/"/g, '""')}",${qty},${cost.toFixed(2)},${price.toFixed(2)},${profit.toFixed(2)},${margin}%,${costVal},${retailVal}\n`;
+      csvContent += `"${(r.name || '').replace(/"/g, '""')}","${r.barcode || ''}",${qty},${cost.toFixed(2)},${price.toFixed(2)},${profit.toFixed(2)},${margin}%,${costVal},${retailVal}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -317,9 +499,9 @@ export default function InventoryPage() {
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-medium text-textPrimary">Inventory & Stock Valuation</h1>
+          <h1 className="text-2xl font-medium text-textPrimary">Inventory &amp; Stock Valuation</h1>
           <p className="text-sm text-textSecondary">
-            Manage product catalog, unit costs, pricing margins, and live stock valuations.
+            Manage product catalog, unit costs, pricing margins, barcode scanning, and live stock valuations.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -334,10 +516,14 @@ export default function InventoryPage() {
 
       {errorMsg && <p className="text-sm text-danger mb-4">{errorMsg}</p>}
 
-      {/* 1. Valuation & Stock Health Metrics */}
+      {/* ======================================================== */}
+      {/* 1. STOCK & RETAIL VALUATION CARDS                        */}
+      {/* ======================================================== */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <div className="bg-surface1 rounded-lg p-3.5 border border-border">
-          <p className="text-xs font-semibold text-textSecondary uppercase tracking-wider mb-1">Stock Valuation (Cost)</p>
+          <p className="text-xs font-semibold text-textSecondary uppercase tracking-wider mb-1">
+            Stock Valuation (Cost)
+          </p>
           <p className="text-xl font-bold text-textPrimary">
             {currency} {metrics.totalCostVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
@@ -382,9 +568,12 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Search & Stock Filter Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
+      {/* ======================================================== */}
+      {/* 2. SEARCH, FILTER & COMPACT BARCODE SCANNER TOOLBAR      */}
+      {/* ======================================================== */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+        {/* Stock Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setStockFilter('all')}
             className={`px-3 py-1 text-xs rounded-full font-medium transition ${
@@ -419,44 +608,74 @@ export default function InventoryPage() {
           </button>
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <input
-            type="text"
-            placeholder="Search products…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-surface2 focus:outline-none focus:border-accent"
-          />
-          <span className="absolute left-2.5 top-2 text-textMuted text-xs">🔍</span>
-          {searchTerm && (
+        {/* Search & Barcode Scanner */}
+        <div className="flex items-center gap-2">
+          {/* General Search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search catalog..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-44 px-2.5 py-1.5 text-xs rounded-lg border border-border bg-surface1 text-textPrimary placeholder:text-textMuted focus:outline-none focus:border-accentText"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 top-1.5 text-xs text-textMuted hover:text-textPrimary"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Compact Barcode / POS Quick Scan Input */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleBarcodeScan(barcodeQuery);
+            }}
+            className="flex items-center gap-1.5 bg-surface1 border border-border px-2 py-1 rounded-lg shadow-sm"
+          >
+            <span className="text-xs" title="USB / Bluetooth Barcode Laser Scanner Active">🔫</span>
+            <input
+              type="text"
+              placeholder="Scan Barcode / SKU..."
+              value={barcodeQuery}
+              onChange={(e) => setBarcodeQuery(e.target.value)}
+              className="w-40 bg-transparent text-xs text-textPrimary placeholder:text-textMuted focus:outline-none font-mono"
+            />
             <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-2.5 top-1.5 text-textMuted hover:text-textPrimary text-xs"
+              type="submit"
+              className="px-2 py-0.5 bg-textPrimary text-surface0 rounded text-[11px] font-bold hover:opacity-90 transition"
             >
-              ✕
+              Scan
             </button>
-          )}
+          </form>
         </div>
       </div>
 
-      {/* Inventory Table */}
-      <div className="border border-border rounded-lg overflow-x-auto bg-surface2 shadow-sm">
-        <table className="w-full text-sm min-w-[840px]">
+      {/* ======================================================== */}
+      {/* 3. INVENTORY CATALOG TABLE                               */}
+      {/* ======================================================== */}
+      <div className="border border-border rounded-lg overflow-hidden bg-surface0 shadow-sm">
+        <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="bg-surface1 text-left text-textSecondary border-b border-border">
-              <th className="px-3 py-2.5 font-medium">Product / Item Name</th>
-              <th className="px-3 py-2.5 font-medium text-right w-36">Stock Qty</th>
-              <th className="px-3 py-2.5 font-medium text-right w-32">Unit Cost ({currency})</th>
-              <th className="px-3 py-2.5 font-medium text-right w-32">Selling Price ({currency})</th>
-              <th className="px-3 py-2.5 font-medium text-right w-32">Profit / Margin</th>
-              <th className="px-3 py-2.5 font-medium text-right w-32">Total Cost Val</th>
-              <th className="px-3 py-2.5 w-10 text-center"></th>
+            <tr className="border-b border-border bg-surface1 text-xs text-textSecondary uppercase tracking-wider">
+              <th className="px-3 py-2 font-medium">Item Name</th>
+              <th className="px-2 py-2 font-medium w-36">Barcode / SKU</th>
+              <th className="px-2 py-2 font-medium text-right w-36">Quantity</th>
+              <th className="px-2 py-2 font-medium text-right w-24">Unit Cost</th>
+              <th className="px-2 py-2 font-medium text-right w-24">Unit Price</th>
+              <th className="px-3 py-2 font-medium text-right w-28">Margin</th>
+              <th className="px-3 py-2 font-medium text-right w-32">Total Cost</th>
+              <th className="px-2 py-2 font-medium text-center w-12"></th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-textMuted text-sm">
+                <td colSpan={8} className="px-4 py-8 text-center text-textMuted text-sm">
                   {searchTerm ? `No products matching "${searchTerm}"` : 'No items in this filter.'}
                 </td>
               </tr>
@@ -468,7 +687,7 @@ export default function InventoryPage() {
                 const profitPerUnit = price - cost;
                 const marginPct = price > 0 ? (profitPerUnit / price) * 100 : 0;
                 const totalCost = qty * cost;
-                const isLow = row.id && qty <= 5;
+                const isLow = row.id && qty <= 5 && qty > 0;
                 const isOut = row.id && qty === 0;
 
                 return (
@@ -487,10 +706,22 @@ export default function InventoryPage() {
                           value={row.name ?? ''}
                           onChange={(e) => updateRow(row._localId, { name: e.target.value })}
                           onBlur={() => saveDetails(row)}
-                          placeholder={!row.id ? "Type new item name to add (e.g. Flour 25kg)" : "Item name"}
+                          placeholder={!row.id ? "Type new item name (e.g. Flour 25kg)" : "Item name"}
                           className="w-full px-2 py-1.5 rounded focus:outline-none focus:bg-accentBg text-sm font-medium text-textPrimary"
                         />
                       </div>
+                    </td>
+
+                    {/* Barcode / SKU */}
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="text"
+                        value={row.barcode ?? ''}
+                        onChange={(e) => updateRow(row._localId, { barcode: e.target.value })}
+                        onBlur={() => saveDetails(row)}
+                        placeholder="Scan / SKU"
+                        className="w-full px-2 py-1.5 rounded focus:outline-none focus:bg-accentBg text-xs font-mono text-textSecondary"
+                      />
                     </td>
 
                     {/* Quantity */}
@@ -618,8 +849,112 @@ export default function InventoryPage() {
       </div>
 
       <p className="text-xs text-textMuted mt-4">
-        💡 <span className="font-semibold text-textSecondary">Tip:</span> Increasing an item&apos;s quantity prompts for payment method (Cash/Bank) and automatically logs the expense in your ledger. Decreasing a quantity is treated as a manual stock correction.
+        💡 <span className="font-semibold text-textSecondary">Tip:</span> Increasing an item&apos;s quantity prompts for payment method (Cash/Bank) and automatically logs the expense in your ledger. Handheld USB/Bluetooth barcode laser scanners are active across the entire screen.
       </p>
+
+      {/* ======================================================== */}
+      {/* INTERACTIVE BARCODE POS POPUP MODAL                      */}
+      {/* ======================================================== */}
+      {scannedItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-surface0 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-border space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-accentText text-white text-[10px] font-black rounded uppercase">
+                  BARCODE MATCHED
+                </span>
+                <span className="font-mono text-xs text-textSecondary">{scannedItem.barcode || 'NO-SKU'}</span>
+              </div>
+              <button
+                onClick={() => setScannedItem(null)}
+                className="text-textMuted hover:text-textPrimary text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Product Info */}
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-textPrimary">{scannedItem.name}</h2>
+              <div className="flex items-center gap-3 text-xs text-textSecondary font-medium">
+                <span>
+                  In Stock:{' '}
+                  <strong className={(scannedItem.quantity ?? 0) <= 5 ? 'text-danger' : 'text-success'}>
+                    {scannedItem.quantity} units
+                  </strong>
+                </span>
+                <span>·</span>
+                <span>Selling Price: <strong className="text-textPrimary">{currency} {Number(scannedItem.unit_price || 0).toFixed(2)}</strong></span>
+                <span>·</span>
+                <span>Cost: {currency} {Number(scannedItem.unit_cost || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {actionSuccessMsg && (
+              <div className="p-3 bg-successBg border border-success/30 text-success rounded-lg text-xs font-bold text-center">
+                {actionSuccessMsg}
+              </div>
+            )}
+
+            {/* Quantity and Payment Selector */}
+            <div className="grid grid-cols-2 gap-4 bg-surface1 p-4 rounded-xl border border-border">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-textSecondary mb-1">
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={saleQty}
+                  onChange={(e) => setSaleQty(e.target.value)}
+                  className="w-full px-3 py-2 bg-surface0 border border-border rounded-lg font-bold text-sm text-textPrimary focus:outline-none focus:border-accentText"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-textSecondary mb-1">
+                  Payment Method
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-surface0 border border-border rounded-lg font-medium text-xs text-textPrimary focus:outline-none"
+                >
+                  <option value="cash">Cash 💵</option>
+                  <option value="bank">MoMo / Bank 📱</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Total Sale Value */}
+            <div className="flex justify-between items-center px-1">
+              <span className="text-xs font-bold text-textSecondary uppercase">Transaction Total:</span>
+              <span className="text-xl font-black text-textPrimary">
+                {currency} {(parseInt(saleQty || '1', 10) * Number(scannedItem.unit_price || 0)).toFixed(2)}
+              </span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                onClick={handleExecuteQuickSale}
+                disabled={actionProcessing || (scannedItem.quantity ?? 0) <= 0}
+                className="py-3 px-4 bg-success hover:opacity-90 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
+              >
+                {actionProcessing ? 'Processing…' : '🟢 Record Quick Sale'}
+              </button>
+
+              <button
+                onClick={handleExecuteQuickRestock}
+                disabled={actionProcessing}
+                className="py-3 px-4 bg-accentText hover:opacity-90 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
+              >
+                {actionProcessing ? 'Processing…' : '📦 Restock (+Stock)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

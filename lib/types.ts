@@ -38,6 +38,7 @@ export const TRANSACTION_TYPE_OPTIONS: { label: string; value: TransactionType }
 export interface InventoryItem {
   id: string;
   name: string;
+  barcode?: string | null;
   quantity: number;
   unit_cost: number;
   unit_price: number;

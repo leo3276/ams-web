@@ -1,16 +1,19 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
+  "/business-profile/page": "app/business-profile/page.js",
+  "/login/page": "app/login/page.js",
+  "/terms/page": "app/terms/page.js",
+  "/privacy/page": "app/privacy/page.js",
   "/page": "app/page.js",
   "/signup/page": "app/signup/page.js",
-  "/login/page": "app/login/page.js",
-  "/business-profile/page": "app/business-profile/page.js",
-  "/(app)/pricing/page": "app/(app)/pricing/page.js",
   "/(app)/dashboard/page": "app/(app)/dashboard/page.js",
   "/(app)/bookkeeping/page": "app/(app)/bookkeeping/page.js",
-  "/(app)/reports/page": "app/(app)/reports/page.js",
-  "/(app)/accountant/page": "app/(app)/accountant/page.js",
+  "/(app)/pricing/page": "app/(app)/pricing/page.js",
   "/(app)/customers/page": "app/(app)/customers/page.js",
-  "/(app)/invoices/page": "app/(app)/invoices/page.js",
+  "/(app)/accountant/page": "app/(app)/accountant/page.js",
+  "/(app)/inventory/page": "app/(app)/inventory/page.js",
+  "/(app)/reports/page": "app/(app)/reports/page.js",
   "/(app)/tax/page": "app/(app)/tax/page.js",
-  "/(app)/inventory/page": "app/(app)/inventory/page.js"
+  "/(app)/team/page": "app/(app)/team/page.js",
+  "/(app)/invoices/page": "app/(app)/invoices/page.js"
 }

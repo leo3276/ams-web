@@ -6,3 +6,11 @@ body {
   background-color: #FFFFFF;
   color: #1A1A18;
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

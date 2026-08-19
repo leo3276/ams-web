@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { label: 'Bookkeeping', href: '/bookkeeping', icon: '📋', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Inventory', href: '/inventory', icon: '📦', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Customers', href: '/customers', icon: '👥', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Team & Staff', href: '/team', icon: '👥', roles: ['owner'] },
+  { label: 'Team & Staff', href: '/team', icon: '🧑‍🤝‍🧑', roles: ['owner'] },
   { label: 'Reports', href: '/reports', icon: '📈', roles: ['owner', 'accountant'] },
   { label: 'Accountant', href: '/accountant', icon: '💼', roles: ['owner', 'accountant'] },
   { label: 'Tax Prep', href: '/tax', icon: '🏛️', roles: ['owner', 'accountant'] },
@@ -23,6 +23,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { role, primaryRole, setRole, canSwitchRoles } = useUserRole();
 
   useEffect(() => {
@@ -36,6 +37,11 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     };
     checkAuth();
   }, [router]);
+
+  // Close mobile drawer whenever route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -54,7 +60,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-surface2">
-      {/* Desktop sidebar */}
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-60 border-r border-border p-4 flex-col shrink-0 bg-white">
         <div className="flex items-center justify-between mb-4 px-2">
           <p className="text-lg font-bold text-textPrimary">AMS</p>
@@ -98,7 +104,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <nav className="flex-1 space-y-1">
+        <nav className="flex-1 space-y-1 overflow-y-auto">
           {visibleNavItems.map((item) => (
             <Link
               key={item.href}
@@ -117,47 +123,158 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
         <button
           onClick={handleSignOut}
-          className="text-left px-3 py-2 rounded-lg text-xs font-semibold text-danger hover:bg-dangerBg"
+          className="text-left px-3 py-2 rounded-lg text-xs font-semibold text-danger hover:bg-dangerBg mt-2"
         >
           Sign out
         </button>
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-white">
-        <div className="flex items-center gap-2">
-          <p className="text-base font-bold text-textPrimary">AMS</p>
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">
-            {role.toUpperCase()}
-          </span>
+      {/* Mobile Top Header */}
+      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 border-b border-border bg-white shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-1.5 -ml-1 text-textPrimary rounded-lg hover:bg-gray-100 transition"
+            aria-label="Open Navigation Menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            <p className="text-base font-extrabold text-textPrimary">AMS</p>
+            <span
+              className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${
+                role === 'owner'
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : role === 'accountant'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-purple-50 text-purple-700 border-purple-200'
+              }`}
+            >
+              {role === 'owner' ? '👑 OWNER' : role === 'accountant' ? '💼 CPA' : '🧑‍💼 STAFF'}
+            </span>
+          </div>
         </div>
-        <button onClick={handleSignOut} className="text-xs font-semibold text-danger">
+
+        <button onClick={handleSignOut} className="text-xs font-bold text-danger hover:underline">
           Sign out
         </button>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-auto">{children}</main>
+      {/* Mobile Slide-Out Drawer Navigation */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+          />
 
-      {/* Mobile bottom nav bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-border bg-white px-1 py-1.5 shadow-lg z-50">
-        {visibleNavItems.slice(0, 5).map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={item.label}
-              className={`flex items-center justify-center p-2 rounded-xl text-lg transition ${
-                isActive
-                  ? 'bg-accentBg text-accentText scale-110 shadow-sm'
-                  : 'text-textSecondary hover:bg-surface1'
-              }`}
-            >
-              <span>{item.icon}</span>
-            </Link>
-          );
-        })}
+          {/* Drawer Content */}
+          <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col z-10 p-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
+              <div>
+                <p className="text-lg font-extrabold text-textPrimary">AMS Workstation</p>
+                <p className="text-[11px] text-textSecondary">Accounting Made Simple</p>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 text-textSecondary hover:text-textPrimary rounded-lg hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Role Switcher inside mobile drawer */}
+            {canSwitchRoles && (
+              <div className="mb-3 bg-gray-50 p-2 rounded-xl border border-border">
+                <div className="text-[9px] font-bold text-textSecondary mb-1.5 uppercase tracking-wider">
+                  Preview Role Mode
+                </div>
+                <div className="flex gap-1">
+                  {(['owner', 'employee', 'accountant'] as UserRole[]).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setRole(r)}
+                      className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition ${
+                        role === r ? 'bg-textPrimary text-white shadow-xs' : 'text-textSecondary hover:bg-gray-200'
+                      }`}
+                    >
+                      {r === 'owner' ? '👑 Owner' : r === 'employee' ? '🧑‍💼 Staff' : '💼 CPA'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* All Nav Links */}
+            <nav className="flex-1 overflow-y-auto space-y-1 pr-1">
+              {visibleNavItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                      isActive
+                        ? 'bg-accentBg text-accentText'
+                        : 'text-textPrimary hover:bg-surface1'
+                    }`}
+                  >
+                    <span className="text-base">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="pt-3 border-t border-border mt-2">
+              <button
+                onClick={handleSignOut}
+                className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-danger hover:bg-dangerBg transition"
+              >
+                🚪 Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="flex-1 p-4 md:p-8 pb-28 md:pb-8 overflow-auto">{children}</main>
+
+      {/* Mobile Horizontally Scrollable Bottom Navigation Bar (ALL icons & labels accessible) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-white/95 backdrop-blur-md px-2 py-1.5 shadow-xl z-30">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+          {visibleNavItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center justify-center min-w-[62px] px-2 py-1.5 rounded-xl text-center shrink-0 transition-all ${
+                  isActive
+                    ? 'bg-accentBg text-accentText font-extrabold shadow-xs'
+                    : 'text-textSecondary hover:bg-surface1 font-medium'
+                }`}
+              >
+                <span className="text-base leading-none mb-0.5">{item.icon}</span>
+                <span className="text-[10px] tracking-tight whitespace-nowrap">{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {/* Menu Drawer Shortcut Button */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center min-w-[56px] px-2 py-1.5 rounded-xl text-center shrink-0 text-textSecondary hover:bg-surface1 font-medium"
+          >
+            <span className="text-base leading-none mb-0.5">☰</span>
+            <span className="text-[10px] tracking-tight whitespace-nowrap">More</span>
+          </button>
+        </div>
       </nav>
     </div>
   );

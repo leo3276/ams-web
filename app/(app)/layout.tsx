@@ -8,6 +8,7 @@ import { RoleProvider, useUserRole, UserRole } from '@/lib/RoleContext';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: '📊', roles: ['owner', 'employee', 'accountant'] },
+  { label: 'Record Sale', href: '/sales', icon: '🛒', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Invoices', href: '/invoices', icon: '🧾', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Bookkeeping', href: '/bookkeeping', icon: '📋', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Inventory', href: '/inventory', icon: '📦', roles: ['owner', 'employee', 'accountant'] },

@@ -1,17 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { useUserRole, UserRole } from '@/lib/RoleContext';
+import { useUserRole, UserRole, StaffMember } from '@/lib/RoleContext';
 
 export default function TeamManagementPage() {
-  const { role, isOwner, staffMembers, addStaffMember, removeStaffMember, loadingStaff } = useUserRole();
+  const { role, isOwner, staffMembers, addStaffMember, removeStaffMember, recordStaffSalaryPayment, loadingStaff } = useUserRole();
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [branch, setBranch] = useState('Main Branch');
+  const [salary, setSalary] = useState('');
   const [memberRole, setMemberRole] = useState<UserRole>('employee');
   const [submitting, setSubmitting] = useState(false);
+  const [payingId, setPayingId] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   if (!isOwner) {
@@ -30,6 +32,7 @@ export default function TeamManagementPage() {
 
   const employeeCount = staffMembers.filter((m) => m.role === 'employee').length;
   const accountantCount = staffMembers.filter((m) => m.role === 'accountant').length;
+  const totalMonthlyPayroll = staffMembers.reduce((acc, m) => acc + (Number(m.salary) || 0), 0);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,15 +41,17 @@ export default function TeamManagementPage() {
       return;
     }
 
+    const salaryNum = salary.trim() ? parseFloat(salary) : undefined;
     setSubmitting(true);
     setMsg(null);
-    const res = await addStaffMember(name, email, memberRole, phone, branch);
+    const res = await addStaffMember(name, email, memberRole, phone, branch, salaryNum);
     setSubmitting(false);
 
     if (res.success) {
       setName('');
       setEmail('');
       setPhone('');
+      setSalary('');
       setShowAddModal(false);
       setMsg({ type: 'success', text: `Staff member ${name} recorded successfully.` });
     } else {
@@ -61,14 +66,37 @@ export default function TeamManagementPage() {
     }
   };
 
+  const handleRecordSalary = async (member: StaffMember) => {
+    const salaryAmt = Number(member.salary || 0);
+    if (!salaryAmt || salaryAmt <= 0) {
+      alert(`Please configure a monthly salary for ${member.name} first.`);
+      return;
+    }
+
+    if (confirm(`Record GHS ${salaryAmt.toLocaleString()} salary payment for ${member.name} as an Operating Expense?`)) {
+      setPayingId(member.id);
+      const res = await recordStaffSalaryPayment(member);
+      setPayingId(null);
+
+      if (res.success) {
+        setMsg({
+          type: 'success',
+          text: `Salary Payment Logged ✓ GHS ${salaryAmt.toLocaleString()} for ${member.name} has been recorded as an Operating Expense in your ledger and P&L.`,
+        });
+      } else {
+        setMsg({ type: 'error', text: res.error || 'Failed to record salary payment.' });
+      }
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-textPrimary">Staff &amp; Team Management</h1>
+          <h1 className="text-2xl font-bold text-textPrimary">Staff &amp; Payroll Management</h1>
           <p className="text-sm text-textSecondary">
-            Record cashiers, attendants, and CPAs. Grant role-specific permissions so sensitive owner equity stays protected.
+            Record cashiers, attendants, and CPAs. Manage salaries and record monthly wage payments directly as Operating Expenses.
           </p>
         </div>
         <button
@@ -90,29 +118,34 @@ export default function TeamManagementPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-border">
           <p className="text-xs font-semibold text-textSecondary uppercase">Total Staff Members</p>
           <p className="text-3xl font-extrabold text-textPrimary mt-2">{staffMembers.length}</p>
           <p className="text-xs text-textMuted mt-1">Recorded team directory</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-border">
-          <p className="text-xs font-semibold text-purple-700 uppercase">Cashiers &amp; Shop Attendants</p>
+          <p className="text-xs font-semibold text-purple-700 uppercase">Cashiers / POS</p>
           <p className="text-3xl font-extrabold text-purple-700 mt-2">{employeeCount}</p>
-          <p className="text-xs text-textMuted mt-1">POS &amp; Stock access only</p>
+          <p className="text-xs text-textMuted mt-1">POS &amp; Stock lookups</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-border">
           <p className="text-xs font-semibold text-blue-700 uppercase">CPAs &amp; Accountants</p>
           <p className="text-3xl font-extrabold text-blue-700 mt-2">{accountantCount}</p>
-          <p className="text-xs text-textMuted mt-1">Audit, P&amp;L &amp; Tax filing</p>
+          <p className="text-xs text-textMuted mt-1">Audit, P&amp;L &amp; Tax</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-border">
+          <p className="text-xs font-semibold text-emerald-700 uppercase">Monthly Payroll</p>
+          <p className="text-2xl font-extrabold text-emerald-700 mt-2">GHS {totalMonthlyPayroll.toLocaleString()}</p>
+          <p className="text-xs text-textMuted mt-1">Operating Expense</p>
         </div>
       </div>
 
       {/* Staff Members Table */}
       <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-xs">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-base font-bold text-textPrimary">Team Member Directory ({staffMembers.length})</h2>
-          <span className="text-xs text-textSecondary">Active multi-user authorization</span>
+          <h2 className="text-base font-bold text-textPrimary">Team Directory &amp; Payroll ({staffMembers.length})</h2>
+          <span className="text-xs text-textSecondary">Active authorization &amp; wage management</span>
         </div>
 
         {staffMembers.length === 0 ? (
@@ -120,7 +153,7 @@ export default function TeamManagementPage() {
             <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">👥</div>
             <h3 className="text-sm font-bold text-textPrimary mb-1">No Staff Members Recorded Yet</h3>
             <p className="text-xs text-textSecondary max-w-sm mx-auto mb-4">
-              Click &quot;Record Staff Member&quot; above to add your cashiers or external accountants with tailored role permissions.
+              Click &quot;Record Staff Member&quot; above to add cashiers or accountants and configure their monthly salaries.
             </p>
             <button
               onClick={() => setShowAddModal(true)}
@@ -136,15 +169,16 @@ export default function TeamManagementPage() {
                 <tr>
                   <th className="px-6 py-3 font-semibold">Staff Name &amp; Email</th>
                   <th className="px-6 py-3 font-semibold">Assigned Role</th>
+                  <th className="px-6 py-3 font-semibold">Monthly Salary</th>
                   <th className="px-6 py-3 font-semibold">Branch</th>
-                  <th className="px-6 py-3 font-semibold">Permissions</th>
-                  <th className="px-6 py-3 font-semibold">Date Added</th>
                   <th className="px-6 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {staffMembers.map((member) => {
                   const isEmp = member.role === 'employee';
+                  const memberSalary = Number(member.salary || 0);
+
                   return (
                     <tr key={member.id} className="hover:bg-gray-50/50">
                       <td className="px-6 py-4">
@@ -161,18 +195,22 @@ export default function TeamManagementPage() {
                           {isEmp ? '🧑‍💼 Employee / Cashier' : '💼 CPA / Accountant'}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        <span className="font-bold text-textPrimary">
+                          {memberSalary > 0 ? `GHS ${memberSalary.toLocaleString()}/mo` : '—'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-xs text-textSecondary">{member.branch || 'Main Branch'}</td>
-                      <td className="px-6 py-4 text-xs text-textSecondary">
-                        {isEmp ? (
-                          <span className="text-purple-900 font-medium">✓ POS · ✓ Stock · 🔒 P&amp;L Hidden</span>
-                        ) : (
-                          <span className="text-blue-900 font-medium">✓ Audit Hub · ✓ IFRS · ✓ GRA Tax</span>
+                      <td className="px-6 py-4 text-right space-x-3">
+                        {memberSalary > 0 && (
+                          <button
+                            onClick={() => handleRecordSalary(member)}
+                            disabled={payingId === member.id}
+                            className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition"
+                          >
+                            {payingId === member.id ? 'Recording…' : '💰 Record Salary (Expense)'}
+                          </button>
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-textMuted">
-                        {member.created_at ? member.created_at.slice(0, 10) : 'Active'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => handleRemove(member.id, member.name)}
                           className="text-xs font-semibold text-danger hover:underline"
@@ -206,7 +244,7 @@ export default function TeamManagementPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Kwame Mensah"
+                  placeholder="e.g. Kwame Mensah (Cashier)"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full border border-border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-textPrimary"
@@ -221,6 +259,18 @@ export default function TeamManagementPage() {
                   placeholder="e.g. kwame@business.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border border-border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-textPrimary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-textSecondary mb-1">Monthly Salary (GHS)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g. 1500 (Auto logged as Operating Expense)"
+                  value={salary}
+                  onChange={(e) => setSalary(e.target.value)}
                   className="w-full border border-border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-textPrimary"
                 />
               </div>
@@ -240,7 +290,7 @@ export default function TeamManagementPage() {
                   <label className="block text-xs font-bold text-textSecondary mb-1">Assigned Branch</label>
                   <input
                     type="text"
-                    placeholder="e.g. Accra Mall Branch"
+                    placeholder="e.g. Accra Central"
                     value={branch}
                     onChange={(e) => setBranch(e.target.value)}
                     className="w-full border border-border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-textPrimary"
@@ -249,50 +299,46 @@ export default function TeamManagementPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-textSecondary mb-1.5">Assign Role &amp; Permissions</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs font-bold text-textSecondary mb-1">Select Assigned Role</label>
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setMemberRole('employee')}
                     className={`p-3 rounded-xl border text-left transition ${
-                      memberRole === 'employee'
-                        ? 'bg-purple-50 text-purple-900 border-purple-500 ring-1 ring-purple-500'
-                        : 'bg-surface2 text-textSecondary border-border hover:bg-gray-100'
+                      memberRole === 'employee' ? 'border-textPrimary bg-gray-50' : 'border-border'
                     }`}
                   >
-                    <p className="text-xs font-bold">🧑‍💼 Employee / Cashier</p>
-                    <p className="text-[10px] text-textMuted mt-1">POS, stock &amp; bills. Financials hidden.</p>
+                    <div className="font-bold text-xs text-textPrimary">🧑‍💼 Cashier / POS</div>
+                    <div className="text-[11px] text-textSecondary mt-0.5">Sales &amp; stock only. Profits hidden.</div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setMemberRole('accountant')}
                     className={`p-3 rounded-xl border text-left transition ${
-                      memberRole === 'accountant'
-                        ? 'bg-blue-50 text-blue-900 border-blue-500 ring-1 ring-blue-500'
-                        : 'bg-surface2 text-textSecondary border-border hover:bg-gray-100'
+                      memberRole === 'accountant' ? 'border-textPrimary bg-gray-50' : 'border-border'
                     }`}
                   >
-                    <p className="text-xs font-bold">💼 CPA / Accountant</p>
-                    <p className="text-[10px] text-textMuted mt-1">Audit Hub, Balance Sheet &amp; Tax.</p>
+                    <div className="font-bold text-xs text-textPrimary">💼 CPA / Accountant</div>
+                    <div className="text-[11px] text-textSecondary mt-0.5">Audit hub, P&amp;L &amp; GRA tax.</div>
                   </button>
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="pt-2 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 border border-border rounded-xl text-xs font-semibold text-textSecondary hover:bg-gray-50"
+                  className="flex-1 py-2.5 rounded-xl border border-border text-xs font-bold text-textSecondary hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 bg-textPrimary text-white rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                  className="flex-1 py-2.5 rounded-xl bg-textPrimary text-white text-xs font-bold hover:opacity-90 transition disabled:opacity-50"
                 >
-                  {submitting ? 'Saving…' : 'Record Member'}
+                  {submitting ? 'Saving…' : 'Save Staff Member'}
                 </button>
               </div>
             </form>

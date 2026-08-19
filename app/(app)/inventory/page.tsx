@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem } from '@/lib/types';
 
@@ -42,6 +43,28 @@ export default function InventoryPage() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank'>('cash');
   const [actionProcessing, setActionProcessing] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
+
+  // Store-wide Global Target Profit Margin
+  const [globalMargin, setGlobalMargin] = useState<number>(25);
+  const [applyingBulkMargin, setApplyingBulkMargin] = useState(false);
+  const [bulkSuccessToast, setBulkSuccessToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ams_global_profit_margin');
+      if (saved) {
+        const parsed = parseFloat(saved);
+        if (!isNaN(parsed) && parsed > 0) setGlobalMargin(parsed);
+      }
+    }
+  }, []);
+
+  const handleSetGlobalMargin = (val: number) => {
+    setGlobalMargin(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ams_global_profit_margin', String(val));
+    }
+  };
 
   // Buffer for fast hardware USB/Bluetooth barcode scanner input
   const barcodeBufferRef = useRef<string>('');
@@ -158,6 +181,49 @@ export default function InventoryPage() {
 
   const updateRow = (localId: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r._localId === localId ? { ...r, ...patch } : r)));
+  };
+
+  const handleCostChange = (row: Row, newCost: number) => {
+    const calculatedPrice = Number((newCost * (1 + globalMargin / 100)).toFixed(2));
+    updateRow(row._localId, {
+      unit_cost: newCost,
+      unit_price: (!row.id || row.unit_price === 0) ? calculatedPrice : row.unit_price,
+    });
+  };
+
+  const handleApplyGlobalMarginToAll = async () => {
+    if (!businessId || realRows.length === 0) return;
+    setApplyingBulkMargin(true);
+    setBulkSuccessToast(null);
+
+    try {
+      let updatedCount = 0;
+      const updatedRows = [...rows];
+
+      for (let i = 0; i < updatedRows.length; i++) {
+        const r = updatedRows[i];
+        if (r.id) {
+          const cost = Number(r.unit_cost || 0);
+          if (cost > 0) {
+            const newPrice = Number((cost * (1 + globalMargin / 100)).toFixed(2));
+            await supabase
+              .from('inventory_items')
+              .update({ unit_price: newPrice })
+              .eq('id', r.id);
+
+            updatedRows[i] = { ...r, unit_price: newPrice };
+            updatedCount++;
+          }
+        }
+      }
+
+      setRows(updatedRows);
+      setBulkSuccessToast(`Updated selling prices for all ${updatedCount} products to +${globalMargin}% profit margin! ✓`);
+    } catch (err: any) {
+      alert('Error applying profit margin: ' + err.message);
+    } finally {
+      setApplyingBulkMargin(false);
+    }
   };
 
   // Saves name/barcode/unit_cost/unit_price directly
@@ -505,6 +571,12 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/sales"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition font-bold shadow-xs"
+          >
+            <span>🛒</span> Record Sale
+          </Link>
           <button
             onClick={exportCSV}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface2 text-sm text-textPrimary hover:bg-surface1 transition font-medium"
@@ -515,6 +587,77 @@ export default function InventoryPage() {
       </div>
 
       {errorMsg && <p className="text-sm text-danger mb-4">{errorMsg}</p>}
+
+      {bulkSuccessToast && (
+        <div className="p-3.5 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-between mb-6">
+          <span>{bulkSuccessToast}</span>
+          <button onClick={() => setBulkSuccessToast(null)} className="text-emerald-700 font-bold hover:text-emerald-950">✕</button>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* STORE-WIDE TARGET PROFIT MARGIN ENGINE                   */}
+      {/* ======================================================== */}
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/50 border border-emerald-200 rounded-xl p-4 mb-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-black shrink-0 shadow-xs">
+            %
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-emerald-950">Store-Wide Target Profit Margin</h3>
+              <span className="text-[10px] uppercase tracking-wider font-extrabold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full">
+                Auto-Pricing Active
+              </span>
+            </div>
+            <p className="text-xs text-emerald-800/90 mt-0.5">
+              Automatically sets selling prices for all goods from unit cost, and lets you re-price your entire inventory in 1 click.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {/* Quick Presets */}
+          <div className="flex items-center gap-1 bg-white/90 border border-emerald-300/80 p-1 rounded-lg">
+            {[15, 20, 25, 30, 40, 50].map((pct) => (
+              <button
+                key={pct}
+                onClick={() => handleSetGlobalMargin(pct)}
+                className={`px-2 py-1 text-xs font-bold rounded-md transition ${
+                  globalMargin === pct
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-emerald-900 hover:bg-emerald-100'
+                }`}
+              >
+                +{pct}%
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Margin Input */}
+          <div className="flex items-center gap-1 bg-white border border-emerald-300 rounded-lg px-2.5 py-1 text-xs">
+            <span className="text-emerald-900 font-medium">Custom:</span>
+            <input
+              type="number"
+              value={globalMargin}
+              onChange={(e) => handleSetGlobalMargin(parseFloat(e.target.value) || 0)}
+              className="w-12 text-center font-bold text-emerald-900 focus:outline-none"
+            />
+            <span className="text-emerald-900 font-bold">%</span>
+          </div>
+
+          {/* 1-Click Batch Update Button */}
+          <button
+            onClick={handleApplyGlobalMarginToAll}
+            disabled={applyingBulkMargin || realRows.length === 0}
+            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+            title="Recalculate and update selling prices for all inventory items based on this profit margin"
+          >
+            <span>⚡</span>
+            {applyingBulkMargin ? 'Updating All…' : `Apply +${globalMargin}% to All Goods`}
+          </button>
+        </div>
+      </div>
 
       {/* ======================================================== */}
       {/* 1. STOCK & RETAIL VALUATION CARDS                        */}
@@ -787,7 +930,7 @@ export default function InventoryPage() {
                         step="0.01"
                         value={row.unit_cost ?? 0}
                         onChange={(e) =>
-                          updateRow(row._localId, { unit_cost: parseFloat(e.target.value) || 0 })
+                          handleCostChange(row, parseFloat(e.target.value) || 0)
                         }
                         onBlur={() => saveDetails(row)}
                         className="w-full px-2 py-1.5 rounded text-right focus:outline-none focus:bg-accentBg text-textPrimary"

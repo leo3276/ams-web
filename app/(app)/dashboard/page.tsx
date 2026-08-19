@@ -196,6 +196,12 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href="/sales"
+            className="px-3.5 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5"
+          >
+            <span>🛒</span> Record Sale
+          </Link>
+          <Link
             href="/invoices"
             className="px-3.5 py-2 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition shadow-sm flex items-center gap-1.5"
           >

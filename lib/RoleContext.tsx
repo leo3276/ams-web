@@ -12,6 +12,7 @@ export interface StaffMember {
   role: UserRole;
   phone?: string;
   branch?: string;
+  salary?: number; // Monthly salary in GHS
   created_at: string;
 }
 
@@ -26,8 +27,9 @@ interface RoleContextValue {
   isAccountant: boolean;
   staffMembers: StaffMember[];
   loadingStaff: boolean;
-  addStaffMember: (name: string, email: string, role: UserRole, phone?: string, branch?: string) => Promise<{ success: boolean; error?: string }>;
+  addStaffMember: (name: string, email: string, role: UserRole, phone?: string, branch?: string, salary?: number) => Promise<{ success: boolean; error?: string }>;
   removeStaffMember: (id: string) => Promise<{ success: boolean; error?: string }>;
+  recordStaffSalaryPayment: (member: StaffMember, paymentMethod?: 'cash' | 'bank') => Promise<{ success: boolean; error?: string }>;
   refreshStaff: () => Promise<void>;
 }
 
@@ -44,6 +46,7 @@ const RoleContext = createContext<RoleContextValue>({
   loadingStaff: false,
   addStaffMember: async () => ({ success: true }),
   removeStaffMember: async () => ({ success: true }),
+  recordStaffSalaryPayment: async () => ({ success: true }),
   refreshStaff: async () => {},
 });
 
@@ -68,23 +71,22 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       setRoleState(storedRole);
     }
 
-    const storedStaff = localStorage.getItem(STAFF_STORAGE_KEY);
-    if (storedStaff) {
+    const cached = localStorage.getItem(STAFF_STORAGE_KEY);
+    if (cached) {
       try {
-        setStaffMembers(JSON.parse(storedStaff));
+        setStaffMembers(JSON.parse(cached));
       } catch (_e) {}
     }
   }, []);
 
-  const setLoginRole = (primary: UserRole) => {
-    setPrimaryRoleState(primary);
-    setRoleState(primary);
-    localStorage.setItem(PRIMARY_ROLE_STORAGE_KEY, primary);
-    localStorage.setItem(ROLE_STORAGE_KEY, primary);
+  const setLoginRole = (newPrimary: UserRole) => {
+    setPrimaryRoleState(newPrimary);
+    setRoleState(newPrimary);
+    localStorage.setItem(PRIMARY_ROLE_STORAGE_KEY, newPrimary);
+    localStorage.setItem(ROLE_STORAGE_KEY, newPrimary);
   };
 
   const setRole = (newRole: UserRole) => {
-    // Only owner accounts can switch active roles
     if (primaryRole !== 'owner') return;
     setRoleState(newRole);
     localStorage.setItem(ROLE_STORAGE_KEY, newRole);
@@ -95,10 +97,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
-      if (!userId) {
-        setLoadingStaff(false);
-        return;
-      }
+      if (!userId) return;
 
       const { data: businesses } = await supabase
         .from('businesses')
@@ -126,7 +125,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const addStaffMember = async (name: string, email: string, memberRole: UserRole, phone?: string, branch?: string) => {
+  const addStaffMember = async (
+    name: string,
+    email: string,
+    memberRole: UserRole,
+    phone?: string,
+    branch?: string,
+    salary?: number
+  ) => {
     try {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
@@ -147,6 +153,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         role: memberRole,
         phone: phone?.trim() || undefined,
         branch: branch?.trim() || 'Main Branch',
+        salary: salary ? Number(salary) : undefined,
         created_at: new Date().toISOString(),
       };
 
@@ -180,6 +187,50 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const recordStaffSalaryPayment = async (member: StaffMember, paymentMethod: 'cash' | 'bank' = 'bank') => {
+    try {
+      const salaryAmt = Number(member.salary || 0);
+      if (!salaryAmt || salaryAmt <= 0) {
+        return { success: false, error: 'Please set a valid salary amount for this staff member.' };
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) return { success: false, error: 'Not authenticated' };
+
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1);
+
+      const businessId = businesses?.[0]?.id;
+      const today = new Date().toISOString().slice(0, 10);
+      const roleLabel = member.role === 'employee' ? 'Staff/Cashier' : 'CPA/Accountant';
+      const vendorName = `Salary: ${member.name} (${roleLabel})`;
+
+      if (businessId) {
+        const { error } = await supabase.from('transactions').insert({
+          business_id: businessId,
+          transaction_date: today,
+          vendor: vendorName,
+          type: 'operating_expense',
+          category: 'Payroll & Salaries',
+          amount: salaryAmt,
+          payment_method: paymentMethod,
+        });
+
+        if (error) {
+          return { success: false, error: error.message };
+        }
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Could not record salary payment' };
+    }
+  };
+
   const canSwitchRoles = primaryRole === 'owner';
   const isOwner = role === 'owner';
   const isEmployee = role === 'employee';
@@ -200,6 +251,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         loadingStaff,
         addStaffMember,
         removeStaffMember,
+        recordStaffSalaryPayment,
         refreshStaff,
       }}
     >

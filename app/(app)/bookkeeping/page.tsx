@@ -393,7 +393,7 @@ export default function BookkeepingPage() {
                       !row.id ? 'bg-accentBg/30' : ''
                     }`}
                   >
-                    {/* Date */}
+                    {/* Date & Time */}
                     <td className="px-2 py-1.5">
                       <input
                         type="date"
@@ -402,6 +402,11 @@ export default function BookkeepingPage() {
                         onBlur={() => saveRow(row)}
                         className="w-full px-2 py-1 rounded text-xs focus:outline-none focus:bg-accentBg font-medium text-textPrimary"
                       />
+                      {row.created_at && (
+                        <span className="block text-[10.5px] text-textMuted px-1 mt-0.5 font-mono">
+                          🕒 {new Date(row.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </span>
+                      )}
                     </td>
 
                     {/* Vendor */}

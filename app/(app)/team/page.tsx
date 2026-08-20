@@ -1,10 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUserRole, UserRole, StaffMember } from '@/lib/RoleContext';
 
 export default function TeamManagementPage() {
-  const { role, isOwner, staffMembers, addStaffMember, removeStaffMember, recordStaffSalaryPayment, loadingStaff } = useUserRole();
+  const {
+    role,
+    isOwner,
+    staffMembers,
+    addStaffMember,
+    removeStaffMember,
+    recordStaffSalaryPayment,
+    refreshStaff,
+    loadingStaff,
+  } = useUserRole();
+
+  useEffect(() => {
+    refreshStaff();
+  }, [refreshStaff]);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

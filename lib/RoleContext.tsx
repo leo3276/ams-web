@@ -106,17 +106,47 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         .limit(1);
 
       const businessId = businesses?.[0]?.id;
-      if (businessId) {
-        const { data: members, error } = await supabase
-          .from('business_members')
-          .select('*')
-          .eq('business_id', businessId)
-          .order('created_at', { ascending: false });
+      if (!businessId) return;
 
-        if (!error && members) {
-          setStaffMembers(members);
-          localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(members));
+      // 1. Fetch remote members from Supabase
+      const { data: remoteMembers, error } = await supabase
+        .from('business_members')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+
+      if (!error) {
+        let currentList = remoteMembers || [];
+
+        // 2. Check if local cache has any legacy offline members not yet in Supabase
+        const cachedRaw = localStorage.getItem(STAFF_STORAGE_KEY);
+        if (cachedRaw) {
+          try {
+            const localMembers: StaffMember[] = JSON.parse(cachedRaw);
+            const remoteEmails = new Set(currentList.map((m) => m.email.toLowerCase()));
+
+            for (const local of localMembers) {
+              if (local.email && !remoteEmails.has(local.email.toLowerCase())) {
+                const { data: inserted } = await supabase.from('business_members').insert({
+                  business_id: businessId,
+                  name: local.name,
+                  email: local.email,
+                  role: local.role,
+                  phone: local.phone || null,
+                  branch: local.branch || 'Main Branch',
+                  salary: local.salary || 0,
+                }).select().single();
+
+                if (inserted) {
+                  currentList.push(inserted);
+                }
+              }
+            }
+          } catch (_e) {}
         }
+
+        setStaffMembers(currentList);
+        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(currentList));
       }
     } catch (_e) {
       // offline fallback
@@ -124,6 +154,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       setLoadingStaff(false);
     }
   }, []);
+
+  // Sync on initial provider mount
+  useEffect(() => {
+    refreshStaff();
+  }, [refreshStaff]);
 
   const addStaffMember = async (
     name: string,

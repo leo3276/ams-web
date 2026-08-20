@@ -95,7 +95,7 @@ export default function SignUpPage() {
           full_name: cleanName,
           owner_pin: cleanPin,
         },
-        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:32800'}/dashboard`,
+        emailRedirectTo: 'https://ams-8nhc3v8sk-fms11.vercel.app/login',
       },
     });
 
@@ -162,6 +162,41 @@ export default function SignUpPage() {
     await checkBusinessAndNavigate(data.user.id);
   };
 
+  // Check if user confirmed via email link
+  const handleCheckConfirmation = async () => {
+    setVerifyingOtp(true);
+    setErrorMsg(null);
+    setResendSuccessMsg(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: cleanPass,
+    });
+
+    setVerifyingOtp(false);
+
+    if (error) {
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setErrorMsg('Email is not confirmed yet. Please click the link inside your confirmation email first or enter the code above.');
+      } else {
+        setErrorMsg(error.message);
+      }
+      return;
+    }
+
+    if (data.user) {
+      const savedPin = ownerPin || localStorage.getItem(`ams:pending_pin:${cleanEmail}`);
+      if (savedPin) {
+        localStorage.setItem(`ams:owner_pin:${data.user.id}`, savedPin);
+        localStorage.setItem(`ams:owner_pin:${cleanEmail}`, savedPin);
+      }
+      await checkBusinessAndNavigate(data.user.id);
+    }
+  };
+
   // Resend confirmation email
   const handleResendEmail = async () => {
     setErrorMsg(null);
@@ -173,7 +208,7 @@ export default function SignUpPage() {
       type: 'signup',
       email: cleanEmail,
       options: {
-        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:32800'}/dashboard`,
+        emailRedirectTo: 'https://ams-8nhc3v8sk-fms11.vercel.app/login',
       },
     });
 
@@ -181,7 +216,7 @@ export default function SignUpPage() {
     if (error) {
       setErrorMsg(error.message);
     } else {
-      setResendSuccessMsg(`A fresh verification code has been sent to ${cleanEmail}. Check your spam folder if not in inbox.`);
+      setResendSuccessMsg(`A fresh verification email and code has been sent to ${cleanEmail}. Check your spam folder if not in inbox.`);
     }
   };
 
@@ -335,6 +370,21 @@ export default function SignUpPage() {
               className="w-full bg-textPrimary text-white rounded-xl py-3 text-sm font-bold disabled:opacity-60 transition-opacity shadow-sm"
             >
               {verifyingOtp ? 'Verifying Code…' : 'Verify Code & Continue →'}
+            </button>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-border"></div>
+              <span className="flex-shrink mx-3 text-[10px] text-textMuted uppercase font-bold tracking-wider">or if you clicked the link</span>
+              <div className="flex-grow border-t border-border"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCheckConfirmation}
+              disabled={verifyingOtp}
+              className="w-full bg-surface2 border border-border text-textPrimary hover:bg-surface1 rounded-xl py-2.5 text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5"
+            >
+              <span>✅</span> I Clicked the Email Link &rarr;
             </button>
           </form>
 

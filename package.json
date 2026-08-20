@@ -12,6 +12,7 @@
     "lint": "next lint",
     "desktop:dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
     "desktop:build": "node scripts/build-freestanding-logo.js && next build && electron-builder --win",
+    "desktop:build:mac": "node scripts/build-freestanding-logo.js && next build && electron-builder --mac",
     "dist": "npm run desktop:build"
   },
   "build": {
@@ -42,6 +43,46 @@
         }
       ],
       "icon": "electron/assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64",
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64",
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.business",
+      "icon": "electron/assets/icon.png",
+      "darkModeSupport": true,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "AMS Accounting Installer",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

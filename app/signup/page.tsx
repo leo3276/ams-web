@@ -126,7 +126,7 @@ export default function SignUpPage() {
     setErrorMsg(null);
     setResendSuccessMsg(null);
 
-    const cleanToken = otpCode.trim();
+    const cleanToken = otpCode.trim().replace(/[^a-zA-Z0-9]/g, '');
     if (!cleanToken || cleanToken.length < 4) {
       setErrorMsg('Please enter the verification code sent to your email.');
       return;

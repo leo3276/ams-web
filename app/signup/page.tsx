@@ -110,7 +110,13 @@ export default function SignUpPage() {
       localStorage.setItem(`ams:owner_pin:${cleanEmail}`, cleanPin);
     }
 
-    // Always transition directly to the Verify Email screen
+    // If email confirmation is disabled or session exists, navigate immediately
+    if (data.session && data.user) {
+      await checkBusinessAndNavigate(data.user.id);
+      return;
+    }
+
+    // Otherwise transition to the Verify Email screen
     setStep('verify_email');
   };
 

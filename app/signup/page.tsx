@@ -100,6 +100,17 @@ export default function SignUpPage() {
     });
 
     setLoading(false);
+
+    // Check if user already exists in Supabase
+    const isAlreadyRegistered =
+      (error && error.message.toLowerCase().includes('already')) ||
+      (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0);
+
+    if (isAlreadyRegistered) {
+      setErrorMsg('This email address is already registered. Please log in below.');
+      return;
+    }
+
     if (error) {
       setErrorMsg(error.message);
       return;

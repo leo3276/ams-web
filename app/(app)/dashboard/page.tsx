@@ -52,9 +52,26 @@ export default function DashboardPage() {
   const [uncollectedInvoicesAmount, setUncollectedInvoicesAmount] = useState(0);
   const [overdueInvoicesCount, setOverdueInvoicesCount] = useState(0);
   const [inventoryValue, setInventoryValue] = useState(0);
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const shouldShow = localStorage.getItem('ams:show_migration_welcome');
+      if (shouldShow === 'true') {
+        setShowMigrationModal(true);
+      }
+    }
+  }, []);
+
+  const handleDismissModal = () => {
+    setShowMigrationModal(false);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ams:show_migration_welcome');
+    }
+  };
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -393,6 +410,20 @@ export default function DashboardPage() {
             </Link>
 
             <Link
+              href="/migrate"
+              className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 transition group"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-lg">⚡</span>
+                <div>
+                  <p className="text-xs font-bold text-emerald-400">Data Migration &amp; Import</p>
+                  <p className="text-[11px] text-emerald-300/80">Import Excel stock, customer books &amp; invoices</p>
+                </div>
+              </div>
+              <span className="text-xs text-emerald-400 font-bold">→</span>
+            </Link>
+
+            <Link
               href="/reports"
               className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface1 hover:bg-accentBg transition group"
             >
@@ -408,6 +439,94 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* POP-UP ONBOARDING & DATA MIGRATION MODAL */}
+      {showMigrationModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-surface1 border border-border rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6 relative overflow-hidden">
+            {/* Top gradient glow */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500" />
+
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl">
+                  ⚡
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-textPrimary tracking-tight">Business Setup Complete!</h3>
+                  <p className="text-xs text-textSecondary mt-0.5">Welcome to AMS, <strong>{businessName}</strong></p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleDismissModal}
+                className="text-textSecondary hover:text-textPrimary p-1 rounded-lg transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 bg-surface2/60 border border-border p-4 rounded-2xl">
+              <p className="text-xs text-textPrimary font-bold">
+                Do you have existing spreadsheets or paper records?
+              </p>
+              <p className="text-xs text-textSecondary leading-relaxed">
+                You don't need to manually re-type your business. Our <strong>Universal Data Migration Engine</strong> imports everything in under 60 seconds:
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
+                  <span className="text-base">📦</span>
+                  <div>
+                    <p className="text-[11px] font-bold text-textPrimary">Products &amp; Stock</p>
+                    <p className="text-[10px] text-textSecondary">Prices &amp; quantities</p>
+                  </div>
+                </div>
+
+                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
+                  <span className="text-base">👥</span>
+                  <div>
+                    <p className="text-[11px] font-bold text-textPrimary">Customer Books</p>
+                    <p className="text-[10px] text-textSecondary">Debts &amp; WhatsApp</p>
+                  </div>
+                </div>
+
+                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
+                  <span className="text-base">🧾</span>
+                  <div>
+                    <p className="text-[11px] font-bold text-textPrimary">Invoices</p>
+                    <p className="text-[10px] text-textSecondary">Past bills &amp; status</p>
+                  </div>
+                </div>
+
+                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
+                  <span className="text-base">🏢</span>
+                  <div>
+                    <p className="text-[11px] font-bold text-textPrimary">Fixed Assets</p>
+                    <p className="text-[10px] text-textSecondary">Equipment &amp; vehicles</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+              <Link
+                href="/migrate"
+                onClick={handleDismissModal}
+                className="w-full sm:flex-1 py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl transition text-center shadow-lg flex items-center justify-center gap-1.5"
+              >
+                <span>⚡</span> Import My Existing Files Now
+              </Link>
+              <button
+                onClick={handleDismissModal}
+                className="w-full sm:w-auto py-3 px-4 bg-surface2 hover:bg-surface0 border border-border text-textSecondary hover:text-textPrimary font-bold text-xs rounded-xl transition text-center"
+              >
+                Explore Dashboard First
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

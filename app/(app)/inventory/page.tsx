@@ -572,6 +572,12 @@ export default function InventoryPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href="/migrate"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-surface2 border border-border text-textPrimary hover:bg-surface0 text-sm transition font-bold shadow-xs"
+          >
+            <span>⚡</span> Import Excel / CSV
+          </Link>
+          <Link
             href="/sales"
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition font-bold shadow-xs"
           >

@@ -1,26 +1,78 @@
 {
-  "name": "ams-web",
-  "version": "1.0.0",
+  "name": "ams-desktop",
+  "productName": "AMS Accounting",
+  "version": "1.0.1",
   "private": true,
+  "description": "AMS - Accounting Management System Native Desktop Workstation for Small & Medium Businesses",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "desktop:dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "desktop:build": "node scripts/build-freestanding-logo.js && next build && electron-builder --win",
+    "dist": "npm run desktop:build"
+  },
+  "build": {
+    "appId": "com.ams.accounting",
+    "productName": "AMS Accounting",
+    "copyright": "Copyright © 2026 AMS Accounting Management System",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AMS Accounting"
+    }
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "docx": "^9.7.1",
     "next": "14.2.5",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "serve-handler": "^6.1.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20.14.15",
     "@types/react": "^18.3.3",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
     "postcss": "^8.4.40",
+    "sharp": "^0.35.3",
     "tailwindcss": "^3.4.7",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "wait-on": "^9.1.0"
   }
 }

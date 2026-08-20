@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem, Invoice, InvoiceStatus } from '@/lib/types';
 
@@ -291,12 +292,20 @@ export default function InvoicesPage() {
             Issue branded invoices, track payments, generate PDF receipts, and collect customer receivables.
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white font-medium text-sm hover:opacity-90 transition shadow-sm"
-        >
-          <span>+</span> Create New Invoice
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/migrate"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface2 border border-border text-textPrimary hover:bg-surface0 text-sm transition font-bold shadow-xs"
+          >
+            <span>⚡</span> Import Invoices
+          </Link>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white font-medium text-sm hover:opacity-90 transition shadow-sm"
+          >
+            <span>+</span> Create New Invoice
+          </button>
+        </div>
       </div>
 
       {/* Metrics Cards */}

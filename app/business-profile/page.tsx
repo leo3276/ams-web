@@ -85,7 +85,11 @@ export default function BusinessProfilePage() {
       return;
     }
 
-    router.push('/bookkeeping');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ams:show_migration_welcome', 'true');
+    }
+
+    router.push('/dashboard');
   };
 
   return (

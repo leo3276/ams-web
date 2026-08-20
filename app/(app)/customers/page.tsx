@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { CustomerSummary, Invoice } from '@/lib/types';
 
@@ -139,6 +140,14 @@ export default function CustomersPage() {
           <p className="text-sm text-textSecondary">
             Track customer balances, payment history, and send instant account statements.
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/migrate"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-surface2 border border-border text-textPrimary hover:bg-surface0 text-sm transition font-bold shadow-xs"
+          >
+            <span>⚡</span> Import Debt Book (Excel / CSV)
+          </Link>
         </div>
       </div>
 

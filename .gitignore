@@ -5,6 +5,12 @@ node_modules/
 .next/
 out/
 
+# Electron build output & binaries
+dist/
+build/
+*.exe
+*.blockmap
+
 # Environment files (never commit secrets)
 .env
 .env.local

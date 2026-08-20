@@ -1,19 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 export default function SignUpPage() {
   const router = useRouter();
+
+  const [isElectron, setIsElectron] = useState(true);
+  const [checkingEnv, setCheckingEnv] = useState(true);
+
+  // Step: 'form' | 'verify_email'
+  const [step, setStep] = useState<'form' | 'verify_email'>('form');
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [ownerPin, setOwnerPin] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+
   const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendSuccessMsg, setResendSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const electronActive =
+      typeof window !== 'undefined' &&
+      (navigator.userAgent.includes('Electron') || !!(window as any).electronAPI);
+    setIsElectron(electronActive);
+    setCheckingEnv(false);
+  }, []);
 
   const checkBusinessAndNavigate = async (userId: string) => {
     localStorage.setItem('ams:web_primary_role_v1', 'owner');
@@ -37,9 +56,25 @@ export default function SignUpPage() {
     setErrorMsg(null);
 
     const cleanName = name.trim();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanPass = password.trim();
     const cleanPin = ownerPin.trim();
+
+    if (!cleanName) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    if (cleanPass.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
 
     if (!cleanPin || cleanPin.length < 4 || cleanPin.length > 6 || !/^\d+$/.test(cleanPin)) {
       setErrorMsg('Owner Master Security PIN must be 4 to 6 numeric digits (e.g. 1234).');
@@ -47,6 +82,10 @@ export default function SignUpPage() {
     }
 
     setLoading(true);
+
+    // Save pending PIN tied strictly to this email
+    localStorage.setItem(`ams:pending_pin:${cleanEmail}`, cleanPin);
+    localStorage.setItem(`ams:owner_pin:${cleanEmail}`, cleanPin);
 
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
@@ -56,6 +95,7 @@ export default function SignUpPage() {
           full_name: cleanName,
           owner_pin: cleanPin,
         },
+        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:32800'}/dashboard`,
       },
     });
 
@@ -65,125 +105,260 @@ export default function SignUpPage() {
       return;
     }
 
-    localStorage.setItem('ams:web_owner_pin_v1', cleanPin);
-
     if (data.user) {
-      await checkBusinessAndNavigate(data.user.id);
-    } else {
-      router.push('/business-profile');
+      localStorage.setItem(`ams:owner_pin:${data.user.id}`, cleanPin);
+      localStorage.setItem(`ams:owner_pin:${cleanEmail}`, cleanPin);
     }
+
+    // Always transition directly to the Verify Email screen
+    setStep('verify_email');
   };
 
-  const handleOAuth = async (provider: 'google' | 'apple') => {
+  // Verify code entered by user
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErrorMsg(null);
-    setOauthLoading(provider);
+    setResendSuccessMsg(null);
 
-    localStorage.setItem('ams:web_primary_role_v1', 'owner');
-    localStorage.setItem('ams:web_user_role_v1', 'owner');
+    const cleanToken = otpCode.trim();
+    if (!cleanToken || cleanToken.length < 4) {
+      setErrorMsg('Please enter the verification code sent to your email.');
+      return;
+    }
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
+    setVerifyingOtp(true);
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Try verifying as signup OTP
+    let { data, error } = await supabase.auth.verifyOtp({
+      email: cleanEmail,
+      token: cleanToken,
+      type: 'signup',
+    });
+
+    // 2. Fallback to email OTP if needed
+    if (error) {
+      const fallback = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanToken,
+        type: 'email',
+      });
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    setVerifyingOtp(false);
+
+    if (error || !data.user) {
+      setErrorMsg(error?.message || 'Invalid or expired verification code. Please check your spam folder or click resend.');
+      return;
+    }
+
+    const savedPin = ownerPin || localStorage.getItem(`ams:pending_pin:${cleanEmail}`);
+    if (savedPin) {
+      localStorage.setItem(`ams:owner_pin:${data.user.id}`, savedPin);
+      localStorage.setItem(`ams:owner_pin:${cleanEmail}`, savedPin);
+    }
+    await checkBusinessAndNavigate(data.user.id);
+  };
+
+  // Resend confirmation email
+  const handleResendEmail = async () => {
+    setErrorMsg(null);
+    setResendSuccessMsg(null);
+    setResending(true);
+
+    const cleanEmail = email.trim().toLowerCase();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: cleanEmail,
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:32800'}/dashboard`,
       },
     });
 
+    setResending(false);
     if (error) {
-      setOauthLoading(null);
-      setErrorMsg(`To enable ${provider === 'google' ? 'Google' : 'Apple'} Sign-In, please enable the ${provider} provider in your Supabase Dashboard under Authentication > Providers.`);
+      setErrorMsg(error.message);
+    } else {
+      setResendSuccessMsg(`A fresh verification code has been sent to ${cleanEmail}. Check your spam folder if not in inbox.`);
     }
   };
 
+  // On the website, restrict account creation and prompt login
+  if (!isElectron && !checkingEnv) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface2 px-4 py-12">
+        <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-sm border border-border text-center space-y-4 animate-in fade-in">
+          <div className="w-12 h-12 bg-surface2 text-textPrimary rounded-2xl flex items-center justify-center text-2xl mx-auto border border-border">
+            💻
+          </div>
+          <h1 className="text-xl font-bold text-textPrimary">AMS Desktop & Mobile</h1>
+          <p className="text-xs text-textSecondary leading-relaxed">
+            Account registration is available exclusively in the <strong>AMS Desktop App</strong> and <strong>Mobile App</strong>.
+          </p>
+          <div className="p-3 bg-surface2 rounded-xl border border-border text-[11px] text-textSecondary leading-relaxed text-left">
+            🏢 If your organization has already been registered, log in below to access the Web Companion.
+          </div>
+          <Link
+            href="/login"
+            className="block w-full bg-textPrimary text-white rounded-xl py-3 text-sm font-bold shadow-sm hover:bg-neutral-800 transition"
+          >
+            Log in to Web Companion →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface2 px-4 py-12">
-      <form onSubmit={handleSignUp} className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-sm border border-border">
-        <h1 className="text-2xl font-bold text-textPrimary mb-1">Create your account</h1>
-        <p className="text-xs text-textSecondary mb-6">Takes about a minute. Start your 30-day free trial.</p>
+      {step === 'form' ? (
+        <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-sm border border-border">
+          <h1 className="text-2xl font-bold text-textPrimary mb-1">Create your account</h1>
+          <p className="text-xs text-textSecondary mb-5">Takes about a minute. Start your 30-day free trial.</p>
 
-        {/* OAuth Buttons */}
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => handleOAuth('google')}
-            disabled={oauthLoading !== null}
-            className="w-full flex items-center justify-center gap-3 border border-border rounded-xl py-2.5 px-4 text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-60"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-            </svg>
-            Continue with Google
-          </button>
+          {errorMsg && <p className="text-xs text-danger mb-4 font-semibold">{errorMsg}</p>}
+
+          <form onSubmit={handleSignUp}>
+            <label className="block text-xs font-semibold text-textSecondary mb-1">Full Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-textPrimary"
+              placeholder="Kwame Asante"
+              required
+            />
+
+            <label className="block text-xs font-semibold text-textSecondary mb-1">Work Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-textPrimary"
+              placeholder="name@business.com"
+              required
+            />
+
+            <label className="block text-xs font-semibold text-textSecondary mb-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-textPrimary"
+              placeholder="At least 6 characters"
+              required
+              minLength={6}
+            />
+
+            <div className="mb-5">
+              <label className="block text-xs font-semibold text-textSecondary mb-1">
+                Owner Master Security PIN (4-6 digits)
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={ownerPin}
+                onChange={(e) => setOwnerPin(e.target.value.replace(/[^0-9]/g, ''))}
+                className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-1 focus:outline-none focus:border-textPrimary tracking-widest font-mono"
+                placeholder="e.g. 1234"
+                required
+              />
+              <p className="text-[11px] text-textMuted">
+                🔒 Security check: Required whenever logging in with Owner privileges to prevent unauthorized staff access.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-textPrimary text-white rounded-xl py-3 text-sm font-bold mb-4 disabled:opacity-60 transition-opacity shadow-sm"
+            >
+              {loading ? 'Creating account…' : 'Continue (30-day trial)'}
+            </button>
+          </form>
+
+          <p className="text-center text-xs text-textSecondary mt-6 pt-4 border-t border-border">
+            Already have an account?{' '}
+            <Link href="/login" className="text-accentText font-semibold">
+              Log in
+            </Link>
+          </p>
         </div>
+      ) : (
+        /* STEP 2: CODE-FIRST VERIFICATION SCREEN WITH SPAM RECOMMENDATION */
+        <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-sm border border-border space-y-5 animate-in fade-in">
+          <div className="text-center space-y-1.5">
+            <div className="w-12 h-12 bg-surface2 text-textPrimary rounded-2xl flex items-center justify-center text-2xl mx-auto border border-border">
+              ✉️
+            </div>
+            <h2 className="text-xl font-bold text-textPrimary">Verify your email</h2>
+            <p className="text-xs text-textSecondary leading-relaxed">
+              We sent a verification code to <br />
+              <strong className="text-textPrimary">{email}</strong>
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-textMuted uppercase">or email</span>
-          <div className="flex-1 h-px bg-border" />
+          {/* SPAM FOLDER RECOMMENDATION TIP */}
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
+            <span className="text-sm shrink-0">💡</span>
+            <span>
+              <strong>Check your Spam / Junk folder</strong> if you don&apos;t see the email in your primary inbox within a minute.
+            </span>
+          </div>
+
+          {errorMsg && <p className="text-xs text-danger font-semibold bg-rose-50 p-2.5 rounded-lg border border-rose-200">{errorMsg}</p>}
+          {resendSuccessMsg && <p className="text-xs text-success font-semibold bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">{resendSuccessMsg}</p>}
+
+          {/* CODE INPUT FORM */}
+          <form onSubmit={handleVerifyOtp} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-textSecondary mb-1.5 text-center">
+                Enter verification code:
+              </label>
+              <input
+                type="text"
+                maxLength={16}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.trim())}
+                className="w-full border border-border rounded-xl px-3 py-3 text-center text-xl font-bold tracking-widest focus:outline-none focus:border-textPrimary font-mono text-black"
+                placeholder="Enter code"
+                autoFocus
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={verifyingOtp || otpCode.trim().length === 0}
+              className="w-full bg-textPrimary text-white rounded-xl py-3 text-sm font-bold disabled:opacity-60 transition-opacity shadow-sm"
+            >
+              {verifyingOtp ? 'Verifying Code…' : 'Verify Code & Continue →'}
+            </button>
+          </form>
+
+          {/* RESEND & CHANGE EMAIL */}
+          <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
+            <button
+              onClick={handleResendEmail}
+              disabled={resending}
+              className="text-accentText font-semibold hover:underline disabled:opacity-50"
+            >
+              {resending ? 'Sending…' : 'Resend Code'}
+            </button>
+            <button
+              onClick={() => {
+                setStep('form');
+                setErrorMsg(null);
+              }}
+              className="text-textSecondary hover:text-textPrimary"
+            >
+              Change Email
+            </button>
+          </div>
         </div>
-
-        <label className="block text-xs font-semibold text-textSecondary mb-1">Full Name</label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-textPrimary"
-          placeholder="Kwame Asante"
-          required
-        />
-
-        <label className="block text-xs font-semibold text-textSecondary mb-1">Work Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-textPrimary"
-          placeholder="name@business.com"
-          required
-        />
-
-        <label className="block text-xs font-semibold text-textSecondary mb-1">Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-textPrimary"
-          placeholder="At least 6 characters"
-          required
-        />
-
-        <label className="block text-xs font-semibold text-textSecondary mb-1">Owner Master Security PIN (4-6 digits)</label>
-        <input
-          type="password"
-          maxLength={6}
-          value={ownerPin}
-          onChange={(e) => setOwnerPin(e.target.value)}
-          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-1 focus:outline-none focus:border-textPrimary"
-          placeholder="e.g. 1234"
-          required
-        />
-        <p className="text-[11px] text-textMuted mb-6">
-          🛡️ Secret PIN required whenever logging in with Owner privileges to prevent unauthorized staff access.
-        </p>
-
-        {errorMsg && <p className="text-xs text-danger mb-4">{errorMsg}</p>}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-textPrimary text-white rounded-xl py-3 text-sm font-bold mb-4 disabled:opacity-60 transition-opacity"
-        >
-          {loading ? 'Creating account…' : 'Continue (30-day trial)'}
-        </button>
-
-        <p className="text-center text-xs text-textSecondary">
-          Already have an account?{' '}
-          <Link href="/login" className="text-accentText font-semibold">
-            Log in
-          </Link>
-        </p>
-      </form>
+      )}
     </div>
   );
 }

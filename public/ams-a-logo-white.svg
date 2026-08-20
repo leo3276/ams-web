@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" fill="none">
+    <defs>
+      <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#34D399" />
+        <stop offset="50%" stop-color="#10B981" />
+        <stop offset="100%" stop-color="#06B6D4" />
+      </linearGradient>
+      <linearGradient id="darkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0F172A" />
+        <stop offset="100%" stop-color="#1E293B" />
+      </linearGradient>
+      
+    </defs>
+
+    <g >
+      <!-- Main Upper Chevron of the 'A' -->
+      <polygon 
+        points="500,80 870,880 730,880 500,370 270,880 130,880" 
+        fill="#FFFFFF" 
+      />
+
+      <!-- Floating Inner Triangle (Delta) -->
+      <polygon 
+        points="500,530 635,880 365,880" 
+        fill="#FFFFFF" 
+      />
+    </g>
+  </svg>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem, Invoice, InvoiceStatus } from '@/lib/types';
+import { printInvoicePDF } from '@/lib/pdfGenerator';
 
 interface LineItem {
   id: string;
@@ -698,10 +699,10 @@ export default function InvoicesPage() {
             <div className="flex items-center justify-between pb-4 border-b border-border mb-6 print:hidden">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-accent text-white hover:opacity-90 flex items-center gap-1"
+                  onClick={() => printInvoicePDF(previewInvoice, { name: businessName, currency })}
+                  className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-textPrimary text-white hover:opacity-90 flex items-center gap-1.5 shadow-sm"
                 >
-                  🖨️ Print / Save as PDF
+                  📄 Export Stylish PDF / Print
                 </button>
                 <a
                   href={getWhatsAppLink(previewInvoice)}

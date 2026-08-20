@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import {
+  printProfitLossPDF,
+  printBalanceSheetPDF,
+  printCashFlowPDF,
+  printTrialBalancePDF,
+} from '@/lib/pdfGenerator';
 
 type ReportTab = 'all' | 'pnl' | 'balance_sheet' | 'cash_flow' | 'trial_balance';
 type PeriodPreset = 'current_month' | 'last_month' | 'quarter' | 'year';
@@ -233,6 +239,48 @@ export default function ReportsPage() {
     document.body.removeChild(link);
   };
 
+  const handleExportStylishPDF = (target?: 'pnl' | 'balance_sheet' | 'cash_flow' | 'trial_balance') => {
+    const which = target || tab;
+    if ((which === 'balance_sheet' || which === 'all') && balanceSheet) {
+      printBalanceSheetPDF(balanceSheet, periodLabel, { name: businessName, currency });
+    } else if (which === 'pnl' && pnl) {
+      printProfitLossPDF(
+        {
+          revenue: pnl.revenue,
+          costOfGoods: pnl.cost_of_goods,
+          operatingExpenses: pnl.operating_expenses,
+          netProfit: pnl.net_profit,
+        },
+        periodLabel,
+        { name: businessName, currency }
+      );
+    } else if (which === 'cash_flow' && cashFlow) {
+      printCashFlowPDF(
+        {
+          operating: cashFlow.operating_activities,
+          investing: cashFlow.investing_activities,
+          financing: cashFlow.financing_activities,
+          net: cashFlow.net_cash_flow,
+        },
+        periodLabel,
+        { name: businessName, currency }
+      );
+    } else if (which === 'trial_balance' && trialBalance.length > 0) {
+      printTrialBalancePDF(trialBalance, totalDebits, totalCredits, periodLabel, { name: businessName, currency });
+    } else if (pnl) {
+      printProfitLossPDF(
+        {
+          revenue: pnl.revenue,
+          costOfGoods: pnl.cost_of_goods,
+          operatingExpenses: pnl.operating_expenses,
+          netProfit: pnl.net_profit,
+        },
+        periodLabel,
+        { name: businessName, currency }
+      );
+    }
+  };
+
   const tbGap = Math.abs(totalDebits - totalCredits);
 
   return (
@@ -260,17 +308,17 @@ export default function ReportsPage() {
           </select>
 
           <button
-            onClick={() => window.print()}
-            className="px-3.5 py-2 text-xs font-bold rounded-lg border border-border bg-surface2 hover:bg-surface1 text-textPrimary shadow-sm flex items-center gap-1.5"
+            onClick={() => handleExportStylishPDF()}
+            className="px-3.5 py-2 text-xs font-bold rounded-lg bg-textPrimary text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
           >
-            🖨️ Print / Save as PDF
+            📄 Export Stylish PDF
           </button>
 
           <button
             onClick={exportConsolidatedBrief}
-            className="px-3.5 py-2 text-xs font-bold rounded-lg bg-accent text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
+            className="px-3.5 py-2 text-xs font-bold rounded-lg border border-border bg-surface2 hover:bg-surface1 text-textPrimary shadow-sm flex items-center gap-1.5"
           >
-            📥 Export Package (.txt)
+            📥 Text Brief
           </button>
         </div>
       </div>
@@ -328,7 +376,11 @@ export default function ReportsPage() {
           {/* 1. PROFIT & LOSS STATEMENT                               */}
           {/* ======================================================== */}
           {(tab === 'all' || tab === 'pnl') && pnl && (
-            <ReportCard title={`Profit & Loss Statement · ${periodLabel}`} icon="📈">
+            <ReportCard
+              title={`Profit & Loss Statement · ${periodLabel}`}
+              icon="📈"
+              onExport={() => handleExportStylishPDF('pnl')}
+            >
               <ReportRow label="Revenue" value={Number(pnl.revenue)} currency={currency} />
               <ReportRow label="Cost of Goods Sold (COGS)" value={-Number(pnl.cost_of_goods)} currency={currency} />
               <SubtotalRow
@@ -350,7 +402,11 @@ export default function ReportsPage() {
           {/* 2. BALANCE SHEET                                         */}
           {/* ======================================================== */}
           {(tab === 'all' || tab === 'balance_sheet') && balanceSheet && (
-            <ReportCard title={`Balance Sheet · As of ${periodLabel}`} icon="⚖️">
+            <ReportCard
+              title={`Balance Sheet · As of ${periodLabel}`}
+              icon="⚖️"
+              onExport={() => handleExportStylishPDF('balance_sheet')}
+            >
               <p className="text-xs uppercase font-bold text-textMuted mb-2">Current Assets</p>
               <ReportRow label="Cash on Hand" value={Number(balanceSheet.cash)} currency={currency} />
               <ReportRow label="Bank / MoMo Balances" value={Number(balanceSheet.bank)} currency={currency} />
@@ -400,7 +456,11 @@ export default function ReportsPage() {
           {/* 3. CASH FLOW STATEMENT                                   */}
           {/* ======================================================== */}
           {(tab === 'all' || tab === 'cash_flow') && cashFlow && (
-            <ReportCard title={`Cash Flow Statement · ${periodLabel}`} icon="🔄">
+            <ReportCard
+              title={`Cash Flow Statement · ${periodLabel}`}
+              icon="🔄"
+              onExport={() => handleExportStylishPDF('cash_flow')}
+            >
               <ReportRow label="Operating Activities (Sales & Operating Payments)" value={Number(cashFlow.operating_activities)} currency={currency} />
               <ReportRow label="Investing Activities (Asset Purchases & Disposals)" value={Number(cashFlow.investing_activities)} currency={currency} />
               <ReportRow label="Financing Activities (Capital Contributions & Debt)" value={Number(cashFlow.financing_activities)} currency={currency} />
@@ -412,7 +472,11 @@ export default function ReportsPage() {
           {/* 4. TRIAL BALANCE                                         */}
           {/* ======================================================== */}
           {(tab === 'all' || tab === 'trial_balance') && trialBalance.length > 0 && (
-            <ReportCard title={`Trial Balance Summary · ${periodLabel}`} icon="📋">
+            <ReportCard
+              title={`Trial Balance Summary · ${periodLabel}`}
+              icon="📋"
+              onExport={() => handleExportStylishPDF('trial_balance')}
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -460,12 +524,32 @@ export default function ReportsPage() {
   );
 }
 
-function ReportCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function ReportCard({
+  title,
+  icon,
+  onExport,
+  children,
+}: {
+  title: string;
+  icon: string;
+  onExport?: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <div className="bg-surface2 rounded-xl border border-border p-6 shadow-sm">
-      <div className="flex items-center gap-2 pb-3 mb-4 border-b border-border">
-        <span className="text-lg">{icon}</span>
-        <h2 className="text-base font-bold text-textPrimary">{title}</h2>
+      <div className="flex items-center justify-between pb-3 mb-4 border-b border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{icon}</span>
+          <h2 className="text-base font-bold text-textPrimary">{title}</h2>
+        </div>
+        {onExport && (
+          <button
+            onClick={onExport}
+            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border bg-surface1 hover:bg-surface2 text-textPrimary flex items-center gap-1 shadow-sm transition"
+          >
+            📄 Export Stylish PDF
+          </button>
+        )}
       </div>
       <div className="space-y-2">{children}</div>
     </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Transaction, TransactionType, TRANSACTION_TYPE_OPTIONS } from '@/lib/types';
+import { printBookkeepingLedgerPDF } from '@/lib/pdfGenerator';
 
 interface Row extends Partial<Transaction> {
   _localId: string;
@@ -253,10 +254,28 @@ export default function BookkeepingPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() =>
+              printBookkeepingLedgerPDF(
+                realRows.map((r) => ({
+                  transaction_date: r.transaction_date || new Date().toISOString().slice(0, 10),
+                  vendor: r.vendor || 'General Transaction',
+                  type: r.type || 'operating_expense',
+                  category: r.category || '',
+                  amount: r.amount || 0,
+                  payment_method: r.payment_method || 'cash',
+                })),
+                { name: 'My Business', currency }
+              )
+            }
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-textPrimary text-white hover:opacity-90 transition text-sm font-bold shadow-xs"
+          >
+            📄 Export Stylish PDF
+          </button>
+          <button
             onClick={exportLedgerCSV}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-surface2 text-sm text-textPrimary hover:bg-surface1 transition font-medium"
           >
-            📥 Export Ledger (CSV)
+            📥 CSV
           </button>
         </div>
       </div>

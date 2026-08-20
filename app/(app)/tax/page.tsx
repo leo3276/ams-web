@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { estimateGhanaTax, BusinessType } from '@/lib/ghanaTax';
+import { printTaxSummaryPDF } from '@/lib/pdfGenerator';
 
 type PeriodPreset = 'month' | 'quarter' | 'year';
 
@@ -183,10 +184,23 @@ export default function TaxPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => window.print()}
-            className="px-3.5 py-2 text-xs font-bold rounded-lg border border-border bg-surface2 hover:bg-surface1 text-textPrimary shadow-sm flex items-center gap-1.5"
+            onClick={() =>
+              printTaxSummaryPDF(
+                {
+                  revenue,
+                  taxableIncome,
+                  estimatedTax: taxResult.estimatedTax,
+                  effectiveRate: taxResult.effectiveRate,
+                  periodLabel,
+                  businessType,
+                  nextFilingDate,
+                },
+                { name: businessName, taxId, currency }
+              )
+            }
+            className="px-3.5 py-2 text-xs font-bold rounded-lg bg-textPrimary text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
           >
-            🖨️ Print Tax Schedule
+            📄 Export Stylish Tax PDF
           </button>
           <button
             onClick={() => setIsEditingConfig(!isEditingConfig)}

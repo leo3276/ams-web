@@ -65,7 +65,13 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-60 border-r border-border p-4 flex-col shrink-0 bg-white">
         <div className="flex items-center justify-between mb-4 px-2">
-          <p className="text-lg font-bold text-textPrimary">AMS</p>
+          <div className="flex items-center gap-2">
+            <svg viewBox="0 0 1000 1000" className="w-5 h-5 fill-slate-900">
+              <polygon points="500,80 860,880 710,880 500,410 290,880 140,880" />
+              <polygon points="500,530 635,880 365,880" />
+            </svg>
+            <p className="text-lg font-black tracking-tight text-textPrimary">AMS</p>
+          </div>
           <span
             className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
               role === 'owner'
@@ -144,7 +150,11 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
           <div className="flex items-center gap-2">
-            <p className="text-base font-extrabold text-textPrimary">AMS</p>
+            <svg viewBox="0 0 1000 1000" className="w-5 h-5 fill-slate-900">
+              <polygon points="500,80 860,880 710,880 500,410 290,880 140,880" />
+              <polygon points="500,530 635,880 365,880" />
+            </svg>
+            <p className="text-base font-black tracking-tight text-textPrimary">AMS</p>
             <span
               className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${
                 role === 'owner'

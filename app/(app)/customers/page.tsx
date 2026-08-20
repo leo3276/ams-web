@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { CustomerSummary, Invoice } from '@/lib/types';
+import { printCustomerStatementPDF } from '@/lib/pdfGenerator';
 
 function initials(name: string) {
   return name
@@ -366,14 +367,26 @@ export default function CustomersPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+              <button
+                onClick={() =>
+                  printCustomerStatementPDF(
+                    selectedCustomer,
+                    customerInvoices,
+                    { name: businessName, currency }
+                  )
+                }
+                className="flex-1 py-2 text-xs font-bold rounded-lg bg-textPrimary text-white hover:opacity-90 text-center flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                📄 Export Stylish PDF
+              </button>
               <a
                 href={getWhatsAppStatementLink(selectedCustomer)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 py-2 text-xs font-bold rounded-lg bg-successBg text-success hover:opacity-90 text-center flex items-center justify-center gap-1.5"
               >
-                💬 Send Statement via WhatsApp
+                💬 WhatsApp
               </a>
               <button
                 onClick={() => setSelectedCustomer(null)}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Transaction, Invoice } from '@/lib/types';
 import { estimateGhanaTax } from '@/lib/ghanaTax';
+import { printAccountantAuditPackPDF } from '@/lib/pdfGenerator';
 
 interface PnL {
   revenue: number;
@@ -392,10 +393,22 @@ export default function AccountantPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={handleExportBrief}
-            className="px-4 py-2 text-xs font-bold rounded-lg bg-accent text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
+            onClick={() =>
+              printAccountantAuditPackPDF(
+                {
+                  periodLabel,
+                  pnl,
+                  balanceSheet,
+                  trialBalance,
+                  totalDebits,
+                  totalCredits,
+                },
+                { name: businessName, taxId, currency, businessType }
+              )
+            }
+            className="px-4 py-2 text-xs font-bold rounded-lg bg-textPrimary text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
           >
-            📥 Export Accountant Brief (.txt)
+            📄 Export Stylish CPA Audit PDF
           </button>
         </div>
       </div>

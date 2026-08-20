@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem } from '@/lib/types';
+import { printInventoryValuationPDF } from '@/lib/pdfGenerator';
 
 interface Row extends Partial<InventoryItem> {
   _localId: string;
@@ -584,10 +585,27 @@ export default function InventoryPage() {
             <span>🛒</span> Record Sale
           </Link>
           <button
+            onClick={() =>
+              printInventoryValuationPDF(
+                realRows.map((r) => ({
+                  name: r.name || 'Unnamed Product',
+                  barcode: r.barcode || '',
+                  quantity: r.quantity || 0,
+                  unit_cost: r.unit_cost || 0,
+                  unit_price: r.unit_price || 0,
+                })),
+                { name: 'My Business', currency }
+              )
+            }
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-textPrimary text-white hover:opacity-90 transition text-sm font-bold shadow-xs"
+          >
+            📄 Export Stylish PDF
+          </button>
+          <button
             onClick={exportCSV}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface2 text-sm text-textPrimary hover:bg-surface1 transition font-medium"
           >
-            📥 Export CSV
+            📥 CSV
           </button>
         </div>
       </div>

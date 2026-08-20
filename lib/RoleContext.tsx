@@ -158,12 +158,19 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       };
 
       if (businessId) {
-        await supabase.from('business_members').insert({
+        const { data: insertedData } = await supabase.from('business_members').insert({
           business_id: businessId,
           name: newMember.name,
           email: newMember.email,
           role: newMember.role,
-        });
+          phone: newMember.phone || null,
+          branch: newMember.branch || 'Main Branch',
+          salary: newMember.salary || 0,
+        }).select().single();
+
+        if (insertedData?.id) {
+          newMember.id = insertedData.id;
+        }
       }
 
       const updated = [newMember, ...staffMembers.filter((m) => m.email !== newMember.email)];

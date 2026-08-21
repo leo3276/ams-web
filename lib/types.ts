@@ -71,6 +71,8 @@ export interface CustomerSummary {
   last_invoice_date: string | null;
 }
 
+export type DebtType = 'inventory' | 'cash_loan' | 'fixed_asset' | 'service_expense';
+
 export interface Supplier {
   id: string;
   business_id: string;
@@ -78,7 +80,8 @@ export interface Supplier {
   phone?: string | null;
   email?: string | null;
   category?: string | null;
-  balance_owed: number; // Short-Term Liability (Accounts Payable)
+  debt_type?: DebtType;
+  balance_owed: number; // Liability
   payment_terms?: string | null;
   due_date?: string | null;
   notes?: string | null;

@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { label: 'Bookkeeping', href: '/bookkeeping', icon: '📋', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Inventory', href: '/inventory', icon: '📦', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Customers', href: '/customers', icon: '👥', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Suppliers & Debt', href: '/suppliers', icon: '🏭', roles: ['owner', 'employee', 'accountant'] },
+  { label: 'Suppliers & Debt', href: '/suppliers', icon: '🏭', roles: ['owner', 'accountant'] },
   { label: 'Data Migration', href: '/migrate', icon: '⚡', roles: ['owner', 'accountant'] },
   { label: 'Team & Staff', href: '/team', icon: '🧑‍🤝‍🧑', roles: ['owner'] },
   { label: 'Reports', href: '/reports', icon: '📈', roles: ['owner', 'accountant'] },
@@ -88,8 +88,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('ams:cache_business_v1');
-    localStorage.removeItem('ams:cache_user_v1');
+    localStorage.clear();
     router.push('/login');
   };
 

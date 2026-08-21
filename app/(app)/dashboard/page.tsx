@@ -4,6 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Transaction } from '@/lib/types';
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedTransactions,
+  setCachedTransactions,
+  getCachedInventory,
+  setCachedInventory,
+  getCachedInvoices,
+  setCachedInvoices,
+  getCachedSuppliers,
+} from '@/lib/offlineStore';
 
 interface PnLSummary {
   revenue: number;
@@ -21,6 +32,13 @@ interface BalanceSheetSummary {
   totalEquity: number;
 }
 
+export interface LiveLedgerEntry extends Transaction {
+  isInflow: boolean;
+  deltaAmount: number;
+  runningCash: number;
+  runningBank: number;
+}
+
 function currentMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -30,26 +48,15 @@ function currentMonthRange() {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  revenue: 'Revenue',
+  revenue: 'Revenue Inflow',
   cost_of_goods: 'Cost of Goods',
   operating_expense: 'Operating Expense',
-  fixed_asset: 'Fixed Asset',
-  current_asset: 'Current Asset',
-  short_term_liability: 'Liability',
+  fixed_asset: 'Fixed Asset Purchase',
+  current_asset: 'Current Asset Purchase',
+  short_term_liability: 'Supplier Liability',
   long_term_liability: 'Long-term Debt',
-  drawings: 'Drawings',
+  drawings: 'Owner Drawings',
 };
-
-import {
-  getCachedBusiness,
-  setCachedBusiness,
-  getCachedTransactions,
-  setCachedTransactions,
-  getCachedInventory,
-  setCachedInventory,
-  getCachedInvoices,
-  setCachedInvoices,
-} from '@/lib/offlineStore';
 
 export default function DashboardPage() {
   const [businessName, setBusinessName] = useState('My Business');
@@ -59,7 +66,9 @@ export default function DashboardPage() {
   const [periodLabel, setPeriodLabel] = useState('');
   const [pnl, setPnl] = useState<PnLSummary | null>(null);
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheetSummary | null>(null);
-  const [recent, setRecent] = useState<Transaction[]>([]);
+  const [liveEntries, setLiveEntries] = useState<LiveLedgerEntry[]>([]);
+  const [activeLedgerTab, setActiveLedgerTab] = useState<'all' | 'cash' | 'bank'>('all');
+
   const [uncollectedInvoicesAmount, setUncollectedInvoicesAmount] = useState(0);
   const [overdueInvoicesCount, setOverdueInvoicesCount] = useState(0);
   const [inventoryValue, setInventoryValue] = useState(0);
@@ -96,9 +105,8 @@ export default function DashboardPage() {
       setCurrency(cachedBiz.currency || 'GHS');
     }
 
-    const cachedTxs = getCachedTransactions();
+    const cachedTxs = getCachedTransactions(cachedBiz?.id);
     if (cachedTxs.length > 0) {
-      setRecent(cachedTxs.slice(0, 6));
       const rev = cachedTxs.filter((t) => t.type === 'revenue').reduce((s, t) => s + (Number(t.amount) || 0), 0);
       const exp = cachedTxs.filter((t) => t.type === 'operating_expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
       const cogs = cachedTxs.filter((t) => t.type === 'cost_of_goods').reduce((s, t) => s + (Number(t.amount) || 0), 0);
@@ -110,7 +118,7 @@ export default function DashboardPage() {
       });
     }
 
-    const cachedInv = getCachedInventory();
+    const cachedInv = getCachedInventory(cachedBiz?.id);
     if (cachedInv.length > 0) {
       const totalVal = cachedInv.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unit_cost || 0), 0);
       setInventoryValue(totalVal);
@@ -140,40 +148,129 @@ export default function DashboardPage() {
 
       const today = new Date().toISOString().slice(0, 10);
 
-      const [pnlRes, bsRes, txRes, invRes, itemsRes] = await Promise.all([
+      const [pnlRes, bsRes, invRes, itemsRes, allTxRes, staffRes] = await Promise.all([
         supabase.rpc('get_pnl_report', { p_business_id: business.id, p_start_date: start, p_end_date: end }),
         supabase.rpc('get_balance_sheet', { p_business_id: business.id, p_as_of_date: end }),
-        supabase.from('transactions').select('*').eq('business_id', business.id).order('transaction_date', { ascending: false }).limit(10),
         supabase.from('invoices').select('*').eq('business_id', business.id),
         supabase.from('inventory_items').select('*').eq('business_id', business.id),
+        supabase.from('transactions').select('*').eq('business_id', business.id).order('transaction_date', { ascending: true }),
+        supabase.from('business_members').select('*').eq('business_id', business.id),
       ]);
 
-      if (pnlRes.data?.[0]) {
-        const p = pnlRes.data[0];
-        setPnl({
-          revenue: Number(p.revenue || 0),
-          costOfGoods: Number(p.cost_of_goods || 0),
-          operatingExpenses: Number(p.operating_expenses || 0),
-          netProfit: Number(p.net_profit || 0),
-        });
-      }
+      const allTxs = allTxRes.data ?? [];
+      setCachedTransactions(allTxs, business.id);
 
-      if (bsRes.data?.[0]) {
-        const b = bsRes.data[0];
-        setBalanceSheet({
-          cash: Number(b.cash || 0),
-          bank: Number(b.bank || 0),
-          currentAssetsOther: Number(b.current_assets_other || 0),
-          totalCurrentAssets: Number(b.total_current_assets || 0),
-          totalLiabilities: Number(b.total_liabilities || 0),
-          totalEquity: Number(b.total_equity || 0),
-        });
-      }
+      // Process Running Cash & Bank entries chronologically & calculate period P&L
+      let runningC = 0;
+      let runningB = 0;
+      let currentPurchased = 0;
 
-      if (txRes.data) {
-        setRecent(txRes.data.slice(0, 6) as Transaction[]);
-        setCachedTransactions(txRes.data);
-      }
+      let periodRev = 0;
+      let periodCogs = 0;
+      let periodOpex = 0;
+
+      const processedEntries: LiveLedgerEntry[] = allTxs.map((t: any) => {
+        const amt = Number(t.amount || 0);
+        const isBank = t.payment_method === 'bank';
+        const inPeriod = t.transaction_date >= start && t.transaction_date <= end;
+        const isSupplierBill =
+          t.type === 'short_term_liability' ||
+          t.type === 'long_term_liability' ||
+          (t.category && t.category.includes('Accounts Payable')) ||
+          (t.vendor && t.vendor.startsWith('Supplier:'));
+
+        let deltaCash = 0;
+        let deltaBank = 0;
+        let isInflow = false;
+
+        if (t.type === 'revenue') {
+          if (inPeriod) periodRev += amt;
+          isInflow = true;
+          if (isBank) deltaBank = amt; else deltaCash = amt;
+        } else if (t.type === 'cost_of_goods') {
+          if (inPeriod) periodCogs += amt;
+          isInflow = false;
+          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+        } else if (t.type === 'operating_expense') {
+          if (inPeriod) periodOpex += amt;
+          isInflow = false;
+          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+        } else if (['drawings', 'fixed_asset'].includes(t.type)) {
+          isInflow = false;
+          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+        } else if (t.type === 'current_asset') {
+          currentPurchased += amt;
+          isInflow = false;
+          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+        } else if ((t.type === 'short_term_liability' || t.type === 'long_term_liability') && !isSupplierBill) {
+          isInflow = true;
+          if (isBank) deltaBank = amt; else deltaCash = amt;
+        }
+
+        runningC = Math.max(0, runningC + deltaCash);
+        runningB = Math.max(0, runningB + deltaBank);
+
+        return {
+          ...t,
+          isInflow,
+          deltaAmount: isInflow ? amt : -amt,
+          runningCash: runningC,
+          runningBank: runningB,
+        };
+      });
+
+      // Newest entries first for live feed
+      setLiveEntries([...processedEntries].reverse());
+
+      const cachedSups = getCachedSuppliers(business.id);
+      let tradePayablesInventory = 0;
+      let tradePayablesCashLoan = 0;
+      let tradePayablesFixedAsset = 0;
+      let tradePayablesService = 0;
+
+      cachedSups.forEach((s) => {
+        const b = Number(s.balance_owed || 0);
+        if (b <= 0) return;
+        if (s.debt_type === 'cash_loan') tradePayablesCashLoan += b;
+        else if (s.debt_type === 'fixed_asset') tradePayablesFixedAsset += b;
+        else if (s.debt_type === 'service_expense') tradePayablesService += b;
+        else tradePayablesInventory += b;
+      });
+
+      // Staff Salaries (Monthly payroll from staff roster + recorded salary transactions)
+      const staffList = staffRes.data ?? [];
+      const monthlyRosterPayroll = staffList.reduce((sum: number, m: any) => sum + Number(m.salary || 0), 0);
+      const recordedSalaryTxs = allTxs
+        .filter((t: any) => t.type === 'operating_expense' && (t.category === 'Payroll & Salaries' || (t.vendor && t.vendor.startsWith('Salary:'))))
+        .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+      const accruedPayroll = Math.max(0, monthlyRosterPayroll - recordedSalaryTxs);
+
+      const netCash = runningC + tradePayablesCashLoan;
+      const netBank = runningB;
+      const finalCurrentOther = currentPurchased + tradePayablesInventory;
+      const finalCurrentAssets = netCash + netBank + finalCurrentOther;
+      const finalShortTerm = tradePayablesInventory + tradePayablesCashLoan + tradePayablesService;
+      const finalLongTerm = tradePayablesFixedAsset;
+
+      const finalRev = periodRev;
+      const finalCogs = periodCogs;
+      const finalOpex = periodOpex + tradePayablesService + accruedPayroll;
+
+      setPnl({
+        revenue: finalRev,
+        costOfGoods: finalCogs,
+        operatingExpenses: finalOpex,
+        netProfit: finalRev - finalCogs - finalOpex,
+      });
+
+      setBalanceSheet({
+        cash: netCash,
+        bank: netBank,
+        currentAssetsOther: finalCurrentOther,
+        totalCurrentAssets: finalCurrentAssets,
+        totalLiabilities: finalShortTerm + finalLongTerm,
+        totalEquity: finalCurrentAssets - (finalShortTerm + finalLongTerm),
+      });
 
       if (invRes.data) {
         const uncollected = invRes.data
@@ -185,7 +282,7 @@ export default function DashboardPage() {
           (inv) => inv.status !== 'paid' && inv.due_date && inv.due_date < today
         ).length;
         setOverdueInvoicesCount(overdue);
-        setCachedInvoices(invRes.data as any);
+        setCachedInvoices(invRes.data as any, business.id);
       }
 
       if (itemsRes.data) {
@@ -194,7 +291,7 @@ export default function DashboardPage() {
           0
         );
         setInventoryValue(totalVal);
-        setCachedInventory(itemsRes.data as any);
+        setCachedInventory(itemsRes.data as any, business.id);
       }
     } catch (_err) {
       // offline mode operates smoothly on cache
@@ -226,6 +323,8 @@ export default function DashboardPage() {
     const runwayDays = dailyBurn > 0 ? Math.round(totalCashBank / dailyBurn) : totalCashBank > 0 ? 999 : 0;
 
     return {
+      cash,
+      bank,
       totalCashBank,
       taxReserve,
       weeklyOpBuffer,
@@ -233,6 +332,20 @@ export default function DashboardPage() {
       runwayDays,
     };
   }, [balanceSheet, pnl]);
+
+  // Filtered entries according to active tab
+  const filteredEntries = useMemo(() => {
+    if (activeLedgerTab === 'cash') {
+      return liveEntries.filter((t) => t.payment_method === 'cash' || !t.payment_method);
+    }
+    if (activeLedgerTab === 'bank') {
+      return liveEntries.filter((t) => t.payment_method === 'bank');
+    }
+    return liveEntries;
+  }, [liveEntries, activeLedgerTab]);
+
+  const cashEntriesCount = useMemo(() => liveEntries.filter((t) => t.payment_method === 'cash' || !t.payment_method).length, [liveEntries]);
+  const bankEntriesCount = useMemo(() => liveEntries.filter((t) => t.payment_method === 'bank').length, [liveEntries]);
 
   if (loading) return <p className="text-sm text-textSecondary">Loading executive dashboard…</p>;
   if (errorMsg && !businessId) return <p className="text-sm text-danger">{errorMsg}</p>;
@@ -247,7 +360,7 @@ export default function DashboardPage() {
         <div>
           <p className="text-xs font-bold text-accentText uppercase tracking-wider">{businessName}</p>
           <h1 className="text-2xl font-bold text-textPrimary">Executive Financial Dashboard</h1>
-          <p className="text-xs text-textSecondary mt-0.5">Real-time liquidity, cash runway, and business performance for {periodLabel}</p>
+          <p className="text-xs text-textSecondary mt-0.5">Real-time liquidity, cash runway, and live cash/bank entries for {periodLabel}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -306,32 +419,128 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Trapped Capital Breakdown */}
+        {/* CASH & BANK EXPLICIT BREAKDOWN CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 text-xs">
-          <div className="flex items-center justify-between bg-surface2/60 p-2.5 rounded-lg border border-border/80">
+          {/* Cash in Hand */}
+          <div
+            onClick={() => setActiveLedgerTab('cash')}
+            className={`cursor-pointer flex items-center justify-between p-3 rounded-xl border transition ${
+              activeLedgerTab === 'cash' ? 'bg-amber-500/10 border-amber-500 shadow-xs' : 'bg-surface2/80 border-border hover:bg-surface2'
+            }`}
+          >
             <div>
-              <span className="text-textMuted">Total Bank &amp; Cash:</span>
-              <p className="font-bold text-textPrimary text-sm">{currency} {liquidity.totalCashBank.toLocaleString()}</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs">💵</span>
+                <span className="text-[11px] font-bold uppercase text-textSecondary">Cash in Hand (Drawer)</span>
+              </div>
+              <p className="font-black text-textPrimary text-base mt-0.5">
+                {currency} {liquidity.cash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] text-textMuted mt-0.5">{cashEntriesCount} cash entries</p>
             </div>
-            <span className="text-lg">🏦</span>
-          </div>
-
-          <div className="flex items-center justify-between bg-surface2/60 p-2.5 rounded-lg border border-border/80">
-            <div>
-              <span className="text-textMuted">Uncollected Invoices:</span>
-              <p className="font-bold text-danger text-sm">{currency} {uncollectedInvoicesAmount.toLocaleString()}</p>
-            </div>
-            <span className="text-xs font-bold text-danger bg-dangerBg px-2 py-0.5 rounded">
-              {overdueInvoicesCount > 0 ? `${overdueInvoicesCount} overdue` : 'Receivables'}
+            <span className="text-xs font-bold text-accentText bg-accentBg px-2 py-1 rounded-md">
+              Filter ▾
             </span>
           </div>
 
-          <div className="flex items-center justify-between bg-surface2/60 p-2.5 rounded-lg border border-border/80">
+          {/* Bank & MoMo */}
+          <div
+            onClick={() => setActiveLedgerTab('bank')}
+            className={`cursor-pointer flex items-center justify-between p-3 rounded-xl border transition ${
+              activeLedgerTab === 'bank' ? 'bg-blue-500/10 border-blue-500 shadow-xs' : 'bg-surface2/80 border-border hover:bg-surface2'
+            }`}
+          >
             <div>
-              <span className="text-textMuted">Tied Inventory Capital:</span>
-              <p className="font-bold text-textPrimary text-sm">{currency} {inventoryValue.toLocaleString()}</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs">🏦</span>
+                <span className="text-[11px] font-bold uppercase text-textSecondary">Bank &amp; MoMo Account</span>
+              </div>
+              <p className="font-black text-textPrimary text-base mt-0.5">
+                {currency} {liquidity.bank.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] text-textMuted mt-0.5">{bankEntriesCount} bank/momo entries</p>
             </div>
-            <span className="text-lg">📦</span>
+            <span className="text-xs font-bold text-accentText bg-accentBg px-2 py-1 rounded-md">
+              Filter ▾
+            </span>
+          </div>
+
+          {/* Combined Total Liquid Cash & Bank */}
+          <div
+            onClick={() => setActiveLedgerTab('all')}
+            className={`cursor-pointer flex items-center justify-between p-3 rounded-xl border transition ${
+              activeLedgerTab === 'all' ? 'bg-emerald-500/10 border-emerald-500 shadow-xs' : 'bg-surface2/80 border-border hover:bg-surface2'
+            }`}
+          >
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs">💰</span>
+                <span className="text-[11px] font-bold uppercase text-textSecondary">Total Cash &amp; Bank</span>
+              </div>
+              <p className="font-black text-emerald-600 dark:text-emerald-400 text-base mt-0.5">
+                {currency} {liquidity.totalCashBank.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[10px] text-textMuted mt-0.5">{liveEntries.length} total ledger entries</p>
+            </div>
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-1 rounded-md">
+              Combined ✓
+            </span>
+          </div>
+        </div>
+
+        {/* Tied Working Capital */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-xs">
+          <div className="flex items-center justify-between bg-surface2/40 p-2.5 rounded-lg border border-border/60">
+            <div>
+              <span className="text-textMuted">Uncollected Customer Invoices:</span>
+              <p className="font-bold text-danger text-sm">{currency} {uncollectedInvoicesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            </div>
+            <span className="text-xs font-bold text-danger bg-dangerBg px-2 py-0.5 rounded">
+              {overdueInvoicesCount > 0 ? `${overdueInvoicesCount} overdue` : 'Trade Receivables'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between bg-surface2/40 p-2.5 rounded-lg border border-border/60">
+            <div>
+              <span className="text-textMuted">Tied Inventory Valuation:</span>
+              <p className="font-bold text-textPrimary text-sm">{currency} {inventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            </div>
+            <span className="text-base">📦</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 1.5 MOBILE COMPANION APP RECOMMENDATION (OCR & REMOTE)  */}
+      {/* ======================================================== */}
+      <div className="bg-surface2 border border-border rounded-xl p-5 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-accentText/10 text-accentText flex items-center justify-center text-2xl flex-shrink-0">
+              📱
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-accentText/10 text-accentText">
+                  Mobile Companion
+                </span>
+                <span className="text-[10px] font-bold text-success flex items-center gap-1">
+                  ● Live Sync
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-textPrimary mt-1">
+                Install AMS on Your Phone for Instant AI OCR &amp; Remote Assessment
+              </h3>
+              <p className="text-xs text-textSecondary mt-0.5 max-w-2xl leading-relaxed">
+                Take AMS everywhere: Snap paper receipts &amp; supplier waybills with your camera for instant AI ledger extraction, and monitor live shop sales, cashier drawers, and stock levels even when away from your store.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="px-3 py-2 rounded-lg bg-surface1 border border-border text-[11px] font-medium text-textSecondary">
+              📸 <strong className="text-textPrimary">Camera OCR</strong> + 🛡️ <strong className="text-textPrimary">Remote Assessment</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -374,37 +583,110 @@ export default function DashboardPage() {
       </div>
 
       {/* ======================================================== */}
-      {/* 3. RECENT ACTIVITY & QUICK HUBS                          */}
+      {/* 3. LIVE CASH & BANK LEDGER ENTRIES STREAM                */}
       {/* ======================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Ledger Transactions */}
-        <div className="lg:col-span-2 bg-surface2 border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-textPrimary">Recent Ledger Activity</h2>
-            <Link href="/bookkeeping" className="text-xs font-bold text-accentText hover:underline">
-              View All Entries →
-            </Link>
+        {/* Live Entries Stream Table */}
+        <div className="lg:col-span-2 bg-surface2 border border-border rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border">
+            <div>
+              <h2 className="text-base font-bold text-textPrimary flex items-center gap-2">
+                <span>⚡ Live Cash &amp; Bank Entries</span>
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-accentText/10 text-accentText">
+                  Real-Time Stream
+                </span>
+              </h2>
+              <p className="text-xs text-textSecondary mt-0.5">
+                Showing every transaction with its running balance impact on Cash &amp; Bank
+              </p>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1 bg-surface1 p-1 rounded-lg border border-border">
+              <button
+                onClick={() => setActiveLedgerTab('all')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                  activeLedgerTab === 'all'
+                    ? 'bg-textPrimary text-surface0 shadow-xs'
+                    : 'text-textSecondary hover:text-textPrimary'
+                }`}
+              >
+                All ({liveEntries.length})
+              </button>
+              <button
+                onClick={() => setActiveLedgerTab('cash')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${
+                  activeLedgerTab === 'cash'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-textSecondary hover:text-textPrimary'
+                }`}
+              >
+                <span>💵</span> Cash ({cashEntriesCount})
+              </button>
+              <button
+                onClick={() => setActiveLedgerTab('bank')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${
+                  activeLedgerTab === 'bank'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-textSecondary hover:text-textPrimary'
+                }`}
+              >
+                <span>🏦</span> Bank ({bankEntriesCount})
+              </button>
+            </div>
           </div>
 
-          {recent.length === 0 ? (
-            <p className="text-xs text-textMuted py-8 text-center italic">
-              No transactions recorded yet. Click &quot;+ Add Entry&quot; above to log your first transaction!
-            </p>
+          {filteredEntries.length === 0 ? (
+            <div className="py-12 text-center space-y-2">
+              <p className="text-2xl">📋</p>
+              <p className="text-xs text-textMuted italic">
+                {activeLedgerTab === 'cash'
+                  ? 'No cash drawer transactions recorded yet.'
+                  : activeLedgerTab === 'bank'
+                  ? 'No bank or MoMo transactions recorded yet.'
+                  : 'No transactions recorded yet. Click "+ Add Entry" to record your first sale or expense!'}
+              </p>
+            </div>
           ) : (
-            <div className="divide-y divide-border">
-              {recent.map((t) => {
-                const isInflow = t.type === 'revenue';
+            <div className="divide-y divide-border overflow-x-auto">
+              {filteredEntries.slice(0, 10).map((t) => {
+                const isBank = t.payment_method === 'bank';
+                const runningBal = isBank ? t.runningBank : t.runningCash;
+
                 return (
-                  <div key={t.id} className="py-2.5 flex items-center justify-between text-xs">
-                    <div className="min-w-0 pr-3">
-                      <p className="font-bold text-textPrimary truncate">{t.vendor}</p>
-                      <p className="text-textMuted text-[11px]">
-                        {t.transaction_date} · {TYPE_LABELS[t.type] || t.type} · {t.payment_method?.toUpperCase()}
-                      </p>
+                  <div key={t.id} className="py-3 flex items-center justify-between gap-3 text-xs hover:bg-surface1/50 px-2 rounded-lg transition">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shrink-0 shadow-xs ${
+                        t.isInflow
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/80 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40'
+                          : 'bg-rose-50 text-rose-600 border border-rose-200/80 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40'
+                      }`}>
+                        {t.isInflow ? '↓' : '↑'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-textPrimary truncate text-xs">{t.vendor}</p>
+                        <div className="flex items-center gap-1.5 text-[11px] text-textSecondary mt-0.5 flex-wrap">
+                          <span>{t.transaction_date}</span>
+                          <span>·</span>
+                          <span className="font-medium text-textMuted">{TYPE_LABELS[t.type] || t.type}</span>
+                          <span>·</span>
+                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] border ${
+                            isBank
+                              ? 'bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40'
+                              : 'bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
+                          }`}>
+                            {isBank ? '🏦 BANK / MOMO' : '💵 CASH'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+
                     <div className="text-right shrink-0">
-                      <p className={`font-bold text-sm ${isInflow ? 'text-success' : 'text-textPrimary'}`}>
-                        {isInflow ? '+' : '-'} {currency} {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <p className={`font-black text-sm ${t.isInflow ? 'text-success' : 'text-textPrimary'}`}>
+                        {t.isInflow ? '+' : '-'} {currency} {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-textMuted mt-0.5">
+                        {isBank ? 'Bank Bal:' : 'Cash Bal:'} <strong className="text-textSecondary">{currency} {runningBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                       </p>
                     </div>
                   </div>
@@ -412,6 +694,13 @@ export default function DashboardPage() {
               })}
             </div>
           )}
+
+          <div className="pt-2 flex items-center justify-between border-t border-border text-xs">
+            <span className="text-textMuted">Showing {Math.min(10, filteredEntries.length)} of {filteredEntries.length} live entries</span>
+            <Link href="/bookkeeping" className="font-bold text-accentText hover:underline flex items-center gap-1">
+              Open Full Double-Entry General Ledger →
+            </Link>
+          </div>
         </div>
 
         {/* Action Hub & Quick Shortcuts */}
@@ -434,31 +723,31 @@ export default function DashboardPage() {
             </Link>
 
             <Link
-              href="/inventory"
+              href="/suppliers"
               className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface1 hover:bg-accentBg transition group"
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-lg">📦</span>
+                <span className="text-lg">🏭</span>
                 <div>
-                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Inventory &amp; Valuations</p>
-                  <p className="text-[11px] text-textMuted">Catalog prices, profit margins &amp; stock</p>
+                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Creditor Debt Book</p>
+                  <p className="text-[11px] text-textMuted">Suppliers, short-term bills &amp; settlements</p>
                 </div>
               </div>
               <span className="text-xs text-textMuted">→</span>
             </Link>
 
             <Link
-              href="/migrate"
-              className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 transition group"
+              href="/inventory"
+              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface1 hover:bg-accentBg transition group"
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-lg">⚡</span>
+                <span className="text-lg">📦</span>
                 <div>
-                  <p className="text-xs font-bold text-emerald-400">Data Migration &amp; Import</p>
-                  <p className="text-[11px] text-emerald-300/80">Import Excel stock, customer books &amp; invoices</p>
+                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Inventory &amp; Stock</p>
+                  <p className="text-[11px] text-textMuted">Stock valuation, restock alerts &amp; margins</p>
                 </div>
               </div>
-              <span className="text-xs text-emerald-400 font-bold">→</span>
+              <span className="text-xs text-textMuted">→</span>
             </Link>
 
             <Link
@@ -468,8 +757,8 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2.5">
                 <span className="text-lg">📈</span>
                 <div>
-                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Financial Reports &amp; Statements</p>
-                  <p className="text-[11px] text-textMuted">P&amp;L, Balance Sheet, Cash Flow, Tax</p>
+                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Financial Reports</p>
+                  <p className="text-[11px] text-textMuted">P&amp;L, Balance Sheet &amp; Cash Flow PDF</p>
                 </div>
               </div>
               <span className="text-xs text-textMuted">→</span>
@@ -478,24 +767,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* POP-UP ONBOARDING & DATA MIGRATION MODAL */}
+      {/* Migration Welcome Modal */}
       {showMigrationModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-surface1 border border-border rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6 relative overflow-hidden">
-            {/* Top gradient glow */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500" />
-
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-surface1 border border-border max-w-lg w-full rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl">
-                  ⚡
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xl font-black">
+                  🚀
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-textPrimary tracking-tight">Business Setup Complete!</h3>
-                  <p className="text-xs text-textSecondary mt-0.5">Welcome to AMS, <strong>{businessName}</strong></p>
+                  <h3 className="text-base font-bold text-textPrimary">Welcome to AMS!</h3>
+                  <p className="text-xs text-textSecondary">Your professional business workstation</p>
                 </div>
               </div>
-
               <button
                 onClick={handleDismissModal}
                 className="text-textSecondary hover:text-textPrimary p-1 rounded-lg transition"

@@ -6,7 +6,7 @@ const fs = require('fs');
 let mainWindow = null;
 let localServer = null;
 let serverPort = null;
-const isDev = !app.isPackaged;
+const isDev = !app.isPackaged || process.env.NODE_ENV === 'development';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -99,10 +99,10 @@ async function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     icon: iconPath,
-    title: 'AMS - Accounting Made Simple',
+    title: 'AMS - Accounting Made Simple (Desktop)',
     backgroundColor: '#090D16',
     autoHideMenuBar: true,
-    show: true, // Show immediately
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -117,17 +117,47 @@ async function createWindow() {
     } catch (_e) {}
   }
 
-  try {
-    const port = await startLocalServer();
-    const targetUrl = `http://127.0.0.1:${port}/dashboard`;
-    await mainWindow.loadURL(targetUrl);
-  } catch (err) {
-    console.error('Failed to load application:', err);
+  if (isDev) {
+    // In development mode, connect to Next.js dev server on localhost:3000
+    const devUrl = 'http://localhost:3000';
+    console.log(`[Electron] Development mode: Loading Next.js dev server at ${devUrl}`);
+
+    const loadWithRetry = async (retries = 10, delay = 1000) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          await mainWindow.loadURL(devUrl);
+          console.log('[Electron] Successfully loaded Next.js dev server.');
+          return;
+        } catch (err) {
+          console.log(`[Electron] Dev server not ready yet (attempt ${i + 1}/${retries}). Retrying in ${delay}ms...`);
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+      try {
+        await mainWindow.loadURL('http://127.0.0.1:3000');
+      } catch (finalErr) {
+        console.error('[Electron] Failed to load dev server after multiple retries:', finalErr);
+      }
+    };
+
+    loadWithRetry();
+  } else {
+    // Production mode: Serve packaged static assets
+    try {
+      const port = await startLocalServer();
+      const targetUrl = `http://127.0.0.1:${port}/dashboard`;
+      await mainWindow.loadURL(targetUrl);
+    } catch (err) {
+      console.error('[Electron] Failed to load application:', err);
+    }
   }
 
   // Intercept external links to open in the user's default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https:') || (url.startsWith('http:') && !url.includes(`127.0.0.1:${serverPort}`))) {
+    if (
+      url.startsWith('https:') ||
+      (url.startsWith('http:') && !url.includes('localhost:3000') && !url.includes('127.0.0.1'))
+    ) {
       shell.openExternal(url);
       return { action: 'deny' };
     }

@@ -8,6 +8,7 @@ import {
   printCashFlowPDF,
   printTrialBalancePDF,
 } from '@/lib/pdfGenerator';
+import { getCachedSuppliers } from '@/lib/offlineStore';
 
 type ReportTab = 'all' | 'pnl' | 'balance_sheet' | 'cash_flow' | 'trial_balance';
 type PeriodPreset = 'current_month' | 'last_month' | 'quarter' | 'year';
@@ -146,19 +147,168 @@ export default function ReportsPage() {
     const { start, end, label } = getPeriodDates(periodPreset);
     setPeriodLabel(label);
 
-    const [pnlRes, bsRes, cfRes, tbRes] = await Promise.all([
+    const [pnlRes, bsRes, cfRes, tbRes, txRes, staffRes] = await Promise.all([
       supabase.rpc('get_pnl_report', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
       supabase.rpc('get_balance_sheet', { p_business_id: b.id, p_as_of_date: end }),
       supabase.rpc('get_cash_flow_statement', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
       supabase.rpc('get_trial_balance', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
+      supabase.from('transactions').select('*').eq('business_id', b.id).lte('transaction_date', end),
+      supabase.from('business_members').select('*').eq('business_id', b.id),
     ]);
 
-    if (pnlRes.data?.[0]) setPnl(pnlRes.data[0]);
-    if (bsRes.data?.[0]) setBalanceSheet(bsRes.data[0]);
+    // 1. Calculate live Balance Sheet and P&L directly from ledger and creditor registries
+    const allTxs = txRes.data ?? [];
+    let periodRev = 0;
+    let periodCogs = 0;
+    let periodOpex = 0;
+
+    let cashIn = 0;
+    let cashOut = 0;
+    let bankIn = 0;
+    let bankOut = 0;
+
+    let fixedAssetsPurchased = 0;
+    let currentAssetsPurchased = 0;
+    let drawingsTotal = 0;
+
+    let longTermLoansFromTxs = 0;
+    let shortTermTxsPayable = 0;
+
+    allTxs.forEach((t: any) => {
+      const amt = Number(t.amount || 0);
+      const isBank = t.payment_method === 'bank';
+      const inPeriod = t.transaction_date >= start && t.transaction_date <= end;
+      const isSupplierBill =
+        t.type === 'short_term_liability' ||
+        t.type === 'long_term_liability' ||
+        (t.category && t.category.includes('Accounts Payable')) ||
+        (t.vendor && t.vendor.startsWith('Supplier:'));
+
+      if (t.type === 'revenue') {
+        if (inPeriod) periodRev += amt;
+        if (isBank) bankIn += amt;
+        else cashIn += amt;
+      } else if (t.type === 'cost_of_goods') {
+        if (inPeriod) periodCogs += amt;
+        if (isBank) bankOut += amt;
+        else cashOut += amt;
+      } else if (t.type === 'operating_expense') {
+        if (inPeriod) periodOpex += amt;
+        if (isBank) bankOut += amt;
+        else cashOut += amt;
+      } else if (t.type === 'drawings') {
+        drawingsTotal += amt;
+        if (isBank) bankOut += amt;
+        else cashOut += amt;
+      } else if (t.type === 'fixed_asset') {
+        fixedAssetsPurchased += amt;
+        if (isBank) bankOut += amt;
+        else cashOut += amt;
+      } else if (t.type === 'current_asset') {
+        currentAssetsPurchased += amt;
+        if (isBank) bankOut += amt;
+        else cashOut += amt;
+      } else if (t.type === 'long_term_liability' && !isSupplierBill) {
+        longTermLoansFromTxs += amt;
+        if (isBank) bankIn += amt;
+        else cashIn += amt;
+      } else if (t.type === 'short_term_liability' && !isSupplierBill) {
+        shortTermTxsPayable += amt;
+        if (isBank) bankIn += amt;
+        else cashIn += amt;
+      }
+    });
+
+    const cachedSups = getCachedSuppliers(b.id);
+    let tradePayablesInventory = 0;
+    let tradePayablesCashLoan = 0;
+    let tradePayablesFixedAsset = 0;
+    let tradePayablesService = 0;
+
+    cachedSups.forEach((s) => {
+      const bal = Number(s.balance_owed || 0);
+      if (bal <= 0) return;
+      if (s.debt_type === 'cash_loan') {
+        tradePayablesCashLoan += bal;
+      } else if (s.debt_type === 'fixed_asset') {
+        tradePayablesFixedAsset += bal;
+      } else if (s.debt_type === 'service_expense') {
+        tradePayablesService += bal;
+      } else {
+        tradePayablesInventory += bal;
+      }
+    });
+
+    // Staff Salaries (Monthly payroll from staff roster + recorded salary transactions)
+    const staffList = staffRes.data ?? [];
+    const monthlyRosterPayroll = staffList.reduce((sum: number, m: any) => sum + Number(m.salary || 0), 0);
+    const recordedSalaryTxs = allTxs
+      .filter((t: any) => t.type === 'operating_expense' && (t.category === 'Payroll & Salaries' || (t.vendor && t.vendor.startsWith('Salary:'))))
+      .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+    const accruedPayroll = Math.max(0, monthlyRosterPayroll - recordedSalaryTxs);
+
+    const netCash = cashIn - cashOut + tradePayablesCashLoan;
+    const netBank = bankIn - bankOut;
+
+    // 2. Accurate Live P&L Statement
+    const finalRev = periodRev;
+    const finalCogs = periodCogs;
+    const finalOpex = periodOpex + tradePayablesService + accruedPayroll;
+    const finalNetProfit = finalRev - finalCogs - finalOpex;
+
+    setPnl({
+      revenue: finalRev,
+      cost_of_goods: finalCogs,
+      operating_expenses: finalOpex,
+      net_profit: finalNetProfit,
+    });
+
+    // 3. Balance Sheet
+    const rawBs = bsRes.data?.[0] || {};
+    const finalCurrentOther = currentAssetsPurchased + tradePayablesInventory;
+    const finalCurrentAssets = netCash + netBank + finalCurrentOther;
+
+    const finalFixedCost = fixedAssetsPurchased + tradePayablesFixedAsset;
+    const accumulatedDeprec = Number(rawBs.accumulated_depreciation || 0);
+    const finalFixedNbv = Math.max(0, finalFixedCost - accumulatedDeprec);
+    const finalTotalAssets = finalCurrentAssets + finalFixedNbv;
+
+    const finalShortTerm = tradePayablesInventory + tradePayablesCashLoan + tradePayablesService + shortTermTxsPayable;
+    const finalLongTerm = tradePayablesFixedAsset + longTermLoansFromTxs;
+    const finalTotalLiab = finalShortTerm + finalLongTerm;
+
+    const ownersEquity = Number(rawBs.owners_equity || 0);
+    const netProfitToDate = finalNetProfit || Number(rawBs.net_profit_to_date || 0);
+    const drawingsToDate = Math.max(drawingsTotal, Number(rawBs.drawings_to_date || 0));
+
+    setBalanceSheet({
+      cash: netCash,
+      bank: netBank,
+      current_assets_other: finalCurrentOther,
+      total_current_assets: finalCurrentAssets,
+      fixed_assets_cost: finalFixedCost,
+      accumulated_depreciation: accumulatedDeprec,
+      fixed_assets_nbv: finalFixedNbv,
+      total_assets: finalTotalAssets,
+      short_term_liabilities: finalShortTerm,
+      long_term_liabilities: finalLongTerm,
+      total_liabilities: finalTotalLiab,
+      owners_equity: ownersEquity,
+      net_profit_to_date: netProfitToDate,
+      drawings_to_date: drawingsToDate,
+    });
+
     if (cfRes.data?.[0]) setCashFlow(cfRes.data[0]);
 
     if (tbRes.data) {
-      const rows: TrialBalanceRow[] = tbRes.data;
+      const rows: TrialBalanceRow[] = [...tbRes.data];
+      if (finalShortTerm > 0 && !rows.some((r) => r.category.includes('Creditors') || r.category.includes('Accounts Payable'))) {
+        rows.push({
+          category: 'Trade Creditors (Accounts Payable)',
+          debit: 0,
+          credit: finalShortTerm,
+        });
+      }
       setTrialBalance(rows);
       let d = 0;
       let c = 0;
@@ -421,7 +571,7 @@ export default function ReportsPage() {
               <TotalRow label="TOTAL ASSETS" value={Number(balanceSheet.total_assets)} currency={currency} />
 
               <p className="text-xs uppercase font-bold text-textMuted mb-2 mt-6">Liabilities</p>
-              <ReportRow label="Short-term Liabilities (Accounts Payable)" value={Number(balanceSheet.short_term_liabilities)} currency={currency} />
+              <ReportRow label="Short-Term Liabilities (Accounts Payable / Trade Creditors)" value={Number(balanceSheet.short_term_liabilities)} currency={currency} />
               <ReportRow label="Long-term Liabilities (Loans)" value={Number(balanceSheet.long_term_liabilities)} currency={currency} />
               <SubtotalRow label="Total Liabilities" value={Number(balanceSheet.total_liabilities)} currency={currency} />
 

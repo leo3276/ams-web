@@ -104,6 +104,22 @@ export default function PricingPage() {
           Save 5+ hours every week with AI receipt OCR, MoMo SMS extraction, and automated GRA tax schedules.
         </p>
 
+        {/* 100% Free Until 2027 Announcement Banner */}
+        <div className="max-w-2xl mx-auto mt-4 p-4 rounded-2xl bg-purple-50 border border-purple-200 text-left flex items-start gap-3">
+          <span className="text-2xl flex-shrink-0">🎁</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                National Growth Pass
+              </span>
+              <span className="text-xs font-bold text-purple-900">100% Free Access Until 2027</span>
+            </div>
+            <p className="text-xs text-purple-800 mt-1 leading-relaxed">
+              All AMS Pro, Accountant Hub, Vision AI OCR, and Financial Statement Export features are completely free for all Ghanaian businesses through January 2027!
+            </p>
+          </div>
+        </div>
+
         {/* Monthly vs Annual Toggle (Soft charcoal black) */}
         <div className="inline-flex items-center bg-zinc-100 p-1 rounded-full border border-zinc-200 mt-4">
           <button

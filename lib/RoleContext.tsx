@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
+import { getCachedBusiness } from './offlineStore';
 
 export type UserRole = 'owner' | 'employee' | 'accountant';
 
@@ -52,7 +53,11 @@ const RoleContext = createContext<RoleContextValue>({
 
 const ROLE_STORAGE_KEY = 'ams:web_user_role_v1';
 const PRIMARY_ROLE_STORAGE_KEY = 'ams:web_primary_role_v1';
-const STAFF_STORAGE_KEY = 'ams:web_staff_cache_v1';
+
+function getStaffStorageKey(businessId?: string): string {
+  const bid = businessId || getCachedBusiness()?.id || 'default_biz';
+  return `ams:web_staff_cache_${bid}`;
+}
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<UserRole>('owner');
@@ -71,7 +76,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       setRoleState(storedRole);
     }
 
-    const cached = localStorage.getItem(STAFF_STORAGE_KEY);
+    const key = getStaffStorageKey();
+    const cached = localStorage.getItem(key);
     if (cached) {
       try {
         setStaffMembers(JSON.parse(cached));
@@ -106,50 +112,30 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         .limit(1);
 
       const businessId = businesses?.[0]?.id;
-      if (!businessId) return;
+      if (!businessId) {
+        setStaffMembers([]);
+        return;
+      }
 
-      // 1. Fetch remote members from Supabase
+      // 1. Fetch remote members strictly for THIS business from Supabase
       const { data: remoteMembers, error } = await supabase
         .from('business_members')
         .select('*')
         .eq('business_id', businessId)
         .order('created_at', { ascending: false });
 
-      if (!error) {
-        let currentList = remoteMembers || [];
-
-        // 2. Check if local cache has any legacy offline members not yet in Supabase
-        const cachedRaw = localStorage.getItem(STAFF_STORAGE_KEY);
-        if (cachedRaw) {
-          try {
-            const localMembers: StaffMember[] = JSON.parse(cachedRaw);
-            const remoteEmails = new Set(currentList.map((m) => m.email.toLowerCase()));
-
-            for (const local of localMembers) {
-              if (local.email && !remoteEmails.has(local.email.toLowerCase())) {
-                const { data: inserted } = await supabase.from('business_members').insert({
-                  business_id: businessId,
-                  name: local.name,
-                  email: local.email,
-                  role: local.role,
-                  phone: local.phone || null,
-                  branch: local.branch || 'Main Branch',
-                  salary: local.salary || 0,
-                }).select().single();
-
-                if (inserted) {
-                  currentList.push(inserted);
-                }
-              }
-            }
-          } catch (_e) {}
-        }
-
-        setStaffMembers(currentList);
-        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(currentList));
+      if (!error && remoteMembers) {
+        setStaffMembers(remoteMembers);
+        localStorage.setItem(getStaffStorageKey(businessId), JSON.stringify(remoteMembers));
       }
     } catch (_e) {
       // offline fallback
+      const cached = localStorage.getItem(getStaffStorageKey());
+      if (cached) {
+        try {
+          setStaffMembers(JSON.parse(cached));
+        } catch (_e) {}
+      }
     } finally {
       setLoadingStaff(false);
     }
@@ -180,6 +166,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         .limit(1);
 
       const businessId = businesses?.[0]?.id;
+      if (!businessId) return { success: false, error: 'No business found' };
 
       const newMember: StaffMember = {
         id: `staff_${Date.now()}`,
@@ -192,25 +179,27 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         created_at: new Date().toISOString(),
       };
 
-      if (businessId) {
-        const { data: insertedData } = await supabase.from('business_members').insert({
-          business_id: businessId,
-          name: newMember.name,
-          email: newMember.email,
-          role: newMember.role,
-          phone: newMember.phone || null,
-          branch: newMember.branch || 'Main Branch',
-          salary: newMember.salary || 0,
-        }).select().single();
+      const { data: insertedData, error } = await supabase.from('business_members').insert({
+        business_id: businessId,
+        name: newMember.name,
+        email: newMember.email,
+        role: newMember.role,
+        phone: newMember.phone || null,
+        branch: newMember.branch || 'Main Branch',
+        salary: newMember.salary || 0,
+      }).select().single();
 
-        if (insertedData?.id) {
-          newMember.id = insertedData.id;
-        }
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (insertedData?.id) {
+        newMember.id = insertedData.id;
       }
 
       const updated = [newMember, ...staffMembers.filter((m) => m.email !== newMember.email)];
       setStaffMembers(updated);
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(getStaffStorageKey(businessId), JSON.stringify(updated));
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Failed to add staff member' };
@@ -219,10 +208,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
   const removeStaffMember = async (id: string) => {
     try {
+      const b = getCachedBusiness();
       await supabase.from('business_members').delete().eq('id', id);
       const updated = staffMembers.filter((m) => m.id !== id);
       setStaffMembers(updated);
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(getStaffStorageKey(b?.id), JSON.stringify(updated));
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Failed to remove staff' };

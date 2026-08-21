@@ -1119,3 +1119,141 @@ export function printAccountantAuditPackPDF(
 
   openAndPrintPDF(html);
 }
+
+export function printSupplierDebtBookPDF(
+  business: BusinessInfo,
+  suppliers: any[]
+) {
+  const cur = business.currency || 'GHS';
+  const todayStr = new Date().toISOString().split('T')[0];
+  const totalPayables = suppliers.reduce((sum, s) => sum + Number(s.balance_owed || 0), 0);
+  const owingCount = suppliers.filter((s) => Number(s.balance_owed || 0) > 0).length;
+  const settledCount = suppliers.filter((s) => Number(s.balance_owed || 0) === 0).length;
+  const overduePayables = suppliers
+    .filter((s) => Number(s.balance_owed || 0) > 0 && s.due_date && s.due_date < todayStr)
+    .reduce((sum, s) => sum + Number(s.balance_owed || 0), 0);
+
+  const debtTypeLabels: Record<string, string> = {
+    inventory: '📦 Inventory Goods on Credit',
+    cash_loan: '💵 Cash Loan / Borrowing',
+    fixed_asset: '🚜 Equipment / Asset Financing',
+    service_expense: '💡 Service / OpEx on Credit',
+  };
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Creditors Debt Book · ${business.name}</title>
+        ${BASE_STYLES}
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo-box">
+            <span class="badge-ams">AMS</span>
+            <div>
+              <div class="company-name">${business.name}</div>
+              <div class="meta-line">
+                ${business.taxId ? `TIN: ${business.taxId} · ` : ''}
+                Currency: ${cur} · Confidential Accounts Payable Ledger
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="report-title" style="color:#DC2626;">CREDITORS &amp; DEBT BOOK</div>
+            <div class="report-period">As of: ${new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card" style="border-left:4px solid #DC2626;">
+            <div class="kpi-label" style="color:#DC2626;">Total Liabilities &amp; Payables</div>
+            <div class="kpi-value font-mono" style="color:#DC2626;">${cur} ${totalPayables.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Active Creditors Owing</div>
+            <div class="kpi-value">${owingCount} <span style="font-size:12px;font-weight:400;color:#64748B;">/ ${suppliers.length} Total</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Overdue Payables</div>
+            <div class="kpi-value font-mono" style="color:#DC2626;">${cur} ${overduePayables.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Settled Creditors</div>
+            <div class="kpi-value font-mono green">${settledCount} Settled</div>
+          </div>
+        </div>
+
+        <div style="font-size:13px;font-weight:900;color:#0F172A;text-transform:uppercase;margin-top:20px;margin-bottom:10px;border-bottom:1px solid #CBD5E1;padding-bottom:4px;">
+          Accounts Payable &amp; Creditors Schedule
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Creditor / Supplier Name</th>
+              <th>Debt Classification</th>
+              <th>Category</th>
+              <th>Contact / MoMo</th>
+              <th>Terms</th>
+              <th>Due Date</th>
+              <th class="right">Outstanding Liability (${cur})</th>
+              <th style="text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${suppliers.map((s, idx) => {
+              const isOwing = Number(s.balance_owed || 0) > 0;
+              const isOverdue = isOwing && s.due_date && s.due_date < todayStr;
+              const statusClass = isOverdue ? 'badge-cancelled' : isOwing ? 'badge-sent' : 'badge-paid';
+              const statusLabel = isOverdue ? 'OVERDUE' : isOwing ? 'OWING' : 'SETTLED ✓';
+              const debtLabel = debtTypeLabels[s.debt_type] || debtTypeLabels.inventory;
+
+              return `
+                <tr class="${idx % 2 === 1 ? 'striped' : ''}">
+                  <td><strong>${s.name}</strong></td>
+                  <td>${debtLabel}</td>
+                  <td>${s.category || 'General'}</td>
+                  <td class="font-mono">${s.phone || '—'}</td>
+                  <td>${s.payment_terms || 'Net 30'}</td>
+                  <td>${s.due_date || '—'}</td>
+                  <td class="right font-mono" style="font-weight:800;${isOwing ? 'color:#DC2626;' : 'color:#059669;'}">
+                    ${Number(s.balance_owed || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td style="text-align:center;">
+                    <span class="badge ${statusClass}">${statusLabel}</span>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+            <tr class="total-row">
+              <td colspan="6"><strong>TOTAL ACCOUNTS PAYABLE LIABILITIES</strong></td>
+              <td class="right font-mono"><strong>${cur} ${totalPayables.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top:28px;display:flex;justify-content:space-between;border-top:1px dashed #CBD5E1;padding-top:16px;">
+          <div>
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748B;">Prepared &amp; Reconciled By:</div>
+            <div style="font-size:12px;font-weight:700;margin-top:4px;">${business.name} Accounts Division</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#64748B;">Authorized Signature / Verification:</div>
+            <div style="font-size:12px;font-weight:700;margin-top:4px;">_____________________________</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="footer-left">Accounts Payable &amp; Creditors Debt Book · Generated by AMS Accounting Workstation</div>
+          <div>Date: ${new Date().toLocaleDateString()}</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  openAndPrintPDF(html);
+}
+

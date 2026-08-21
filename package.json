@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "desktop:dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "desktop:dev": "concurrently -k \"next dev\" \"wait-on -t 60000 http-get://127.0.0.1:3000 && electron .\"",
     "desktop:build": "node scripts/build-freestanding-logo.js && next build && electron-builder --win",
     "desktop:build:mac": "node scripts/build-freestanding-logo.js && next build && electron-builder --mac",
     "dist": "npm run desktop:build"

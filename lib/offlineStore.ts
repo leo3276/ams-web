@@ -213,8 +213,55 @@ export async function flushOfflineTransactionsToSupabase(businessId: string): Pr
   return { syncedCount, failedCount: remaining.length };
 }
 
-// 7. Network Status Listener
+// 7. Suppliers & Creditor Debt Book Cache
+const KEY_SUPPLIERS = 'ams:cache_suppliers_v1';
+
+export function getCachedSuppliers(): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(KEY_SUPPLIERS);
+    return raw ? JSON.parse(raw) : [];
+  } catch (_e) {
+    return [];
+  }
+}
+
+export function setCachedSuppliers(items: any[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(items));
+  } catch (_e) {}
+}
+
+export function addCachedSupplier(s: any) {
+  const current = getCachedSuppliers();
+  const existingIdx = current.findIndex((item) => item.id === s.id);
+  let updated;
+  if (existingIdx >= 0) {
+    updated = [...current];
+    updated[existingIdx] = s;
+  } else {
+    updated = [s, ...current];
+  }
+  setCachedSuppliers(updated);
+  return updated;
+}
+
+export function updateCachedSupplierBalance(supplierId: string, deltaAmount: number) {
+  const current = getCachedSuppliers();
+  const updated = current.map((s) => {
+    if (s.id === supplierId) {
+      return { ...s, balance_owed: Math.max(0, Number(s.balance_owed || 0) + deltaAmount) };
+    }
+    return s;
+  });
+  setCachedSuppliers(updated);
+  return updated;
+}
+
+// 8. Network Status Listener
 export function isOnline(): boolean {
   if (typeof window === 'undefined') return true;
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
+

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
 
-export type MigrationCategory = 'inventory' | 'invoices' | 'assets' | 'customers' | 'transactions';
+export type MigrationCategory = 'inventory' | 'invoices' | 'assets' | 'customers' | 'transactions' | 'suppliers' | 'opening_balances' | 'payroll';
 
 interface FieldMapping {
   key: string;
@@ -75,6 +75,50 @@ const CATEGORY_CONFIG: Record<
       { key: 'notes', label: 'Location / Notes', required: false, type: 'text', matchedHeader: null },
     ],
   },
+  suppliers: {
+    label: 'Suppliers & Vendor Payables',
+    icon: '🏭',
+    description: 'Supplier directory, credit balances owed (Short-Term Liabilities), payment terms, and due dates.',
+    destination: 'Suppliers & Creditor Debt Book (suppliers)',
+    fields: [
+      { key: 'name', label: 'Supplier / Vendor Name', required: true, type: 'text', matchedHeader: null },
+      { key: 'phone', label: 'Phone / WhatsApp', required: false, type: 'text', matchedHeader: null },
+      { key: 'email', label: 'Email Address', required: false, type: 'text', matchedHeader: null },
+      { key: 'category', label: 'Category / Supply Type', required: false, type: 'text', matchedHeader: null },
+      { key: 'balance_owed', label: 'Outstanding Debt Owed (Short-Term Liability)', required: false, type: 'number', matchedHeader: null },
+      { key: 'payment_terms', label: 'Payment Terms (e.g. Net 30, COD)', required: false, type: 'text', matchedHeader: null },
+      { key: 'due_date', label: 'Payment Due Date (YYYY-MM-DD)', required: false, type: 'text', matchedHeader: null },
+      { key: 'notes', label: 'Location / Terms / Notes', required: false, type: 'text', matchedHeader: null },
+    ],
+  },
+  opening_balances: {
+    label: 'Opening Starting Balances',
+    icon: '🏦',
+    description: 'Starting cash in till, bank account balances, MoMo merchant wallets, owner equity, and start-up loans.',
+    destination: 'General Ledger Baseline (transactions & balance sheet)',
+    fields: [
+      { key: 'account_name', label: 'Account Name (Cash Till, GCB Bank, MoMo, Capital)', required: true, type: 'text', matchedHeader: null },
+      { key: 'account_type', label: 'Type (asset, liability, equity)', required: true, type: 'text', matchedHeader: null },
+      { key: 'amount', label: 'Opening Balance Amount', required: true, type: 'number', matchedHeader: null },
+      { key: 'as_of_date', label: 'As-Of Date (YYYY-MM-DD)', required: false, type: 'text', matchedHeader: null },
+      { key: 'notes', label: 'Bank Acc # / Description', required: false, type: 'text', matchedHeader: null },
+    ],
+  },
+  payroll: {
+    label: 'Staff Payroll & Employee Roster',
+    icon: '🧑‍🤝‍🧑',
+    description: 'Employee roster, monthly basic salaries, phone, role, Ghana Card / TIN, and SSNIT numbers.',
+    destination: 'Staff Payroll & Team Directory (business_members)',
+    fields: [
+      { key: 'name', label: 'Employee Full Name', required: true, type: 'text', matchedHeader: null },
+      { key: 'role', label: 'Role / Designation (Cashier, Manager, Accountant)', required: true, type: 'text', matchedHeader: null },
+      { key: 'salary', label: 'Monthly Basic Salary Amount', required: true, type: 'number', matchedHeader: null },
+      { key: 'phone', label: 'Phone Number / MoMo for Payroll', required: false, type: 'text', matchedHeader: null },
+      { key: 'email', label: 'Staff Email', required: false, type: 'text', matchedHeader: null },
+      { key: 'branch', label: 'Branch / Store Location', required: false, type: 'text', matchedHeader: null },
+      { key: 'ghana_card_tin', label: 'Ghana Card # / SSNIT / TIN', required: false, type: 'text', matchedHeader: null },
+    ],
+  },
   transactions: {
     label: 'General Ledger Expenses',
     icon: '📋',
@@ -91,7 +135,7 @@ const CATEGORY_CONFIG: Record<
 };
 
 const FUZZY_DICTIONARY: Record<string, string[]> = {
-  name: ['name', 'item', 'itemname', 'product', 'productname', 'description', 'desc', 'title', 'goods', 'asset', 'assetname', 'equipment'],
+  name: ['name', 'item', 'itemname', 'product', 'productname', 'description', 'desc', 'title', 'goods', 'asset', 'assetname', 'equipment', 'supplier', 'suppliername', 'employeename', 'staffname', 'fullname'],
   barcode: ['barcode', 'sku', 'code', 'itemcode', 'upc', 'ean', 'partnumber', 'serial', 'id'],
   quantity: ['quantity', 'qty', 'stock', 'available', 'units', 'count', 'qtyavailable', 'inventory', 'qtyonhand', 'pieces'],
   unit_cost: ['unitcost', 'cost', 'costprice', 'buyprice', 'buyingprice', 'purchaseprice', 'unitcostprice', 'costperunit', 'buying'],
@@ -101,18 +145,27 @@ const FUZZY_DICTIONARY: Record<string, string[]> = {
   customer_phone: ['phone', 'phonenumber', 'whatsapp', 'mobile', 'cell', 'tel', 'contact', 'momo', 'telephone'],
   phone: ['phone', 'phonenumber', 'whatsapp', 'mobile', 'cell', 'tel', 'contact', 'momo', 'telephone'],
   email: ['email', 'emailaddress', 'mail'],
-  amount: ['amount', 'invoicetotal', 'total', 'sum', 'value', 'grandtotal', 'netamount', 'cost', 'price'],
+  amount: ['amount', 'invoicetotal', 'total', 'sum', 'value', 'grandtotal', 'netamount', 'cost', 'price', 'balance', 'openingbalance'],
   cost: ['purchasecost', 'cost', 'costprice', 'value', 'amount', 'originalcost', 'price', 'purchaseprice', 'buyingcost'],
   due_date: ['duedate', 'due', 'expiry', 'paymentdue', 'date', 'invoicedate'],
   status: ['status', 'paymentstatus', 'state', 'paidstatus', 'condition'],
   description: ['description', 'desc', 'items', 'service', 'particulars', 'memo', 'notes', 'details'],
   balance: ['balance', 'debt', 'amountdue', 'outstanding', 'receivable', 'owed', 'totaldue', 'balanceowed'],
-  notes: ['notes', 'address', 'location', 'remarks', 'comment', 'memo'],
-  category: ['category', 'group', 'dept', 'classification', 'assetclass', 'type'],
+  balance_owed: ['balanceowed', 'debtowed', 'amountowed', 'payable', 'payables', 'supplierdebt', 'billdue', 'debt', 'balance'],
+  payment_terms: ['paymentterms', 'terms', 'term', 'creditperiod', 'creditdays', 'days'],
+  notes: ['notes', 'address', 'location', 'remarks', 'comment', 'memo', 'terms'],
+  category: ['category', 'group', 'dept', 'classification', 'assetclass', 'type', 'supplytype'],
   acquisition_date: ['purchasedate', 'acquisitiondate', 'date', 'acquired', 'boughton', 'startdate', 'installationdate'],
   serial_number: ['serialnumber', 'serial', 'chassis', 'tag', 'assetid', 'vin', 'serialno'],
   depreciation_rate: ['depreciationrate', 'depreciation', 'rate', 'depreciationpercent', 'depr', 'annualdepr'],
-  transaction_date: ['date', 'transactiondate', 'txdate', 'recordedat', 'day'],
+  transaction_date: ['date', 'transactiondate', 'txdate', 'recordedat', 'day', 'asofdate'],
+  as_of_date: ['asofdate', 'date', 'startdate', 'openingdate', 'statementdate'],
+  account_name: ['accountname', 'account', 'accountdescription', 'bankname', 'ledger', 'head'],
+  account_type: ['accounttype', 'type', 'class', 'acctype', 'classification'],
+  role: ['role', 'designation', 'position', 'jobtitle', 'title', 'department'],
+  salary: ['salary', 'basicsalary', 'monthlysalary', 'pay', 'wage', 'remuneration', 'amount'],
+  branch: ['branch', 'location', 'store', 'shop', 'outlet', 'site'],
+  ghana_card_tin: ['ghanacard', 'tin', 'ssnit', 'idnumber', 'nationalid', 'taxid'],
   vendor: ['vendor', 'party', 'client', 'payee', 'payer', 'particulars', 'description'],
   type: ['type', 'txtype', 'kind', 'flow', 'entrytype'],
 };
@@ -141,6 +194,9 @@ function autoClassifyHeaders(headers: string[]): { category: MigrationCategory; 
     inventory: { score: 0, reasons: [] },
     customers: { score: 0, reasons: [] },
     transactions: { score: 0, reasons: [] },
+    suppliers: { score: 0, reasons: [] },
+    opening_balances: { score: 0, reasons: [] },
+    payroll: { score: 0, reasons: [] },
   };
 
   // Check Invoices
@@ -174,13 +230,31 @@ function autoClassifyHeaders(headers: string[]): { category: MigrationCategory; 
   }
 
   // Check Customers
-  if (normHeaders.some((h) => ['customername', 'debt', 'amountdue', 'outstanding', 'balanceowed'].includes(h))) {
+  if (normHeaders.some((h) => ['customername', 'debt', 'amountdue', 'outstanding', 'balanceowed'].includes(h)) && !normHeaders.some((h) => ['supplier', 'vendor', 'payable'].includes(h))) {
     scores.customers.score += 5;
     scores.customers.reasons.push('Customer Debt / Balance');
   }
   if (normHeaders.some((h) => ['whatsapp', 'phonenumber', 'momo'].includes(h)) && !normHeaders.includes('unitprice')) {
     scores.customers.score += 3;
     scores.customers.reasons.push('Phone / WhatsApp contacts');
+  }
+
+  // Check Suppliers
+  if (normHeaders.some((h) => ['supplier', 'suppliername', 'vendor', 'vendorname', 'payable', 'payables', 'paymentterms'].includes(h))) {
+    scores.suppliers.score += 6;
+    scores.suppliers.reasons.push('Supplier / Vendor / Payables columns');
+  }
+
+  // Check Opening Balances
+  if (normHeaders.some((h) => ['accountname', 'openingbalance', 'asofdate', 'startingbalance', 'capital'].includes(h))) {
+    scores.opening_balances.score += 6;
+    scores.opening_balances.reasons.push('Opening Balance / Account Name columns');
+  }
+
+  // Check Staff Payroll
+  if (normHeaders.some((h) => ['employeename', 'staffname', 'salary', 'basicsalary', 'monthlysalary', 'ghanacard', 'ssnit', 'tin'].includes(h))) {
+    scores.payroll.score += 6;
+    scores.payroll.reasons.push('Staff Name / Salary / SSNIT columns');
   }
 
   // Check Transactions
@@ -622,6 +696,92 @@ export default function MigratePage() {
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Ledger Transactions' });
       }
 
+      // 6. SUPPLIERS & VENDOR PAYABLES (CREDITORS)
+      if (category === 'suppliers') {
+        const payload = validRecords.map((r: any) => ({
+          business_id: businessId,
+          name: r.name,
+          phone: r.phone || null,
+          email: r.email || null,
+          category: r.category || 'General Supplier',
+          balance_owed: r.balance_owed || 0,
+          payment_terms: r.payment_terms || 'Net 30',
+          due_date: r.due_date || null,
+          notes: r.notes || null,
+        }));
+
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const { error } = await supabase.from('suppliers').insert(chunk);
+          if (error) {
+            console.warn('Could not insert to Supabase suppliers, caching locally:', error.message);
+          }
+          setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
+        }
+
+        // Also save into local offline cache
+        try {
+          const existing = JSON.parse(localStorage.getItem('ams:cache_suppliers_v1') || '[]');
+          const merged = [...payload.map((p: any) => ({ ...p, id: crypto.randomUUID() })), ...existing];
+          localStorage.setItem('ams:cache_suppliers_v1', JSON.stringify(merged));
+        } catch (_e) {}
+
+        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Suppliers & Creditor Accounts' });
+      }
+
+      // 7. OPENING BALANCES
+      if (category === 'opening_balances') {
+        const payload = validRecords.map((r: any) => {
+          let txType = 'current_asset';
+          const typeLower = String(r.account_type || '').toLowerCase();
+          if (typeLower.includes('liability') || typeLower.includes('loan') || typeLower.includes('debt')) {
+            txType = 'short_term_liability';
+          } else if (typeLower.includes('equity') || typeLower.includes('capital')) {
+            txType = 'revenue';
+          } else if (typeLower.includes('fixed') || typeLower.includes('asset')) {
+            txType = 'fixed_asset';
+          }
+
+          return {
+            business_id: businessId,
+            transaction_date: r.as_of_date || new Date().toISOString().split('T')[0],
+            vendor: `Opening Balance: ${r.account_name}`,
+            type: txType,
+            category: 'Opening Balances',
+            amount: r.amount,
+            payment_method: r.account_name?.toLowerCase().includes('bank') ? 'bank' : 'cash',
+          };
+        });
+
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const { error } = await supabase.from('transactions').insert(chunk);
+          if (error) throw error;
+          setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
+        }
+
+        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Opening Balance Accounts' });
+      }
+
+      // 8. STAFF PAYROLL & ROSTER
+      if (category === 'payroll') {
+        const payload = validRecords.map((r: any) => ({
+          business_id: businessId,
+          user_id: null,
+          role: r.role ? r.role.toLowerCase() : 'employee',
+          created_at: new Date().toISOString(),
+          // Store extended info in notes/members
+        }));
+
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          await supabase.from('business_members').insert(chunk);
+          setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
+        }
+
+        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Staff Members & Payroll' });
+      }
+
       setImportProgress(100);
     } catch (err: any) {
       setErrorMsg('Import failed: ' + (err.message || 'Database error occurred.'));
@@ -659,6 +819,27 @@ export default function MigratePage() {
       sampleData = [
         { 'Customer Name': 'Kwame Mensah', 'Phone Number': '0244123456', 'Email': 'kwame@example.com', 'Outstanding Debt': 450.0, 'Address / Location': 'Osu Oxford Street' },
         { 'Customer Name': 'Akosua Serwaa', 'Phone Number': '0559876543', 'Email': '', 'Outstanding Debt': 1200.0, 'Address / Location': 'Madina Market' },
+      ];
+    } else if (type === 'suppliers') {
+      tFileName = 'AMS_Suppliers_Creditors_Template.xlsx';
+      sampleData = [
+        { 'Supplier / Vendor Name': 'Multi-Pro Distribution Ghana', 'Phone / WhatsApp': '0244987654', 'Email': 'orders@multipro.com', 'Category': 'Inventory Goods', 'Outstanding Debt Owed': 8500.0, 'Payment Terms': 'Net 30', 'Payment Due Date': '2026-09-15', 'Notes': 'Tema warehouse warehouse deliver' },
+        { 'Supplier / Vendor Name': 'FanMilk Ghana PLC', 'Phone / WhatsApp': '0302123456', 'Email': 'sales@fanmilk.com', 'Category': 'Frozen Goods', 'Outstanding Debt Owed': 2400.0, 'Payment Terms': 'Net 14', 'Payment Due Date': '2026-08-30', 'Notes': 'Ice cream distributor' },
+      ];
+    } else if (type === 'opening_balances') {
+      tFileName = 'AMS_Opening_Balances_Template.xlsx';
+      sampleData = [
+        { 'Account Name': 'Shop Cash in Till', 'Type': 'asset', 'Opening Balance Amount': 15000.0, 'As-Of Date': '2026-01-01', 'Bank Acc # / Description': 'Starting physical cash float' },
+        { 'Account Name': 'GCB Business Checking Account', 'Type': 'asset', 'Opening Balance Amount': 48500.0, 'As-Of Date': '2026-01-01', 'Bank Acc # / Description': 'Acc # 1029384756' },
+        { 'Account Name': 'MTN MoMo Merchant Wallet', 'Type': 'asset', 'Opening Balance Amount': 8200.0, 'As-Of Date': '2026-01-01', 'Bank Acc # / Description': 'Till # 894210' },
+        { 'Account Name': 'Owner Initial Capital / Equity', 'Type': 'equity', 'Opening Balance Amount': 60000.0, 'As-Of Date': '2026-01-01', 'Bank Acc # / Description': 'Starting owner investment' },
+        { 'Account Name': 'SME Startup Bank Loan', 'Type': 'liability', 'Opening Balance Amount': 11700.0, 'As-Of Date': '2026-01-01', 'Bank Acc # / Description': '12-month commercial loan' },
+      ];
+    } else if (type === 'payroll') {
+      tFileName = 'AMS_Staff_Payroll_Template.xlsx';
+      sampleData = [
+        { 'Employee Full Name': 'Emmanuel Tetteh', 'Role / Designation': 'Cashier', 'Monthly Basic Salary Amount': 1800.0, 'Phone Number': '0244112233', 'Staff Email': 'emmanuel@store.com', 'Branch / Store Location': 'Main Branch', 'Ghana Card # / SSNIT / TIN': 'GHA-72619024-1' },
+        { 'Employee Full Name': 'Grace Asante', 'Role / Designation': 'Store Manager', 'Monthly Basic Salary Amount': 3200.0, 'Phone Number': '0559988776', 'Staff Email': 'grace@store.com', 'Branch / Store Location': 'Main Branch', 'Ghana Card # / SSNIT / TIN': 'GHA-99281726-3' },
       ];
     } else if (type === 'transactions') {
       tFileName = 'AMS_General_Ledger_Template.xlsx';
@@ -1014,6 +1195,34 @@ export default function MigratePage() {
                         <th className="p-3">Notes</th>
                       </>
                     )}
+                    {category === 'suppliers' && (
+                      <>
+                        <th className="p-3">Supplier Name</th>
+                        <th className="p-3">Phone / WhatsApp</th>
+                        <th className="p-3">Category</th>
+                        <th className="p-3 text-right">Debt Owed (Liability)</th>
+                        <th className="p-3">Payment Terms</th>
+                        <th className="p-3">Due Date</th>
+                      </>
+                    )}
+                    {category === 'opening_balances' && (
+                      <>
+                        <th className="p-3">Account Name</th>
+                        <th className="p-3">Account Type</th>
+                        <th className="p-3 text-right">Opening Amount</th>
+                        <th className="p-3">As-Of Date</th>
+                        <th className="p-3">Notes</th>
+                      </>
+                    )}
+                    {category === 'payroll' && (
+                      <>
+                        <th className="p-3">Employee Name</th>
+                        <th className="p-3">Role / Designation</th>
+                        <th className="p-3 text-right">Monthly Salary</th>
+                        <th className="p-3">Phone</th>
+                        <th className="p-3">Ghana Card / SSNIT</th>
+                      </>
+                    )}
                     {category === 'transactions' && (
                       <>
                         <th className="p-3">Date</th>
@@ -1084,6 +1293,37 @@ export default function MigratePage() {
                         </>
                       )}
 
+                      {category === 'suppliers' && (
+                        <>
+                          <td className="p-3 text-textPrimary font-bold">{r.name}</td>
+                          <td className="p-3 text-textSecondary font-mono text-[11px]">{r.phone || '—'}</td>
+                          <td className="p-3 text-textSecondary">{r.category || 'General'}</td>
+                          <td className="p-3 text-right font-black text-red-500">{currency} {Number(r.balance_owed || 0).toFixed(2)}</td>
+                          <td className="p-3 text-textSecondary">{r.payment_terms || 'Net 30'}</td>
+                          <td className="p-3 text-textSecondary">{r.due_date || '—'}</td>
+                        </>
+                      )}
+
+                      {category === 'opening_balances' && (
+                        <>
+                          <td className="p-3 text-textPrimary font-bold">{r.account_name}</td>
+                          <td className="p-3 text-textSecondary uppercase font-mono text-[10px]">{r.account_type}</td>
+                          <td className="p-3 text-right font-black text-emerald-400">{currency} {Number(r.amount || 0).toFixed(2)}</td>
+                          <td className="p-3 text-textSecondary">{r.as_of_date || '—'}</td>
+                          <td className="p-3 text-textSecondary">{r.notes || '—'}</td>
+                        </>
+                      )}
+
+                      {category === 'payroll' && (
+                        <>
+                          <td className="p-3 text-textPrimary font-bold">{r.name}</td>
+                          <td className="p-3 text-textSecondary">{r.role}</td>
+                          <td className="p-3 text-right font-black text-textPrimary">{currency} {Number(r.salary || 0).toFixed(2)}</td>
+                          <td className="p-3 text-textSecondary font-mono text-[11px]">{r.phone || '—'}</td>
+                          <td className="p-3 text-textSecondary font-mono text-[11px]">{r.ghana_card_tin || '—'}</td>
+                        </>
+                      )}
+
                       {category === 'transactions' && (
                         <>
                           <td className="p-3 text-textSecondary">{r.transaction_date}</td>
@@ -1138,6 +1378,102 @@ export default function MigratePage() {
           </div>
         </div>
       )}
+
+      {/* UNIVERSAL FINANCIAL DOCUMENT EXPORTATION HUB */}
+      <div className="bg-surface1 border border-border p-6 rounded-2xl space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📊</span>
+              <h3 className="text-base font-black text-textPrimary tracking-tight">Universal Financial Document Exportation Hub</h3>
+            </div>
+            <p className="text-xs text-textSecondary mt-0.5">
+              Export complete structured accounting schedules, debt registries, and general ledger packs formatted for Excel, CSV, and audits.
+            </p>
+          </div>
+          <Link
+            href="/reports"
+            className="px-4 py-2 text-xs font-bold bg-surface2 hover:bg-surface0 border border-border text-textPrimary rounded-xl transition self-start sm:self-auto flex items-center gap-1.5"
+          >
+            <span>📈 View Full Financial Reports →</span>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+          <div className="p-4 rounded-xl bg-surface2 border border-border flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">🏭</span>
+                <h4 className="text-xs font-bold text-textPrimary">Accounts Payable (Creditors)</h4>
+              </div>
+              <p className="text-[11px] text-textSecondary mb-3">
+                Full supplier payables, overdue debt schedules, and vendor terms.
+              </p>
+            </div>
+            <Link
+              href="/suppliers"
+              className="py-1.5 px-3 text-center text-xs font-bold rounded-lg bg-surface0 border border-border text-textPrimary hover:border-emerald-500 transition"
+            >
+              Export AP Ledger 📥
+            </Link>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface2 border border-border flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">👥</span>
+                <h4 className="text-xs font-bold text-textPrimary">Accounts Receivable (Debtors)</h4>
+              </div>
+              <p className="text-[11px] text-textSecondary mb-3">
+                Customer debt registry, payment history, and collection schedules.
+              </p>
+            </div>
+            <Link
+              href="/customers"
+              className="py-1.5 px-3 text-center text-xs font-bold rounded-lg bg-surface0 border border-border text-textPrimary hover:border-emerald-500 transition"
+            >
+              Export AR Ledger 📥
+            </Link>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface2 border border-border flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">📋</span>
+                <h4 className="text-xs font-bold text-textPrimary">General Ledger Cashbook</h4>
+              </div>
+              <p className="text-[11px] text-textSecondary mb-3">
+                Complete historical revenue, COGS, operating costs, and asset cash entries.
+              </p>
+            </div>
+            <Link
+              href="/bookkeeping"
+              className="py-1.5 px-3 text-center text-xs font-bold rounded-lg bg-surface0 border border-border text-textPrimary hover:border-emerald-500 transition"
+            >
+              Export Ledger CSV 📥
+            </Link>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface2 border border-border flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">🏛️</span>
+                <h4 className="text-xs font-bold text-textPrimary">GRA Tax & Audit Schedule</h4>
+              </div>
+              <p className="text-[11px] text-textSecondary mb-3">
+                GRA Flat Rate & Standard VAT summaries with input/output computation.
+              </p>
+            </div>
+            <Link
+              href="/tax"
+              className="py-1.5 px-3 text-center text-xs font-bold rounded-lg bg-surface0 border border-border text-textPrimary hover:border-emerald-500 transition"
+            >
+              Export Tax Filing 📥
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+

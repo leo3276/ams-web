@@ -70,3 +70,30 @@ export interface CustomerSummary {
   total_outstanding: number;
   last_invoice_date: string | null;
 }
+
+export interface Supplier {
+  id: string;
+  business_id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  category?: string | null;
+  balance_owed: number; // Short-Term Liability (Accounts Payable)
+  payment_terms?: string | null;
+  due_date?: string | null;
+  notes?: string | null;
+  created_at?: string;
+}
+
+export interface SupplierTransaction {
+  id: string;
+  business_id: string;
+  supplier_id: string;
+  type: 'bill' | 'payment'; // 'bill' increases debt, 'payment' decreases debt
+  amount: number;
+  reference?: string | null;
+  notes?: string | null;
+  transaction_date: string;
+  created_at?: string;
+}
+

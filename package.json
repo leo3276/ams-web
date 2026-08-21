@@ -1,7 +1,7 @@
 {
   "name": "ams-desktop",
   "productName": "AMS Accounting",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "description": "AMS - Accounting Made Simple Native Desktop Workstation for Small & Medium Businesses",
   "main": "electron/main.js",

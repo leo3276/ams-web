@@ -145,40 +145,40 @@ const CATEGORY_CONFIG: Record<
 };
 
 const FUZZY_DICTIONARY: Record<string, string[]> = {
-  name: ['name', 'item', 'itemname', 'product', 'productname', 'description', 'desc', 'title', 'goods', 'asset', 'assetname', 'equipment', 'supplier', 'suppliername', 'employeename', 'staffname', 'fullname', 'clientname'],
-  barcode: ['barcode', 'sku', 'code', 'itemcode', 'upc', 'ean', 'partnumber', 'serial', 'id'],
-  quantity: ['quantity', 'qty', 'stock', 'available', 'units', 'count', 'qtyavailable', 'inventory', 'qtyonhand', 'pieces', 'balance'],
-  unit_cost: ['unitcost', 'cost', 'costprice', 'buyprice', 'buyingprice', 'purchaseprice', 'unitcostprice', 'costperunit', 'buying'],
-  unit_price: ['unitprice', 'price', 'sellingprice', 'sellprice', 'retail', 'salesprice', 'retailprice', 'amount', 'selling', 'rate'],
-  invoice_number: ['invoicenumber', 'invnumber', 'invno', 'invoiceno', 'billno', 'number', 'ref', 'reference', 'receiptno', 'invoiceid'],
-  customer_name: ['customername', 'customer', 'client', 'clientname', 'billto', 'account', 'payer', 'party', 'buyer'],
-  customer_phone: ['phone', 'phonenumber', 'whatsapp', 'mobile', 'cell', 'tel', 'contact', 'momo', 'telephone'],
-  customer_email: ['customeremail', 'clientemail', 'email', 'emailaddress', 'mail'],
-  phone: ['phone', 'phonenumber', 'whatsapp', 'mobile', 'cell', 'tel', 'contact', 'momo', 'telephone'],
-  email: ['email', 'emailaddress', 'mail'],
-  amount: ['amount', 'invoicetotal', 'total', 'sum', 'value', 'grandtotal', 'netamount', 'cost', 'price', 'balance', 'openingbalance'],
-  cost: ['purchasecost', 'cost', 'costprice', 'value', 'amount', 'originalcost', 'price', 'purchaseprice', 'buyingcost'],
-  due_date: ['duedate', 'due', 'expiry', 'paymentdue', 'date', 'invoicedate'],
-  status: ['status', 'paymentstatus', 'state', 'paidstatus', 'condition'],
-  description: ['description', 'desc', 'items', 'service', 'particulars', 'memo', 'notes', 'details'],
-  balance: ['balance', 'debt', 'amountdue', 'outstanding', 'receivable', 'owed', 'totaldue', 'balanceowed'],
-  balance_owed: ['balanceowed', 'debtowed', 'amountowed', 'payable', 'payables', 'supplierdebt', 'billdue', 'debt', 'balance'],
-  payment_terms: ['paymentterms', 'terms', 'term', 'creditperiod', 'creditdays', 'days'],
-  notes: ['notes', 'address', 'location', 'remarks', 'comment', 'memo', 'terms'],
-  category: ['category', 'group', 'dept', 'classification', 'assetclass', 'type', 'supplytype'],
-  acquisition_date: ['purchasedate', 'acquisitiondate', 'date', 'acquired', 'boughton', 'startdate', 'installationdate'],
-  serial_number: ['serialnumber', 'serial', 'chassis', 'tag', 'assetid', 'vin', 'serialno'],
-  depreciation_rate: ['depreciationrate', 'depreciation', 'rate', 'depreciationpercent', 'depr', 'annualdepr'],
-  transaction_date: ['date', 'transactiondate', 'txdate', 'recordedat', 'day', 'asofdate'],
-  as_of_date: ['asofdate', 'date', 'startdate', 'openingdate', 'statementdate'],
-  account_name: ['accountname', 'account', 'accountdescription', 'bankname', 'ledger', 'head'],
-  account_type: ['accounttype', 'type', 'class', 'acctype', 'classification'],
-  role: ['role', 'designation', 'position', 'jobtitle', 'title', 'department'],
-  salary: ['salary', 'basicsalary', 'monthlysalary', 'pay', 'wage', 'remuneration', 'amount'],
-  branch: ['branch', 'location', 'store', 'shop', 'outlet', 'site'],
-  ghana_card_tin: ['ghanacard', 'tin', 'ssnit', 'idnumber', 'nationalid', 'taxid'],
-  vendor: ['vendor', 'party', 'client', 'payee', 'payer', 'particulars', 'description'],
-  type: ['type', 'txtype', 'kind', 'flow', 'entrytype'],
+  name: ['itemname', 'productname', 'description', 'suppliername', 'employeename', 'staffname', 'fullname', 'clientname', 'customername', 'name', 'item', 'product', 'desc', 'title', 'goods', 'asset', 'equipment', 'supplier', 'vendor'],
+  barcode: ['barcode', 'sku', 'itemcode', 'upc', 'ean', 'partnumber', 'code', 'serial', 'id'],
+  quantity: ['qtyavailable', 'qtyonhand', 'stockquantity', 'quantity', 'qty', 'stock', 'available', 'units', 'count', 'inventory', 'pieces'],
+  unit_cost: ['unitcostprice', 'buyingprice', 'purchaseprice', 'unitcost', 'costprice', 'buyprice', 'buyingcost', 'costperunit', 'cost', 'buying'],
+  unit_price: ['unitsellingprice', 'sellingprice', 'retailprice', 'salesprice', 'unitprice', 'sellprice', 'retail', 'selling', 'rate', 'price', 'amount'],
+  invoice_number: ['invoicenumber', 'invnumber', 'invoiceno', 'billno', 'receiptno', 'invoiceid', 'invno', 'number', 'ref', 'reference'],
+  customer_name: ['customername', 'clientname', 'customer', 'client', 'billto', 'account', 'payer', 'party', 'buyer'],
+  customer_phone: ['customerphone', 'clientphone', 'phonenumber', 'whatsapp', 'mobile', 'cell', 'tel', 'contact', 'momo', 'phone'],
+  customer_email: ['customeremail', 'clientemail', 'emailaddress', 'email', 'mail'],
+  phone: ['phonenumber', 'whatsapp', 'mobile', 'cell', 'tel', 'contact', 'momo', 'telephone', 'phone'],
+  email: ['emailaddress', 'staffemail', 'useremail', 'email', 'mail'],
+  amount: ['invoicetotal', 'grandtotal', 'netamount', 'openingbalance', 'totalamount', 'amount', 'total', 'sum', 'value', 'price'],
+  cost: ['purchasecost', 'originalcost', 'buyingcost', 'costprice', 'purchaseprice', 'cost', 'value', 'price'],
+  due_date: ['paymentdue', 'invoicedate', 'duedate', 'due', 'expiry', 'date'],
+  status: ['paymentstatus', 'paidstatus', 'status', 'state', 'condition'],
+  description: ['description', 'particulars', 'desc', 'items', 'service', 'memo', 'notes', 'details'],
+  balance: ['outstandingbalance', 'receivablebalance', 'amountdue', 'outstanding', 'receivable', 'balanceowed', 'totaldue', 'balance', 'debt', 'owed'],
+  balance_owed: ['balanceowed', 'debtowed', 'amountowed', 'supplierdebt', 'billdue', 'payable', 'payables', 'debt', 'balance'],
+  payment_terms: ['paymentterms', 'creditperiod', 'creditdays', 'terms', 'term', 'days'],
+  notes: ['location', 'address', 'remarks', 'comment', 'notes', 'memo', 'terms'],
+  category: ['assetclass', 'supplytype', 'classification', 'category', 'group', 'dept', 'type'],
+  acquisition_date: ['purchasedate', 'acquisitiondate', 'installationdate', 'boughton', 'startdate', 'acquired', 'date'],
+  serial_number: ['serialnumber', 'chassis', 'assetid', 'serialno', 'serial', 'tag', 'vin'],
+  depreciation_rate: ['depreciationrate', 'depreciationpercent', 'annualdepr', 'depreciation', 'depr', 'rate'],
+  transaction_date: ['transactiondate', 'asofdate', 'recordedat', 'txdate', 'date', 'day'],
+  as_of_date: ['openingdate', 'statementdate', 'asofdate', 'startdate', 'date'],
+  account_name: ['accountname', 'accountdescription', 'bankname', 'account', 'ledger', 'head'],
+  account_type: ['accounttype', 'acctype', 'classification', 'type', 'class'],
+  role: ['jobtitle', 'designation', 'position', 'role', 'title', 'department'],
+  salary: ['basicsalary', 'monthlysalary', 'remuneration', 'salary', 'pay', 'wage', 'amount'],
+  branch: ['branchlocation', 'storelocation', 'location', 'branch', 'store', 'shop', 'outlet', 'site'],
+  ghana_card_tin: ['ghanacard', 'ssnit', 'idnumber', 'nationalid', 'taxid', 'tin'],
+  vendor: ['particulars', 'payee', 'payer', 'vendor', 'party', 'client', 'description'],
+  type: ['txtype', 'entrytype', 'kind', 'flow', 'type'],
 };
 
 function normalizeStr(str: string): string {
@@ -188,11 +188,62 @@ function normalizeStr(str: string): string {
 }
 
 function cleanNumber(val: any): number {
-  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (typeof val === 'number') {
+    if (isNaN(val) || !isFinite(val)) return 0;
+    return Math.min(999999999, Math.max(-999999999, val));
+  }
   if (!val) return 0;
   const cleaned = String(val).replace(/[^0-9.-]/g, '');
   const parsed = parseFloat(cleaned);
-  return isNaN(parsed) ? 0 : parsed;
+  if (isNaN(parsed) || !isFinite(parsed)) return 0;
+  return Math.min(999999999, Math.max(-999999999, parsed));
+}
+
+// Convert Excel serial dates (e.g. 45663.999), timestamps, or diverse date strings to YYYY-MM-DD
+function cleanDate(val: any): string {
+  if (!val) return new Date().toISOString().split('T')[0];
+
+  const num = Number(val);
+  if (!isNaN(num) && num > 1000 && num < 100000 && !String(val).includes('-') && !String(val).includes('/')) {
+    // Excel base date is 1899-12-30
+    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+  }
+
+  const str = String(val).trim();
+  if (str.includes('/') || str.includes('.')) {
+    const parts = str.split(/[\/\.]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      if (parts[2].length === 4) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year = parts[2];
+        if (month <= 12 && day <= 31) {
+          return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+      }
+    }
+  }
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+
+  return new Date().toISOString().split('T')[0];
+}
+
+// Convert depreciation percentage (e.g. 20%) into fractional rate (0.20) for PostgreSQL numeric(2,2)
+function cleanDepreciationRate(val: any): number {
+  const num = cleanNumber(val);
+  if (num <= 0) return 0.20;
+  if (num > 1) return Math.min(0.99, Math.round((num / 100) * 100) / 100);
+  return Math.min(0.99, Math.round(num * 100) / 100);
 }
 
 // AI Auto-Classification: Inspects headers and identifies what category the sheet belongs to
@@ -564,7 +615,7 @@ export default function MigratePage() {
         const custPhone = String(row[keyToHeader.customer_phone || ''] || '').trim();
         const custEmail = String(row[keyToHeader.customer_email || ''] || '').trim();
         const amount = cleanNumber(row[keyToHeader.amount || '']);
-        const dueDate = String(row[keyToHeader.due_date || ''] || '').trim() || new Date().toISOString().slice(0, 10);
+        const dueDate = cleanDate(row[keyToHeader.due_date || '']);
         const rawStatus = String(row[keyToHeader.status || ''] || '').toLowerCase();
         const status = rawStatus.includes('paid') || rawStatus.includes('settled') ? 'paid' : rawStatus.includes('draft') ? 'draft' : 'sent';
         const description = String(row[keyToHeader.description || ''] || '').trim();
@@ -588,9 +639,9 @@ export default function MigratePage() {
         const name = String(row[keyToHeader.name || ''] || '').trim();
         const assetClass = String(row[keyToHeader.category || ''] || '').trim() || 'Machinery & Equipment';
         const cost = cleanNumber(row[keyToHeader.cost || '']);
-        const acqDate = String(row[keyToHeader.acquisition_date || ''] || '').trim() || new Date().toISOString().slice(0, 10);
+        const acqDate = cleanDate(row[keyToHeader.acquisition_date || '']);
         const serial = String(row[keyToHeader.serial_number || ''] || '').trim();
-        const deprRate = cleanNumber(row[keyToHeader.depreciation_rate || '']) || 20;
+        const deprRate = cleanDepreciationRate(row[keyToHeader.depreciation_rate || '']);
 
         return {
           _id: index,
@@ -635,7 +686,7 @@ export default function MigratePage() {
         const cat = String(row[keyToHeader.category || ''] || '').trim() || 'Inventory Goods';
         const balance = cleanNumber(row[keyToHeader.balance_owed || '']);
         const terms = String(row[keyToHeader.payment_terms || ''] || '').trim() || 'Net 30';
-        const dueDate = String(row[keyToHeader.due_date || ''] || '').trim() || null;
+        const dueDate = row[keyToHeader.due_date || ''] ? cleanDate(row[keyToHeader.due_date || '']) : null;
         const notes = String(row[keyToHeader.notes || ''] || '').trim();
 
         return {
@@ -657,7 +708,7 @@ export default function MigratePage() {
         const accountName = String(row[keyToHeader.account_name || ''] || '').trim();
         const accountType = String(row[keyToHeader.account_type || ''] || '').trim() || 'asset';
         const amount = cleanNumber(row[keyToHeader.amount || '']);
-        const asOfDate = String(row[keyToHeader.as_of_date || ''] || '').trim() || new Date().toISOString().slice(0, 10);
+        const asOfDate = cleanDate(row[keyToHeader.as_of_date || '']);
         const notes = String(row[keyToHeader.notes || ''] || '').trim();
 
         return {
@@ -696,10 +747,10 @@ export default function MigratePage() {
 
       // 8. TRANSACTIONS
       if (category === 'transactions') {
-        const date = String(row[keyToHeader.transaction_date || ''] || '').trim() || new Date().toISOString().slice(0, 10);
+        const date = cleanDate(row[keyToHeader.transaction_date || '']);
         const vendor = String(row[keyToHeader.vendor || ''] || '').trim();
         const rawType = String(row[keyToHeader.type || ''] || '').toLowerCase();
-        const type = rawType.includes('rev') || rawType.includes('inc') || rawType.includes('sale') ? 'revenue' : 'expense';
+        const type = rawType.includes('rev') || rawType.includes('inc') || rawType.includes('sale') ? 'revenue' : 'operating_expense';
         const amount = cleanNumber(row[keyToHeader.amount || '']);
         const cat = String(row[keyToHeader.category || ''] || '').trim() || 'General Operations';
 
@@ -803,7 +854,7 @@ export default function MigratePage() {
           business_id: businessId,
           transaction_date: r.acquisition_date,
           vendor: `Fixed Asset: ${r.name} (${r.category})`,
-          type: 'expense',
+          type: 'fixed_asset',
           category: `Fixed Assets - ${r.category}`,
           amount: r.cost,
           payment_method: 'bank',
@@ -863,13 +914,13 @@ export default function MigratePage() {
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Customer Accounts' });
       }
 
-      // 5. TRANSACTIONS
+      // 5. TRANSACTIONS (GENERAL LEDGER)
       if (category === 'transactions') {
         const payload = validRecords.map((r: any) => ({
           business_id: businessId,
           transaction_date: r.transaction_date,
           vendor: r.vendor,
-          type: r.type,
+          type: r.type === 'revenue' ? 'revenue' : 'operating_expense',
           category: r.category,
           amount: r.amount,
           payment_method: 'cash',
@@ -947,7 +998,7 @@ export default function MigratePage() {
 
           return {
             business_id: businessId,
-            transaction_date: r.as_of_date || new Date().toISOString().split('T')[0],
+            transaction_date: r.as_of_date,
             vendor: `Opening Balance: ${r.account_name}`,
             type: txType,
             category: 'Opening Balances',
@@ -1504,7 +1555,7 @@ export default function MigratePage() {
                           <td className="p-3 text-textSecondary">{r.category}</td>
                           <td className="p-3 text-textSecondary">{r.acquisition_date}</td>
                           <td className="p-3 text-right font-black text-textPrimary">{currency} {r.cost.toFixed(2)}</td>
-                          <td className="p-3 text-right text-emerald-400 font-bold">{r.depreciation_rate}% / yr</td>
+                          <td className="p-3 text-right text-emerald-400 font-bold">{(r.depreciation_rate * 100).toFixed(0)}% / yr</td>
                         </>
                       )}
 
@@ -1555,7 +1606,7 @@ export default function MigratePage() {
                           <td className="p-3 text-textPrimary font-bold">{r.vendor}</td>
                           <td className="p-3">
                             <span className={`px-2 py-0.5 text-[10px] font-black rounded uppercase ${r.type === 'revenue' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                              {r.type}
+                              {r.type === 'revenue' ? 'Revenue' : 'Expense'}
                             </span>
                           </td>
                           <td className="p-3 text-right font-black text-textPrimary">{currency} {r.amount.toFixed(2)}</td>

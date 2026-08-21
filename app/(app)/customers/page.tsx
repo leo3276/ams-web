@@ -5,6 +5,14 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { CustomerSummary, Invoice } from '@/lib/types';
 import { printCustomerStatementPDF } from '@/lib/pdfGenerator';
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedCustomers,
+  setCachedCustomers,
+  getCachedInvoices,
+  setCachedInvoices,
+} from '@/lib/offlineStore';
 
 function initials(name: string) {
   return name
@@ -16,9 +24,9 @@ function initials(name: string) {
 }
 
 export default function CustomersPage() {
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState('My Business');
   const [currency, setCurrency] = useState('GHS');
-  const [businessId, setBusinessId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,48 +38,60 @@ export default function CustomersPage() {
   const [filterTab, setFilterTab] = useState<'all' | 'debt' | 'paid'>('all');
 
   const loadCustomers = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
+    // 1. Instantly load from local cache
+    const cachedBiz = getCachedBusiness();
+    if (cachedBiz) {
+      setBusinessId(cachedBiz.id);
+      setBusinessName(cachedBiz.name);
+      setCurrency(cachedBiz.currency || 'GHS');
     }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, name, currency')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const business = businesses?.[0];
-    if (!business) {
-      setErrorMsg('No business found for this account yet.');
-      setLoading(false);
-      return;
+    const cachedCust = getCachedCustomers();
+    if (cachedCust.length > 0) {
+      setCustomers(cachedCust);
     }
-
-    setBusinessId(business.id);
-    setBusinessName(business.name);
-    setCurrency(business.currency || 'GHS');
-
-    const [summaryRes, invoicesRes] = await Promise.all([
-      supabase.rpc('get_customer_summary', { p_business_id: business.id }),
-      supabase.from('invoices').select('*').eq('business_id', business.id).order('created_at', { ascending: false }),
-    ]);
-
-    if (summaryRes.error) {
-      setErrorMsg(summaryRes.error.message);
-    } else {
-      setCustomers(summaryRes.data ?? []);
+    const cachedInvs = getCachedInvoices();
+    if (cachedInvs.length > 0) {
+      setAllInvoices(cachedInvs);
     }
-
-    setAllInvoices(invoicesRes.data ?? []);
     setLoading(false);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) return;
+
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, name, currency')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      const business = businesses?.[0];
+      if (!business) return;
+
+      setBusinessId(business.id);
+      setBusinessName(business.name);
+      setCurrency(business.currency || 'GHS');
+      setCachedBusiness({ id: business.id, name: business.name, currency: business.currency || 'GHS' });
+
+      const [summaryRes, invoicesRes] = await Promise.all([
+        supabase.rpc('get_customer_summary', { p_business_id: business.id }),
+        supabase.from('invoices').select('*').eq('business_id', business.id).order('created_at', { ascending: false }),
+      ]);
+
+      if (summaryRes.data) {
+        setCustomers(summaryRes.data);
+        setCachedCustomers(summaryRes.data);
+      }
+
+      if (invoicesRes.data) {
+        setAllInvoices(invoicesRes.data);
+        setCachedInvoices(invoicesRes.data as any);
+      }
+    } catch (_e) {
+      // offline mode operates on cache
+    }
   }, []);
 
   useEffect(() => {

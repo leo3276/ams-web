@@ -26,6 +26,8 @@ function emptyRow(): Row {
   };
 }
 
+import { getCachedBusiness, setCachedBusiness, getCachedInventory, setCachedInventory } from '@/lib/offlineStore';
+
 export default function InventoryPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [currency, setCurrency] = useState('GHS');
@@ -72,58 +74,68 @@ export default function InventoryPage() {
   const lastKeyTimeRef = useRef<number>(0);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
+    // 1. Instantly load local cache
+    const cachedBiz = getCachedBusiness();
+    if (cachedBiz) {
+      setBusinessId(cachedBiz.id);
+      setCurrency(cachedBiz.currency || 'GHS');
     }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, currency')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const b = businesses?.[0];
-    if (!b) {
-      setErrorMsg('No business found for this account yet.');
-      setLoading(false);
-      return;
+    const cachedInv = getCachedInventory();
+    if (cachedInv.length > 0) {
+      setRows([
+        emptyRow(),
+        ...cachedInv.map((item) => ({
+          ...item,
+          _localId: item.id,
+          _lastSavedQuantity: Number(item.quantity || 0),
+        })),
+      ]);
     }
-    setBusinessId(b.id);
-    setCurrency(b.currency || 'GHS');
-
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .eq('business_id', b.id)
-      .order('name', { ascending: true });
-
-    if (error) {
-      setErrorMsg(error.message);
-      setLoading(false);
-      return;
-    }
-
-    const loadedRows: Row[] = (data ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      barcode: item.barcode || '',
-      quantity: Number(item.quantity),
-      unit_cost: Number(item.unit_cost),
-      unit_price: Number(item.unit_price),
-      _localId: item.id,
-      _lastSavedQuantity: Number(item.quantity),
-    }));
-
-    setRows([emptyRow(), ...loadedRows]);
     setLoading(false);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) return;
+
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, currency')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      const b = businesses?.[0];
+      if (!b) return;
+
+      setBusinessId(b.id);
+      setCurrency(b.currency || 'GHS');
+      setCachedBusiness({ id: b.id, name: 'My Business', currency: b.currency || 'GHS' });
+
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .eq('business_id', b.id)
+        .order('name', { ascending: true });
+
+      if (!error && data) {
+        const loadedRows: Row[] = data.map((item) => ({
+          id: item.id,
+          name: item.name,
+          barcode: item.barcode || '',
+          quantity: Number(item.quantity),
+          unit_cost: Number(item.unit_cost),
+          unit_price: Number(item.unit_price),
+          _localId: item.id,
+          _lastSavedQuantity: Number(item.quantity),
+        }));
+
+        setRows([emptyRow(), ...loadedRows]);
+        setCachedInventory(data as any);
+      }
+    } catch (_e) {
+      // offline mode operates on cache
+    }
   }, []);
 
   useEffect(() => {

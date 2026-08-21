@@ -4,6 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Transaction, TransactionType, TRANSACTION_TYPE_OPTIONS } from '@/lib/types';
 import { printBookkeepingLedgerPDF } from '@/lib/pdfGenerator';
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedTransactions,
+  setCachedTransactions,
+  saveOfflineTransaction,
+} from '@/lib/offlineStore';
 
 interface Row extends Partial<Transaction> {
   _localId: string;
@@ -33,59 +40,67 @@ export default function BookkeepingPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Search & Type Filters
+  // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
+    // 1. Instantly load from local cache
+    const cachedBiz = getCachedBusiness();
+    if (cachedBiz) {
+      setBusinessId(cachedBiz.id);
+      setCurrency(cachedBiz.currency || 'GHS');
     }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, currency')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const b = businesses?.[0];
-    if (!b) {
-      setErrorMsg('No business found for this account yet.');
-      setLoading(false);
-      return;
+    const cachedTxs = getCachedTransactions();
+    if (cachedTxs.length > 0) {
+      const loaded: Row[] = cachedTxs.map((t: any) => ({
+        ...t,
+        _localId: t.id,
+        _depreciationPercent: t.depreciation_rate != null ? String(t.depreciation_rate * 100) : '',
+      }));
+      setRows([emptyRow(), ...loaded]);
     }
-    setBusinessId(b.id);
-    setCurrency(b.currency || 'GHS');
-
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('business_id', b.id)
-      .order('transaction_date', { ascending: false });
-
-    if (error) {
-      setErrorMsg(error.message);
-      setLoading(false);
-      return;
-    }
-
-    const loadedRows: Row[] = (data ?? []).map((t) => ({
-      ...t,
-      _localId: t.id,
-      _depreciationPercent: t.depreciation_rate != null ? String(t.depreciation_rate * 100) : '',
-    }));
-
-    setRows([emptyRow(), ...loadedRows]);
     setLoading(false);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) return;
+
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, currency')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      const b = businesses?.[0];
+      if (!b) return;
+
+      setBusinessId(b.id);
+      setCurrency(b.currency || 'GHS');
+      setCachedBusiness({ id: b.id, name: 'My Business', currency: b.currency || 'GHS' });
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('business_id', b.id)
+        .order('transaction_date', { ascending: false });
+
+      if (!error && data) {
+        const loadedRows: Row[] = data.map((t) => ({
+          ...t,
+          _localId: t.id,
+          _depreciationPercent: t.depreciation_rate != null ? String(t.depreciation_rate * 100) : '',
+        }));
+
+        setRows([emptyRow(), ...loadedRows]);
+        setCachedTransactions(data);
+      }
+    } catch (_e) {
+      // offline mode operates on cache
+    }
   }, []);
 
   useEffect(() => {
@@ -115,54 +130,83 @@ export default function BookkeepingPage() {
     updateRow(row._localId, { _saving: true });
 
     if (row.id) {
-      const { error } = await supabase
-        .from('transactions')
-        .update({
-          transaction_date: row.transaction_date,
-          vendor: row.vendor.trim(),
-          type: row.type,
-          category: row.category?.trim() || null,
-          amount: row.amount,
-          depreciation_rate: depreciationRate,
-          payment_method: row.payment_method ?? 'cash',
-        })
-        .eq('id', row.id);
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .update({
+            transaction_date: row.transaction_date,
+            vendor: row.vendor.trim(),
+            type: row.type,
+            category: row.category?.trim() || null,
+            amount: row.amount,
+            depreciation_rate: depreciationRate,
+            payment_method: row.payment_method ?? 'cash',
+          })
+          .eq('id', row.id);
 
-      if (error) {
-        setErrorMsg(error.message);
-      }
+        if (error) throw error;
+      } catch (_e) {}
       updateRow(row._localId, { _saving: false, _dirty: false });
     } else {
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert({
+      try {
+        const { data, error } = await supabase
+          .from('transactions')
+          .insert({
+            business_id: businessId,
+            transaction_date: row.transaction_date,
+            vendor: row.vendor.trim(),
+            type: row.type,
+            category: row.category?.trim() || null,
+            amount: row.amount,
+            depreciation_rate: depreciationRate,
+            payment_method: row.payment_method ?? 'cash',
+          })
+          .select()
+          .single();
+
+        if (error || !data) throw error || new Error('Network offline');
+
+        setRows((prev) => {
+          const withoutUnsaved = prev.filter((r) => r._localId !== row._localId);
+          const savedRow: Row = {
+            ...data,
+            _localId: data.id,
+            _depreciationPercent: data.depreciation_rate != null ? String(data.depreciation_rate * 100) : '',
+          };
+          return [emptyRow(), savedRow, ...withoutUnsaved];
+        });
+      } catch (_err) {
+        // Offline fallback
+        const offlineTx = saveOfflineTransaction({
           business_id: businessId,
-          transaction_date: row.transaction_date,
+          transaction_date: row.transaction_date || new Date().toISOString().slice(0, 10),
           vendor: row.vendor.trim(),
-          type: row.type,
-          category: row.category?.trim() || null,
+          type: row.type || 'operating_expense',
+          category: row.category?.trim() || 'General',
           amount: row.amount,
           depreciation_rate: depreciationRate,
           payment_method: row.payment_method ?? 'cash',
-        })
-        .select()
-        .single();
+        });
 
-      if (error || !data) {
-        setErrorMsg(error?.message ?? 'Could not save transaction.');
-        updateRow(row._localId, { _saving: false });
-        return;
+        setRows((prev) => {
+          const withoutUnsaved = prev.filter((r) => r._localId !== row._localId);
+          const savedRow: Row = {
+            id: offlineTx.id,
+            business_id: businessId,
+            transaction_date: offlineTx.transaction_date,
+            vendor: offlineTx.vendor,
+            type: offlineTx.type as any,
+            category: offlineTx.category,
+            amount: offlineTx.amount,
+            depreciation_rate: offlineTx.depreciation_rate ?? null,
+            payment_method: offlineTx.payment_method,
+            created_at: offlineTx.created_at,
+            _localId: offlineTx.id,
+            _depreciationPercent: offlineTx.depreciation_rate != null ? String(offlineTx.depreciation_rate * 100) : '',
+          };
+          return [emptyRow(), savedRow, ...withoutUnsaved];
+        });
       }
-
-      setRows((prev) => {
-        const withoutUnsaved = prev.filter((r) => r._localId !== row._localId);
-        const savedRow: Row = {
-          ...data,
-          _localId: data.id,
-          _depreciationPercent: data.depreciation_rate != null ? String(data.depreciation_rate * 100) : '',
-        };
-        return [emptyRow(), savedRow, ...withoutUnsaved];
-      });
     }
   };
 

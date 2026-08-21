@@ -40,6 +40,17 @@ const TYPE_LABELS: Record<string, string> = {
   drawings: 'Drawings',
 };
 
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedTransactions,
+  setCachedTransactions,
+  getCachedInventory,
+  setCachedInventory,
+  getCachedInvoices,
+  setCachedInvoices,
+} from '@/lib/offlineStore';
+
 export default function DashboardPage() {
   const [businessName, setBusinessName] = useState('My Business');
   const [currency, setCurrency] = useState('GHS');
@@ -74,93 +85,120 @@ export default function DashboardPage() {
   };
 
   const loadDashboard = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
-    }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, name, currency')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const business = businesses?.[0];
-    if (!business) {
-      setErrorMsg('No business found for this account yet.');
-      setLoading(false);
-      return;
-    }
-
-    setBusinessId(business.id);
-    setBusinessName(business.name);
-    setCurrency(business.currency || 'GHS');
-
     const { start, end, label } = currentMonthRange();
     setPeriodLabel(label);
 
-    const today = new Date().toISOString().slice(0, 10);
+    // 1. Instantly load from local cache
+    const cachedBiz = getCachedBusiness();
+    if (cachedBiz) {
+      setBusinessId(cachedBiz.id);
+      setBusinessName(cachedBiz.name);
+      setCurrency(cachedBiz.currency || 'GHS');
+    }
 
-    const [pnlRes, bsRes, txRes, invRes, itemsRes] = await Promise.all([
-      supabase.rpc('get_pnl_report', { p_business_id: business.id, p_start_date: start, p_end_date: end }),
-      supabase.rpc('get_balance_sheet', { p_business_id: business.id, p_as_of_date: end }),
-      supabase.from('transactions').select('*').eq('business_id', business.id).order('transaction_date', { ascending: false }).limit(6),
-      supabase.from('invoices').select('*').eq('business_id', business.id),
-      supabase.from('inventory_items').select('quantity, unit_cost').eq('business_id', business.id),
-    ]);
-
-    if (pnlRes.data?.[0]) {
-      const p = pnlRes.data[0];
+    const cachedTxs = getCachedTransactions();
+    if (cachedTxs.length > 0) {
+      setRecent(cachedTxs.slice(0, 6));
+      const rev = cachedTxs.filter((t) => t.type === 'revenue').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+      const exp = cachedTxs.filter((t) => t.type === 'operating_expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+      const cogs = cachedTxs.filter((t) => t.type === 'cost_of_goods').reduce((s, t) => s + (Number(t.amount) || 0), 0);
       setPnl({
-        revenue: Number(p.revenue || 0),
-        costOfGoods: Number(p.cost_of_goods || 0),
-        operatingExpenses: Number(p.operating_expenses || 0),
-        netProfit: Number(p.net_profit || 0),
+        revenue: rev,
+        costOfGoods: cogs,
+        operatingExpenses: exp,
+        netProfit: rev - cogs - exp,
       });
     }
 
-    if (bsRes.data?.[0]) {
-      const b = bsRes.data[0];
-      setBalanceSheet({
-        cash: Number(b.cash || 0),
-        bank: Number(b.bank || 0),
-        currentAssetsOther: Number(b.current_assets_other || 0),
-        totalCurrentAssets: Number(b.total_current_assets || 0),
-        totalLiabilities: Number(b.total_liabilities || 0),
-        totalEquity: Number(b.total_equity || 0),
-      });
+    const cachedInv = getCachedInventory();
+    if (cachedInv.length > 0) {
+      const totalVal = cachedInv.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unit_cost || 0), 0);
+      setInventoryValue(totalVal);
     }
-
-    setRecent(txRes.data ?? []);
-
-    // Uncollected Invoices
-    const invoices = invRes.data ?? [];
-    let uncollected = 0;
-    let overdue = 0;
-    invoices.forEach((inv) => {
-      if (inv.status !== 'paid' && inv.status !== 'cancelled') {
-        uncollected += Number(inv.amount || 0);
-        if (inv.due_date < today) {
-          overdue++;
-        }
-      }
-    });
-    setUncollectedInvoicesAmount(uncollected);
-    setOverdueInvoicesCount(overdue);
-
-    // Inventory Value
-    const items = itemsRes.data ?? [];
-    const invCost = items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unit_cost) || 0), 0);
-    setInventoryValue(invCost);
 
     setLoading(false);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) return;
+
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, name, currency')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      const business = businesses?.[0];
+      if (!business) return;
+
+      setBusinessId(business.id);
+      setBusinessName(business.name);
+      setCurrency(business.currency || 'GHS');
+      setCachedBusiness({ id: business.id, name: business.name, currency: business.currency || 'GHS' });
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [pnlRes, bsRes, txRes, invRes, itemsRes] = await Promise.all([
+        supabase.rpc('get_pnl_report', { p_business_id: business.id, p_start_date: start, p_end_date: end }),
+        supabase.rpc('get_balance_sheet', { p_business_id: business.id, p_as_of_date: end }),
+        supabase.from('transactions').select('*').eq('business_id', business.id).order('transaction_date', { ascending: false }).limit(10),
+        supabase.from('invoices').select('*').eq('business_id', business.id),
+        supabase.from('inventory_items').select('*').eq('business_id', business.id),
+      ]);
+
+      if (pnlRes.data?.[0]) {
+        const p = pnlRes.data[0];
+        setPnl({
+          revenue: Number(p.revenue || 0),
+          costOfGoods: Number(p.cost_of_goods || 0),
+          operatingExpenses: Number(p.operating_expenses || 0),
+          netProfit: Number(p.net_profit || 0),
+        });
+      }
+
+      if (bsRes.data?.[0]) {
+        const b = bsRes.data[0];
+        setBalanceSheet({
+          cash: Number(b.cash || 0),
+          bank: Number(b.bank || 0),
+          currentAssetsOther: Number(b.current_assets_other || 0),
+          totalCurrentAssets: Number(b.total_current_assets || 0),
+          totalLiabilities: Number(b.total_liabilities || 0),
+          totalEquity: Number(b.total_equity || 0),
+        });
+      }
+
+      if (txRes.data) {
+        setRecent(txRes.data.slice(0, 6) as Transaction[]);
+        setCachedTransactions(txRes.data);
+      }
+
+      if (invRes.data) {
+        const uncollected = invRes.data
+          .filter((inv) => inv.status !== 'paid')
+          .reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
+        setUncollectedInvoicesAmount(uncollected);
+
+        const overdue = invRes.data.filter(
+          (inv) => inv.status !== 'paid' && inv.due_date && inv.due_date < today
+        ).length;
+        setOverdueInvoicesCount(overdue);
+        setCachedInvoices(invRes.data as any);
+      }
+
+      if (itemsRes.data) {
+        const totalVal = itemsRes.data.reduce(
+          (sum, item) => sum + Number(item.quantity || 0) * Number(item.unit_cost || 0),
+          0
+        );
+        setInventoryValue(totalVal);
+        setCachedInventory(itemsRes.data as any);
+      }
+    } catch (_err) {
+      // offline mode operates smoothly on cache
+    }
   }, []);
 
   useEffect(() => {

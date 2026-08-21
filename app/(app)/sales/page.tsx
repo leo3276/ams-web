@@ -14,6 +14,16 @@ interface RecentSale {
   created_at: string;
 }
 
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedInventory,
+  setCachedInventory,
+  getCachedTransactions,
+  setCachedTransactions,
+  saveOfflineTransaction,
+} from '@/lib/offlineStore';
+
 export default function RecordSalePage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [currency, setCurrency] = useState('GHS');
@@ -39,67 +49,83 @@ export default function RecordSalePage() {
   const lastKeyTimeRef = useRef<number>(0);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setLoading(false);
-      return;
+    // 1. Instantly populate from local cache
+    const cachedBiz = getCachedBusiness();
+    if (cachedBiz) {
+      setBusinessId(cachedBiz.id);
+      setCurrency(cachedBiz.currency || 'GHS');
     }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, currency')
-      .eq('user_id', userId)
-      .limit(1);
-
-    const b = businesses?.[0];
-    if (!b) {
-      setLoading(false);
-      return;
+    const cachedInv = getCachedInventory();
+    if (cachedInv.length > 0) {
+      setItems(cachedInv);
+      if (!selectedItemId) setSelectedItemId(cachedInv[0].id);
     }
-    setBusinessId(b.id);
-    setCurrency(b.currency || 'GHS');
-
-    // Load inventory items
-    const { data: invData } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .eq('business_id', b.id)
-      .order('name', { ascending: true });
-
-    if (invData) {
-      const parsed = invData.map((row) => ({
-        id: row.id,
-        business_id: row.business_id,
-        name: row.name,
-        barcode: row.barcode || '',
-        quantity: Number(row.quantity || 0),
-        unit_cost: Number(row.cost_price ?? row.unit_cost ?? 0),
-        unit_price: Number(row.selling_price ?? row.unit_price ?? 0),
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      }));
-      setItems(parsed);
-      if (parsed.length > 0 && !selectedItemId) {
-        setSelectedItemId(parsed[0].id);
-      }
+    const cachedTxs = getCachedTransactions().filter((t) => t.type === 'revenue');
+    if (cachedTxs.length > 0) {
+      setRecentSales(cachedTxs.slice(0, 10));
     }
-
-    // Load recent sales
-    const { data: txData } = await supabase
-      .from('transactions')
-      .select('id, vendor, amount, payment_method, transaction_date, created_at')
-      .eq('business_id', b.id)
-      .eq('type', 'revenue')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (txData) {
-      setRecentSales(txData as RecentSale[]);
-    }
-
     setLoading(false);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) return;
+
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, currency')
+        .eq('user_id', userId)
+        .limit(1);
+
+      const b = businesses?.[0];
+      if (!b) return;
+
+      setBusinessId(b.id);
+      setCurrency(b.currency || 'GHS');
+      setCachedBusiness({ id: b.id, name: 'My Business', currency: b.currency || 'GHS' });
+
+      // Load inventory items from cloud
+      const { data: invData } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .eq('business_id', b.id)
+        .order('name', { ascending: true });
+
+      if (invData) {
+        const parsed = invData.map((row) => ({
+          id: row.id,
+          business_id: row.business_id,
+          name: row.name,
+          barcode: row.barcode || '',
+          quantity: Number(row.quantity || 0),
+          unit_cost: Number(row.cost_price ?? row.unit_cost ?? 0),
+          unit_price: Number(row.selling_price ?? row.unit_price ?? 0),
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        }));
+        setItems(parsed);
+        setCachedInventory(parsed);
+        if (parsed.length > 0 && !selectedItemId) {
+          setSelectedItemId(parsed[0].id);
+        }
+      }
+
+      // Load recent sales from cloud
+      const { data: txData } = await supabase
+        .from('transactions')
+        .select('id, vendor, amount, payment_method, transaction_date, created_at')
+        .eq('business_id', b.id)
+        .eq('type', 'revenue')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (txData) {
+        setRecentSales(txData as RecentSale[]);
+        setCachedTransactions(txData);
+      }
+    } catch (_e) {
+      // offline mode operates on cache
+    }
   }, [selectedItemId]);
 
   useEffect(() => {
@@ -190,44 +216,61 @@ export default function RecordSalePage() {
 
       setSubmitting(true);
 
-      // 1. Insert revenue transaction
-      const { error: txError } = await supabase.from('transactions').insert({
-        business_id: businessId,
-        transaction_date: today,
-        vendor: `Sale: ${selectedItem.name} (x${parsedQty})`,
-        type: 'revenue',
-        category: 'Sales',
-        amount: inventoryTotalAmount,
-        payment_method: paymentMethod,
-      });
-
-      if (txError) {
-        setErrorMsg(txError.message);
-        setSubmitting(false);
-        return;
-      }
-
-      // 2. Insert into inventory_sales (so it shows in item sales history)
-      try {
-        await supabase.from('inventory_sales').insert({
-          inventory_item_id: selectedItem.id,
-          quantity_sold: parsedQty,
-          sale_amount: inventoryTotalAmount,
-          sale_date: today,
-        });
-      } catch (_e) {}
-
-      // 3. Decrement inventory item quantity
+      const vendorDesc = `Sale: ${selectedItem.name} (x${parsedQty})`;
       const newQty = Math.max(0, selectedItem.quantity - parsedQty);
-      await supabase
-        .from('inventory_items')
-        .update({ quantity: newQty })
-        .eq('id', selectedItem.id);
 
-      setSubmitting(false);
-      setSuccessMsg(`Sale Recorded ✓ Sold ${parsedQty}x ${selectedItem.name} for ${currency} ${inventoryTotalAmount.toFixed(2)} (${paymentMethod === 'cash' ? 'Cash' : 'MoMo/Bank'}).`);
-      setQuantity('1');
-      loadData();
+      // Local stock update immediately
+      const updatedItems = items.map((i) => (i.id === selectedItem.id ? { ...i, quantity: newQty } : i));
+      setItems(updatedItems);
+      setCachedInventory(updatedItems);
+
+      try {
+        const { error: txError } = await supabase.from('transactions').insert({
+          business_id: businessId,
+          transaction_date: today,
+          vendor: vendorDesc,
+          type: 'revenue',
+          category: 'Sales',
+          amount: inventoryTotalAmount,
+          payment_method: paymentMethod,
+        });
+
+        if (txError) throw txError;
+
+        try {
+          await supabase.from('inventory_sales').insert({
+            inventory_item_id: selectedItem.id,
+            quantity_sold: parsedQty,
+            sale_amount: inventoryTotalAmount,
+            sale_date: today,
+          });
+        } catch (_e) {}
+
+        await supabase
+          .from('inventory_items')
+          .update({ quantity: newQty })
+          .eq('id', selectedItem.id);
+
+        setSubmitting(false);
+        setSuccessMsg(`Sale Recorded ✓ Sold ${parsedQty}x ${selectedItem.name} for ${currency} ${inventoryTotalAmount.toFixed(2)} (${paymentMethod === 'cash' ? 'Cash' : 'MoMo/Bank'}).`);
+        setQuantity('1');
+        loadData();
+      } catch (_err: any) {
+        // Offline fallback
+        saveOfflineTransaction({
+          business_id: businessId,
+          transaction_date: today,
+          vendor: vendorDesc,
+          type: 'revenue',
+          category: 'Sales',
+          amount: inventoryTotalAmount,
+          payment_method: paymentMethod,
+        });
+
+        setSubmitting(false);
+        setSuccessMsg(`⚡ Sale Recorded Locally (Offline Mode) ✓ Sold ${parsedQty}x ${selectedItem.name} for ${currency} ${inventoryTotalAmount.toFixed(2)}. Stored on PC and will sync automatically when WiFi connects.`);
+        setQuantity('1');
+      }
     } else {
       // Custom / Service Sale
       const cleanDesc = customDescription.trim() || 'General Customer Sale';
@@ -240,25 +283,40 @@ export default function RecordSalePage() {
 
       setSubmitting(true);
 
-      const { error: txError } = await supabase.from('transactions').insert({
-        business_id: businessId,
-        transaction_date: today,
-        vendor: cleanDesc,
-        type: 'revenue',
-        category: 'Sales',
-        amount: cleanAmt,
-        payment_method: paymentMethod,
-      });
+      try {
+        const { error: txError } = await supabase.from('transactions').insert({
+          business_id: businessId,
+          transaction_date: today,
+          vendor: cleanDesc,
+          type: 'revenue',
+          category: 'Sales',
+          amount: cleanAmt,
+          payment_method: paymentMethod,
+        });
 
-      setSubmitting(false);
+        if (txError) throw txError;
 
-      if (txError) {
-        setErrorMsg(txError.message);
-      } else {
+        setSubmitting(false);
         setSuccessMsg(`Sale Recorded ✓ Logged ${currency} ${cleanAmt.toFixed(2)} for "${cleanDesc}".`);
         setCustomDescription('');
         setCustomAmount('');
         loadData();
+      } catch (_err) {
+        // Offline fallback
+        saveOfflineTransaction({
+          business_id: businessId,
+          transaction_date: today,
+          vendor: cleanDesc,
+          type: 'revenue',
+          category: 'Sales',
+          amount: cleanAmt,
+          payment_method: paymentMethod,
+        });
+
+        setSubmitting(false);
+        setSuccessMsg(`⚡ Sale Recorded Locally (Offline Mode) ✓ Logged ${currency} ${cleanAmt.toFixed(2)} for "${cleanDesc}". Stored on PC & will sync when online.`);
+        setCustomDescription('');
+        setCustomAmount('');
       }
     }
   };

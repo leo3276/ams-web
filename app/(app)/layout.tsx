@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { RoleProvider, useUserRole, UserRole } from '@/lib/RoleContext';
 
+import { getCachedBusiness, getOfflineTransactionQueue, flushOfflineTransactionsToSupabase } from '@/lib/offlineStore';
+
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: '📊', roles: ['owner', 'employee', 'accountant'] },
   { label: 'Record Sale', href: '/sales', icon: '🛒', roles: ['owner', 'employee', 'accountant'] },
@@ -26,16 +28,54 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [onlineStatus, setOnlineStatus] = useState(true);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const { role, primaryRole, setRole, canSwitchRoles } = useUserRole();
 
   useEffect(() => {
+    const handleOnline = async () => {
+      setOnlineStatus(true);
+      const b = getCachedBusiness();
+      if (b?.id) {
+        await flushOfflineTransactionsToSupabase(b.id);
+        setPendingSyncCount(getOfflineTransactionQueue().length);
+      }
+    };
+    const handleOffline = () => {
+      setOnlineStatus(false);
+      setPendingSyncCount(getOfflineTransactionQueue().length);
+    };
+
+    setOnlineStatus(typeof navigator !== 'undefined' ? navigator.onLine : true);
+    setPendingSyncCount(getOfflineTransactionQueue().length);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setCheckingAuth(false);
+          return;
+        }
+      } catch (_e) {}
+
+      // Offline bypass: if offline or cached business exists, don't kick user out
+      const cachedBiz = getCachedBusiness();
+      const cachedRole = localStorage.getItem('ams:web_primary_role_v1');
+      if ((typeof navigator !== 'undefined' && !navigator.onLine) || cachedBiz || cachedRole) {
+        setCheckingAuth(false);
         return;
       }
-      setCheckingAuth(false);
+
+      router.push('/login');
     };
     checkAuth();
   }, [router]);
@@ -47,6 +87,8 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('ams:cache_business_v1');
+    localStorage.removeItem('ams:cache_user_v1');
     router.push('/login');
   };
 
@@ -83,6 +125,23 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
           >
             {role === 'owner' ? '👑 OWNER' : role === 'accountant' ? '💼 CPA' : '🧑‍💼 EMPLOYEE'}
           </span>
+        </div>
+
+        {/* Network & Offline Status */}
+        <div className={`mb-3 px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center justify-between ${
+          onlineStatus
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+            : 'bg-amber-50 text-amber-900 border-amber-300'
+        }`}>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${onlineStatus ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+            <span>{onlineStatus ? 'Live Cloud Sync' : 'Offline Mode (Local)'}</span>
+          </div>
+          {pendingSyncCount > 0 && (
+            <span className="bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold">
+              {pendingSyncCount} queued
+            </span>
+          )}
         </div>
 
         {/* Role Toggle — STRICTLY AVAILABLE ONLY TO OWNER FOR PREVIEW */}

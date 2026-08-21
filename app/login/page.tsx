@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/lib/RoleContext';
 
+import { getCachedBusiness, setCachedBusiness, setCachedUser } from '@/lib/offlineStore';
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -20,18 +22,28 @@ export default function LoginPage() {
   const checkBusinessAndNavigate = async (userId: string) => {
     localStorage.setItem('ams:web_primary_role_v1', selectedRole);
     localStorage.setItem('ams:web_user_role_v1', selectedRole);
+    setCachedUser({ id: userId, email: email || undefined });
 
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
+    try {
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, name, currency')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
 
-    if (businesses && businesses.length > 0) {
+      if (businesses && businesses.length > 0) {
+        setCachedBusiness(businesses[0]);
+        router.push('/dashboard');
+        return;
+      }
+    } catch (_e) {}
+
+    const cached = getCachedBusiness();
+    if (cached) {
       router.push('/dashboard');
     } else {
-      router.push('/business-profile');
+      router.push('/dashboard');
     }
   };
 
@@ -51,7 +63,12 @@ export default function LoginPage() {
           return;
         }
       } catch (_e) {
-        // Fallback to login form
+        // Offline fallback
+        const cached = getCachedBusiness();
+        if (cached) {
+          router.push('/dashboard');
+          return;
+        }
       }
       setCheckingSession(false);
     };
@@ -67,41 +84,77 @@ export default function LoginPage() {
       return;
     }
 
-    setLoading(true);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: password.trim(),
-    });
-
-    setLoading(false);
-    if (error) {
-      setErrorMsg(error.message);
+    // Offline bypass if network is absent
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const emailPinKey = `ams:owner_pin:${email.trim().toLowerCase()}`;
+      const cachedPin = localStorage.getItem(emailPinKey);
+      if (selectedRole === 'owner' && cachedPin && ownerPin.trim() !== cachedPin) {
+        setErrorMsg('Incorrect Master Owner Security PIN for offline access.');
+        return;
+      }
+      localStorage.setItem('ams:web_primary_role_v1', selectedRole);
+      localStorage.setItem('ams:web_user_role_v1', selectedRole);
+      router.push('/dashboard');
       return;
     }
 
-    if (data.user) {
-      if (selectedRole === 'owner') {
-        const inputPin = ownerPin.trim();
-        const metaPin = data.user.user_metadata?.owner_pin;
-        const userPinKey = `ams:owner_pin:${data.user.id}`;
-        const emailPinKey = `ams:owner_pin:${data.user.email?.toLowerCase()}`;
-        const localPin = localStorage.getItem(userPinKey) || localStorage.getItem(emailPinKey);
-        const expectedPin = metaPin || localPin;
+    setLoading(true);
 
-        if (expectedPin && inputPin !== expectedPin) {
-          await supabase.auth.signOut();
-          setErrorMsg('Access Denied: Incorrect Master Owner Security PIN for this account. If you are an employee or CPA, please select your role above.');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+
+      setLoading(false);
+      if (error) {
+        // If network failed, attempt offline cached auth
+        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+          const emailPinKey = `ams:owner_pin:${email.trim().toLowerCase()}`;
+          const cachedPin = localStorage.getItem(emailPinKey);
+          if (selectedRole === 'owner' && cachedPin && ownerPin.trim() !== cachedPin) {
+            setErrorMsg('Offline mode: Incorrect Master Owner Security PIN.');
+            return;
+          }
+          localStorage.setItem('ams:web_primary_role_v1', selectedRole);
+          localStorage.setItem('ams:web_user_role_v1', selectedRole);
+          router.push('/dashboard');
           return;
         }
 
-        if (inputPin) {
-          localStorage.setItem(userPinKey, inputPin);
-          localStorage.setItem(emailPinKey, inputPin);
-        }
+        setErrorMsg(error.message);
+        return;
       }
 
-      await checkBusinessAndNavigate(data.user.id);
+      if (data.user) {
+        if (selectedRole === 'owner') {
+          const inputPin = ownerPin.trim();
+          const metaPin = data.user.user_metadata?.owner_pin;
+          const userPinKey = `ams:owner_pin:${data.user.id}`;
+          const emailPinKey = `ams:owner_pin:${data.user.email?.toLowerCase()}`;
+          const localPin = localStorage.getItem(userPinKey) || localStorage.getItem(emailPinKey);
+          const expectedPin = metaPin || localPin;
+
+          if (expectedPin && inputPin !== expectedPin) {
+            await supabase.auth.signOut();
+            setErrorMsg('Access Denied: Incorrect Master Owner Security PIN for this account. If you are an employee or CPA, please select your role above.');
+            return;
+          }
+
+          if (inputPin) {
+            localStorage.setItem(userPinKey, inputPin);
+            localStorage.setItem(emailPinKey, inputPin);
+          }
+        }
+
+        await checkBusinessAndNavigate(data.user.id);
+      }
+    } catch (_err) {
+      setLoading(false);
+      // Offline fallback
+      localStorage.setItem('ams:web_primary_role_v1', selectedRole);
+      localStorage.setItem('ams:web_user_role_v1', selectedRole);
+      router.push('/dashboard');
     }
   };
 

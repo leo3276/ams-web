@@ -99,7 +99,7 @@ async function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     icon: iconPath,
-    title: 'AMS - Accounting Management System',
+    title: 'AMS - Accounting Made Simple',
     backgroundColor: '#090D16',
     autoHideMenuBar: true,
     show: true, // Show immediately

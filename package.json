@@ -3,7 +3,7 @@
   "productName": "AMS Accounting",
   "version": "1.0.4",
   "private": true,
-  "description": "AMS - Accounting Management System Native Desktop Workstation for Small & Medium Businesses",
+  "description": "AMS - Accounting Made Simple Native Desktop Workstation for Small & Medium Businesses",
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
@@ -18,7 +18,7 @@
   "build": {
     "appId": "com.ams.accounting",
     "productName": "AMS Accounting",
-    "copyright": "Copyright © 2026 AMS Accounting Management System",
+    "copyright": "Copyright © 2026 AMS - Accounting Made Simple",
     "directories": {
       "output": "dist"
     },

@@ -375,16 +375,35 @@ export default function MigratePage() {
   };
 
   const autoMatchHeaders = (headers: string[], fields: FieldMapping[]): FieldMapping[] => {
+    const usedHeaders = new Set<string>();
+
     return fields.map((field) => {
       const aliases = FUZZY_DICTIONARY[field.key] || [field.key];
-      const matched = headers.find((h) => {
+
+      // Pass 1: Exact normalized match
+      let matched = headers.find((h) => {
+        if (usedHeaders.has(h)) return false;
         const normH = normalizeStr(h);
-        if (!normH) return false;
-        return aliases.some((a) => {
-          const normA = normalizeStr(a);
-          return normH === normA || normH.includes(normA) || (normA.length >= 4 && normA.includes(normH));
-        });
+        return aliases.some((a) => normH === normalizeStr(a));
       });
+
+      // Pass 2: Substring match
+      if (!matched) {
+        matched = headers.find((h) => {
+          if (usedHeaders.has(h)) return false;
+          const normH = normalizeStr(h);
+          if (!normH) return false;
+          return aliases.some((a) => {
+            const normA = normalizeStr(a);
+            return normH.includes(normA) || (normA.length >= 4 && normA.includes(normH));
+          });
+        });
+      }
+
+      if (matched) {
+        usedHeaders.add(matched);
+      }
+
       return {
         ...field,
         matchedHeader: matched || null,
@@ -949,15 +968,20 @@ export default function MigratePage() {
 
       // 8. STAFF PAYROLL & ROSTER
       if (category === 'payroll') {
-        const payload = validRecords.map((r: any) => ({
-          business_id: businessId,
-          name: r.name,
-          role: r.role ? r.role.toLowerCase() : 'employee',
-          salary: r.salary || 0,
-          phone: r.phone || null,
-          email: r.email || null,
-          branch: r.branch || null,
-        }));
+        const payload = validRecords.map((r: any) => {
+          const cleanName = String(r.name || 'Staff Member').trim();
+          const cleanEmail = r.email ? String(r.email).trim() : `${normalizeStr(cleanName) || 'staff'}_${Date.now().toString(36)}@company.local`;
+
+          return {
+            business_id: businessId,
+            name: cleanName,
+            role: r.role ? r.role.toLowerCase() : 'employee',
+            salary: r.salary || 0,
+            phone: r.phone || null,
+            email: cleanEmail,
+            branch: r.branch || null,
+          };
+        });
 
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.slice(i, i + chunkSize);

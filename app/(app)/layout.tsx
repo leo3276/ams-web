@@ -138,9 +138,13 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         
         {/* Brand Header */}
         <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-              AMS
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center p-1.5 shrink-0 shadow-xs">
+              <img
+                src="/ams-a-logo-white.svg"
+                alt="AMS Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
             <span className="text-sm font-bold tracking-tight text-slate-900 truncate max-w-[110px]" title={businessName}>
               {businessName}
@@ -250,9 +254,13 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Top Header */}
       <header className="md:hidden flex items-center justify-between p-3.5 bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-            AMS
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center p-1.5 shrink-0 shadow-xs">
+            <img
+              src="/ams-a-logo-white.svg"
+              alt="AMS Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <span className="text-sm font-bold text-slate-900 truncate max-w-[130px]">
             {businessName}

@@ -6,11 +6,11 @@
   "description": "AMS - Accounting Made Simple Native Desktop Workstation for Small & Medium Businesses",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1 -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "desktop:dev": "concurrently -k \"next dev\" \"wait-on -t 60000 http-get://127.0.0.1:3000 && electron .\"",
+    "desktop:dev": "concurrently -k \"next dev -H 127.0.0.1 -p 3000\" \"wait-on -t 60000 http://127.0.0.1:3000 && electron .\"",
     "desktop:build": "node scripts/build-freestanding-logo.js && next build && electron-builder --win",
     "desktop:build:mac": "node scripts/build-freestanding-logo.js && next build && electron-builder --mac",
     "dist": "npm run desktop:build"

@@ -37,7 +37,7 @@ function startLocalServer() {
         let reqPath = decodeURIComponent(reqUrl.split('?')[0]);
 
         if (reqPath === '/' || reqPath === '') {
-          reqPath = '/login.html';
+          reqPath = '/dashboard.html';
         }
 
         let filePath = path.join(publicDir, reqPath);
@@ -49,7 +49,7 @@ function startLocalServer() {
           } else if (fs.existsSync(path.join(filePath, 'index.html'))) {
             filePath = path.join(filePath, 'index.html');
           } else {
-            filePath = path.join(publicDir, 'login.html');
+            filePath = path.join(publicDir, 'dashboard.html');
           }
         }
 
@@ -77,7 +77,6 @@ function startLocalServer() {
 
       localServer.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-          // If port is already in use by another instance, try to connect to it directly
           serverPort = FIXED_PORT;
           resolve(serverPort);
         } else {
@@ -100,7 +99,7 @@ async function createWindow() {
     minHeight: 700,
     icon: iconPath,
     title: 'AMS - Accounting Made Simple (Desktop)',
-    backgroundColor: '#090D16',
+    backgroundColor: '#FFFFFF',
     autoHideMenuBar: true,
     show: true,
     webPreferences: {
@@ -117,39 +116,34 @@ async function createWindow() {
     } catch (_e) {}
   }
 
-  if (isDev) {
-    // In development mode, connect to Next.js dev server on localhost:3000
+  // Smart Loader: Try localhost:3000 first, fallback immediately to local static server
+  let loaded = false;
+  try {
     const devUrl = 'http://localhost:3000';
-    console.log(`[Electron] Development mode: Loading Next.js dev server at ${devUrl}`);
-
-    const loadWithRetry = async (retries = 10, delay = 1000) => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          await mainWindow.loadURL(devUrl);
-          console.log('[Electron] Successfully loaded Next.js dev server.');
-          return;
-        } catch (err) {
-          console.log(`[Electron] Dev server not ready yet (attempt ${i + 1}/${retries}). Retrying in ${delay}ms...`);
-          await new Promise((r) => setTimeout(r, delay));
-        }
+    const testReq = http.get(devUrl, async (res) => {
+      if (res.statusCode === 200 || res.statusCode === 304 || res.statusCode === 307 || res.statusCode === 308) {
+        await mainWindow.loadURL(devUrl);
+        loaded = true;
       }
-      try {
-        await mainWindow.loadURL('http://127.0.0.1:3000');
-      } catch (finalErr) {
-        console.error('[Electron] Failed to load dev server after multiple retries:', finalErr);
+    });
+    testReq.on('error', async () => {
+      if (!loaded) {
+        const port = await startLocalServer();
+        await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
+        loaded = true;
       }
-    };
-
-    loadWithRetry();
-  } else {
-    // Production mode: Serve packaged static assets
-    try {
-      const port = await startLocalServer();
-      const targetUrl = `http://127.0.0.1:${port}/dashboard`;
-      await mainWindow.loadURL(targetUrl);
-    } catch (err) {
-      console.error('[Electron] Failed to load application:', err);
-    }
+    });
+    testReq.setTimeout(1500, async () => {
+      testReq.abort();
+      if (!loaded) {
+        const port = await startLocalServer();
+        await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
+        loaded = true;
+      }
+    });
+  } catch (_e) {
+    const port = await startLocalServer();
+    await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
   }
 
   // Intercept external links to open in the user's default browser
@@ -190,26 +184,29 @@ ipcMain.handle('print-receipt', async (event, options) => {
   });
 });
 
-app.whenReady().then(() => {
-  createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 });
 
-app.on('will-quit', () => {
+ipcMain.handle('open-external-link', (event, url) => {
+  shell.openExternal(url);
+  return true;
+});
+
+// App Lifecycle
+app.whenReady().then(createWindow);
+
+app.on('window-all-closed', () => {
   if (localServer) {
-    try {
-      localServer.close();
-    } catch (_e) {}
+    localServer.close();
+  }
+  if (process.platform !== 'darwin') {
+    app.quit();
   }
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
   }
 });

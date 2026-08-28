@@ -27,21 +27,30 @@ export default function LoginPage() {
     try {
       const { data: businesses } = await supabase
         .from('businesses')
-        .select('id, name, currency')
+        .select('id, name, currency, business_type')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
         .limit(1);
 
       if (businesses && businesses.length > 0) {
-        setCachedBusiness(businesses[0]);
+        const b = businesses[0];
+        setCachedBusiness(b);
+        if (b.business_type) {
+          localStorage.setItem('ams:active_archetype_v1', b.business_type);
+        }
+        if (b.business_type === 'education_schools') {
+          router.push('/school/overview');
+          return;
+        }
         router.push('/dashboard');
         return;
       }
     } catch (_e) {}
 
     const cached = getCachedBusiness();
-    if (cached) {
-      router.push('/dashboard');
+    const storedArchetype = localStorage.getItem('ams:active_archetype_v1');
+    if (storedArchetype === 'education_schools' || (cached as any)?.business_type === 'education_schools') {
+      router.push('/school/overview');
     } else {
       router.push('/dashboard');
     }

@@ -9,6 +9,7 @@ import {
   printTrialBalancePDF,
 } from '@/lib/pdfGenerator';
 import { getCachedSuppliers } from '@/lib/offlineStore';
+import { useArchetype } from '@/lib/ArchetypeContext';
 
 type ReportTab = 'all' | 'pnl' | 'balance_sheet' | 'cash_flow' | 'trial_balance';
 type PeriodPreset = 'current_month' | 'last_month' | 'quarter' | 'year';
@@ -96,6 +97,7 @@ function getPeriodDates(preset: PeriodPreset) {
 }
 
 export default function ReportsPage() {
+  const { archetype, isEducation, schoolSettings } = useArchetype();
   const [businessName, setBusinessName] = useState('My Business');
   const [currency, setCurrency] = useState('GHS');
   const [businessId, setBusinessId] = useState<string | null>(null);

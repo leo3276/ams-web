@@ -5,33 +5,23 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { RoleProvider, useUserRole, UserRole } from '@/lib/RoleContext';
-
-import { getCachedBusiness, getOfflineTransactionQueue, flushOfflineTransactionsToSupabase } from '@/lib/offlineStore';
-
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/dashboard', icon: '📊', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Record Sale', href: '/sales', icon: '🛒', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Invoices', href: '/invoices', icon: '🧾', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Bookkeeping', href: '/bookkeeping', icon: '📋', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Inventory', href: '/inventory', icon: '📦', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Customers', href: '/customers', icon: '👥', roles: ['owner', 'employee', 'accountant'] },
-  { label: 'Suppliers & Debt', href: '/suppliers', icon: '🏭', roles: ['owner', 'accountant'] },
-  { label: 'Data Migration', href: '/migrate', icon: '⚡', roles: ['owner', 'accountant'] },
-  { label: 'Team & Staff', href: '/team', icon: '🧑‍🤝‍🧑', roles: ['owner'] },
-  { label: 'Reports', href: '/reports', icon: '📈', roles: ['owner', 'accountant'] },
-  { label: 'Accountant', href: '/accountant', icon: '💼', roles: ['owner', 'accountant'] },
-  { label: 'Tax Prep', href: '/tax', icon: '🏛️', roles: ['owner', 'accountant'] },
-  { label: 'Pricing & Plans', href: '/pricing', icon: '✨', roles: ['owner'] },
-];
+import { ArchetypeProvider } from '@/lib/ArchetypeContext';
+import { getCachedBusiness, getOfflineTransactionQueue, flushOfflineTransactionsToSupabase, clearAllLocalBusinessData } from '@/lib/offlineStore';
+import WebWalkthroughModal, { WEB_WALKTHROUGH_STORAGE_KEY } from '@/components/WebWalkthroughModal';
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [checkingAuth, setCheckingAuth] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return false;
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [onlineStatus, setOnlineStatus] = useState(true);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
-  const { role, primaryRole, setRole, canSwitchRoles } = useUserRole();
+  const [businessName, setBusinessName] = useState('AMS Retail Workstation');
+  const { role, setRole, canSwitchRoles } = useUserRole();
 
   useEffect(() => {
     const handleOnline = async () => {
@@ -49,6 +39,20 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
     setOnlineStatus(typeof navigator !== 'undefined' ? navigator.onLine : true);
     setPendingSyncCount(getOfflineTransactionQueue().length);
+
+    const b = getCachedBusiness();
+    if (b?.name) {
+      setBusinessName(b.name);
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const completed = localStorage.getItem(WEB_WALKTHROUGH_STORAGE_KEY);
+        if (!completed) {
+          setShowWalkthrough(true);
+        }
+      } catch (_e) {}
+    }
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -68,7 +72,6 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         }
       } catch (_e) {}
 
-      // Offline bypass: if offline or cached business exists, don't kick user out
       const cachedBiz = getCachedBusiness();
       const cachedRole = localStorage.getItem('ams:web_primary_role_v1');
       if ((typeof navigator !== 'undefined' && !navigator.onLine) || cachedBiz || cachedRole) {
@@ -81,272 +84,291 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, [router]);
 
-  // Close mobile drawer whenever route changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    localStorage.clear();
+    try {
+      await supabase.auth.signOut();
+    } catch (_e) {}
+    clearAllLocalBusinessData();
     router.push('/login');
   };
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface2">
-        <p className="text-sm text-textSecondary">Loading…</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs text-slate-500 font-medium">Loading workspace…</p>
+        </div>
       </div>
     );
   }
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  // PURE COMMERCIAL & RETAIL NAVIGATION
+  const navItems = [
+    { label: 'Dashboard', href: '/dashboard', icon: '📊', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Record Sale (POS)', href: '/sales', icon: '🛒', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Invoices & Receipts', href: '/invoices', icon: '🧾', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Customers & Debt', href: '/customers', icon: '👥', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Customer Returns & Payouts', href: '/refunds', icon: '💵', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Inventory & Stock', href: '/inventory', icon: '📦', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Daily Bookkeeping', href: '/bookkeeping', icon: '📋', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Mobile Money (MoMo) Sync', href: '/banking', icon: '📱', roles: ['owner', 'accountant'] },
+    { label: 'Suppliers & Debt', href: '/suppliers', icon: '🏭', roles: ['owner', 'accountant'] },
+    { label: 'Data Migration', href: '/migrate', icon: '⚡', roles: ['owner', 'accountant'] },
+    { label: 'Team & Staff', href: '/team', icon: '🧑‍🤝‍🧑', roles: ['owner'] },
+    { label: 'Financial Reports', href: '/reports', icon: '📈', roles: ['owner', 'accountant'] },
+    { label: 'Audit Trail', href: '/audit-logs', icon: '🛡️', roles: ['owner', 'accountant'] },
+    { label: 'Accountant Portal', href: '/accountant', icon: '💼', roles: ['owner', 'accountant'] },
+    { label: 'Tax Preparation', href: '/tax', icon: '🏛️', roles: ['owner', 'accountant'] },
+    { label: 'Settings & Profile', href: '/settings', icon: '⚙️', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Pricing & Plans', href: '/pricing', icon: '✨', roles: ['owner'] },
+  ];
+
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-surface2">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-60 border-r border-border p-4 flex-col shrink-0 bg-white">
-        <div className="flex items-center justify-between mb-4 px-2">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#F9FAFB] text-slate-900">
+      
+      {/* Desktop Clean Minimalist Sidebar */}
+      <aside className="hidden md:flex w-60 border-r border-slate-200 p-4 flex-col shrink-0 bg-white">
+        
+        {/* Brand Header */}
+        <div className="flex items-center justify-between mb-3 px-1">
           <div className="flex items-center gap-2">
-            <svg viewBox="0 0 1000 1000" className="w-5 h-5 fill-slate-900">
-              <polygon points="500,80 860,880 710,880 500,410 290,880 140,880" />
-              <polygon points="500,530 635,880 365,880" />
-            </svg>
-            <p className="text-lg font-black tracking-tight text-textPrimary">AMS</p>
+            <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+              AMS
+            </div>
+            <span className="text-sm font-bold tracking-tight text-slate-900 truncate max-w-[110px]" title={businessName}>
+              {businessName}
+            </span>
           </div>
-          <span
-            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
-              role === 'owner'
-                ? 'bg-green-50 text-green-700 border-green-200'
-                : role === 'accountant'
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                : 'bg-purple-50 text-purple-700 border-purple-200'
-            }`}
-          >
-            {role === 'owner' ? '👑 OWNER' : role === 'accountant' ? '💼 CPA' : '🧑‍💼 EMPLOYEE'}
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 uppercase">
+            {role}
           </span>
         </div>
 
-        {/* Network & Offline Status */}
-        <div className={`mb-3 px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold flex items-center justify-between ${
-          onlineStatus
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-            : 'bg-amber-50 text-amber-900 border-amber-300'
-        }`}>
-          <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${onlineStatus ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-            <span>{onlineStatus ? 'Live Cloud Sync' : 'Offline Mode (Local)'}</span>
-          </div>
-          {pendingSyncCount > 0 && (
-            <span className="bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold">
-              {pendingSyncCount} queued
-            </span>
-          )}
+        {/* Store Mode Indicator (Clean & Static) */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 mb-3 w-full">
+          <span className="text-sm">🛒</span>
+          <span className="truncate text-xs font-medium text-slate-800 flex-1">Retail &amp; Wholesale Hub</span>
         </div>
 
-        {/* Role Toggle — STRICTLY AVAILABLE ONLY TO OWNER FOR PREVIEW */}
-        {canSwitchRoles ? (
-          <div className="mb-4 bg-gray-50 p-1.5 rounded-lg border border-border">
-            <div className="text-[9px] font-bold text-textSecondary px-1 mb-1 uppercase tracking-wider">
-              Preview Role (Owner)
-            </div>
-            <div className="flex gap-1">
+        {/* Connectivity Status & Small Guide Button */}
+        <div className="mb-3 px-1 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                onlineStatus ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+              }`}
+            />
+            <span>{onlineStatus ? 'Live Online' : 'Offline'}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {/* Small Guide Pill (like mobile header) */}
+            <button
+              onClick={() => setShowWalkthrough(true)}
+              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1"
+              title="Open full 18-module app guide"
+            >
+              <span>✨</span>
+              <span>Guide</span>
+            </button>
+
+            {pendingSyncCount > 0 && (
+              <span className="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                {pendingSyncCount} pending
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Role Switcher */}
+        {canSwitchRoles && (
+          <div className="mb-3 p-1 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="grid grid-cols-3 gap-0.5">
               {(['owner', 'employee', 'accountant'] as UserRole[]).map((r) => (
                 <button
                   key={r}
                   onClick={() => setRole(r)}
-                  className={`flex-1 text-[10px] font-bold py-1 rounded transition ${
-                    role === r ? 'bg-textPrimary text-white shadow-xs' : 'text-textSecondary hover:bg-gray-200'
+                  className={`py-1 text-[10px] font-medium rounded-lg capitalize transition ${
+                    role === r
+                      ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80'
+                      : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  {r === 'owner' ? 'Owner' : r === 'employee' ? 'Staff' : 'CPA'}
+                  {r === 'employee' ? 'Staff' : r}
                 </button>
               ))}
             </div>
           </div>
-        ) : (
-          <div className="mb-4 px-2 py-1.5 bg-gray-50 rounded-lg border border-border">
-            <p className="text-[10px] font-bold text-textPrimary">🔒 Role Locked</p>
-            <p className="text-[9px] text-textSecondary">Managed by business owner</p>
-          </div>
         )}
 
-        <nav className="flex-1 space-y-1 overflow-y-auto">
-          {visibleNavItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block px-3 py-2 rounded-lg text-xs font-semibold ${
-                pathname === item.href
-                  ? 'bg-accentBg text-accentText'
-                  : 'text-textPrimary hover:bg-surface1'
-              }`}
-            >
-              <span className="mr-2">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
+        {/* Navigation Links */}
+        <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto pr-1">
+          {visibleNavItems.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition ${
+                  active
+                    ? 'bg-slate-900 text-white font-semibold shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                }`}
+              >
+                <span className="text-sm shrink-0 opacity-80">{item.icon}</span>
+                <span className="truncate">{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
-        <button
-          onClick={handleSignOut}
-          className="text-left px-3 py-2 rounded-lg text-xs font-semibold text-danger hover:bg-dangerBg mt-2"
-        >
-          Sign out
-        </button>
+        {/* Sidebar Footer */}
+        <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-0.5">
+          <Link
+            href="/settings"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition font-medium"
+          >
+            <span>⚙️</span>
+            <span>Profile &amp; Settings</span>
+          </Link>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition font-medium text-left"
+          >
+            <span>🚪</span>
+            <span>Sign Out</span>
+          </button>
+        </div>
       </aside>
 
       {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 border-b border-border bg-white shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-1.5 -ml-1 text-textPrimary rounded-lg hover:bg-gray-100 transition"
-            aria-label="Open Navigation Menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-2">
-            <svg viewBox="0 0 1000 1000" className="w-5 h-5 fill-slate-900">
-              <polygon points="500,80 860,880 710,880 500,410 290,880 140,880" />
-              <polygon points="500,530 635,880 365,880" />
-            </svg>
-            <p className="text-base font-black tracking-tight text-textPrimary">AMS</p>
-            <span
-              className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${
-                role === 'owner'
-                  ? 'bg-green-50 text-green-700 border-green-200'
-                  : role === 'accountant'
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'bg-purple-50 text-purple-700 border-purple-200'
-              }`}
-            >
-              {role === 'owner' ? '👑 OWNER' : role === 'accountant' ? '💼 CPA' : '🧑‍💼 STAFF'}
-            </span>
+      <header className="md:hidden flex items-center justify-between p-3.5 bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+            AMS
           </div>
+          <span className="text-sm font-bold text-slate-900 truncate max-w-[130px]">
+            {businessName}
+          </span>
         </div>
 
-        <button onClick={handleSignOut} className="text-xs font-bold text-danger hover:underline">
-          Sign out
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowWalkthrough(true)}
+            className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1"
+          >
+            <span>✨</span>
+            <span>Guide</span>
+          </button>
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 uppercase">
+            {role}
+          </span>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          >
+            ☰
+          </button>
+        </div>
       </header>
 
-      {/* Mobile Slide-Out Drawer Navigation */}
+      {/* Mobile Slide-Out Drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-
-          {/* Drawer Content */}
-          <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col z-10 p-4">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
-              <div>
-                <p className="text-lg font-extrabold text-textPrimary">AMS Workstation</p>
-                <p className="text-[11px] text-textSecondary">Accounting Made Simple</p>
-              </div>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-1.5 text-textSecondary hover:text-textPrimary rounded-lg hover:bg-gray-100"
-              >
-                ✕
-              </button>
+        <div className="md:hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end">
+          <div className="w-64 bg-white h-full p-4 flex flex-col justify-between shadow-2xl animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-900">Navigation Menu</span>
+              <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 font-bold p-1">✕</button>
             </div>
 
-            {/* Role Switcher inside mobile drawer */}
-            {canSwitchRoles && (
-              <div className="mb-3 bg-gray-50 p-2 rounded-xl border border-border">
-                <div className="text-[9px] font-bold text-textSecondary mb-1.5 uppercase tracking-wider">
-                  Preview Role Mode
-                </div>
-                <div className="flex gap-1">
-                  {(['owner', 'employee', 'accountant'] as UserRole[]).map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => setRole(r)}
-                      className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg transition ${
-                        role === r ? 'bg-textPrimary text-white shadow-xs' : 'text-textSecondary hover:bg-gray-200'
-                      }`}
-                    >
-                      {r === 'owner' ? '👑 Owner' : r === 'employee' ? '🧑‍💼 Staff' : '💼 CPA'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* All Nav Links */}
-            <nav className="flex-1 overflow-y-auto space-y-1 pr-1">
+            <div className="flex-1 overflow-y-auto py-3 space-y-1">
               {visibleNavItems.map((item) => {
-                const isActive = pathname === item.href;
+                const active = pathname === item.href;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
-                      isActive
-                        ? 'bg-accentBg text-accentText'
-                        : 'text-textPrimary hover:bg-surface1'
+                    className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium transition ${
+                      active
+                        ? 'bg-slate-900 text-white font-bold'
+                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <span className="text-base">{item.icon}</span>
-                    <span>{item.label}</span>
+                    <span className="text-sm">{item.icon}</span>
+                    <span className="truncate">{item.label}</span>
                   </Link>
                 );
               })}
-            </nav>
+            </div>
 
-            <div className="pt-3 border-t border-border mt-2">
+            <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+              <Link
+                href="/business-profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-800"
+              >
+                ⚙️ Profile &amp; Settings
+              </Link>
               <button
                 onClick={handleSignOut}
-                className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-danger hover:bg-dangerBg transition"
+                className="w-full text-center py-2 text-xs font-semibold rounded-xl text-red-600 bg-red-50"
               >
-                🚪 Sign out
+                Sign Out
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 pb-28 md:pb-8 overflow-auto">{children}</main>
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-20 md:pb-8">
+        {children}
+      </main>
 
-      {/* Mobile Horizontally Scrollable Bottom Navigation Bar (ALL icons & labels accessible) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-white/95 backdrop-blur-md px-2 py-1.5 shadow-xl z-30">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
-          {visibleNavItems.map((item) => {
-            const isActive = pathname === item.href;
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 px-2 py-1.5 flex items-center justify-between">
+        <div className="flex items-center justify-around w-full gap-1 overflow-x-auto">
+          {visibleNavItems.slice(0, 4).map((item) => {
+            const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center justify-center min-w-[62px] px-2 py-1.5 rounded-xl text-center shrink-0 transition-all ${
-                  isActive
-                    ? 'bg-accentBg text-accentText font-extrabold shadow-xs'
-                    : 'text-textSecondary hover:bg-surface1 font-medium'
+                className={`flex flex-col items-center justify-center min-w-[56px] px-2 py-1 rounded-lg text-center shrink-0 transition ${
+                  active
+                    ? 'bg-slate-900 text-white font-bold'
+                    : 'text-slate-500 hover:bg-slate-50 font-medium'
                 }`}
               >
-                <span className="text-base leading-none mb-0.5">{item.icon}</span>
-                <span className="text-[10px] tracking-tight whitespace-nowrap">{item.label}</span>
+                <span className="text-sm leading-none mb-0.5">{item.icon}</span>
+                <span className="text-[10px] whitespace-nowrap">{item.label}</span>
               </Link>
             );
           })}
 
-          {/* Menu Drawer Shortcut Button */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center min-w-[56px] px-2 py-1.5 rounded-xl text-center shrink-0 text-textSecondary hover:bg-surface1 font-medium"
+            className="flex flex-col items-center justify-center min-w-[56px] px-2 py-1 rounded-lg text-center shrink-0 text-slate-500 hover:bg-slate-50 font-medium"
           >
-            <span className="text-base leading-none mb-0.5">☰</span>
-            <span className="text-[10px] tracking-tight whitespace-nowrap">More</span>
+            <span className="text-sm leading-none mb-0.5">☰</span>
+            <span className="text-[10px] whitespace-nowrap">More</span>
           </button>
         </div>
       </nav>
+
+      {/* COMPULSORY & REPLAYABLE 18-MODULE INTERACTIVE APP GUIDE (WEB & DESKTOP) */}
+      <WebWalkthroughModal
+        isOpen={showWalkthrough}
+        onClose={() => setShowWalkthrough(false)}
+      />
     </div>
   );
 }
@@ -354,7 +376,9 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RoleProvider>
-      <AppLayoutInner>{children}</AppLayoutInner>
+      <ArchetypeProvider>
+        <AppLayoutInner>{children}</AppLayoutInner>
+      </ArchetypeProvider>
     </RoleProvider>
   );
 }

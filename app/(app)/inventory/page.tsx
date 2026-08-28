@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem } from '@/lib/types';
+import { useArchetype } from '@/lib/ArchetypeContext';
 import { printInventoryValuationPDF } from '@/lib/pdfGenerator';
 
 interface Row extends Partial<InventoryItem> {
@@ -29,6 +30,7 @@ function emptyRow(): Row {
 import { getCachedBusiness, setCachedBusiness, getCachedInventory, setCachedInventory } from '@/lib/offlineStore';
 
 export default function InventoryPage() {
+  const { archetype, isEducation } = useArchetype();
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [currency, setCurrency] = useState('GHS');
   const [rows, setRows] = useState<Row[]>([]);

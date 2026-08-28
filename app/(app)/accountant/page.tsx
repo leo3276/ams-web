@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Transaction, Invoice } from '@/lib/types';
 import { estimateGhanaTax } from '@/lib/ghanaTax';
 import { printAccountantAuditPackPDF } from '@/lib/pdfGenerator';
-import { getCachedSuppliers } from '@/lib/offlineStore';
+import { getCachedSuppliers, getCachedBusiness } from '@/lib/offlineStore';
 
 interface PnL {
   revenue: number;
@@ -89,7 +89,7 @@ export default function AccountantPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [periods, setPeriods] = useState<PeriodCloseStatus[]>([]);
-
+  const [selectedStatementTab, setSelectedStatementTab] = useState<'pnl' | 'balance_sheet' | 'cash_flow' | 'trial_balance'>('pnl');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -101,46 +101,52 @@ export default function AccountantPage() {
     setLoading(true);
     setErrorMsg(null);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
+    const cachedBiz = getCachedBusiness();
+    let targetBiz = cachedBiz;
+
+    if (!targetBiz) {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) {
+        setErrorMsg('Not logged in.');
+        setLoading(false);
+        return;
+      }
+
+      const { data: businesses } = await supabase
+        .from('businesses')
+        .select('id, name, currency, business_type, tax_id, next_tax_filing_date')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      targetBiz = businesses?.[0] || null;
     }
 
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, name, currency, business_type, tax_id, next_tax_filing_date')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const b = businesses?.[0];
-    if (!b) {
+    if (!targetBiz) {
       setErrorMsg('No business found for this account.');
       setLoading(false);
       return;
     }
 
-    setBusinessId(b.id);
-    setBusinessName(b.name);
-    setCurrency(b.currency || 'GHS');
-    setBusinessType(b.business_type || 'sole_proprietorship');
-    setTaxId(b.tax_id || '');
-    setNextFilingDate(b.next_tax_filing_date || null);
+    setBusinessId(targetBiz.id);
+    setBusinessName(targetBiz.name);
+    setCurrency(targetBiz.currency || 'GHS');
+    setBusinessType((targetBiz as any).business_type || 'sole_proprietorship');
+    setTaxId((targetBiz as any).tax_id || '');
+    setNextFilingDate((targetBiz as any).next_tax_filing_date || null);
 
     const { start, end, label } = currentMonthRange();
     setPeriodLabel(label);
 
     const [pnlRes, bsRes, cfRes, tbRes, txRes, invRes, staffRes] = await Promise.all([
-      supabase.rpc('get_pnl_report', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
-      supabase.rpc('get_balance_sheet', { p_business_id: b.id, p_as_of_date: end }),
-      supabase.rpc('get_cash_flow_statement', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
-      supabase.rpc('get_trial_balance', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
-      supabase.from('transactions').select('*').eq('business_id', b.id).order('transaction_date', { ascending: false }),
-      supabase.from('invoices').select('*').eq('business_id', b.id).order('due_date', { ascending: true }),
-      supabase.from('business_members').select('*').eq('business_id', b.id),
+      supabase.rpc('get_pnl_report', { p_business_id: targetBiz.id, p_start_date: start, p_end_date: end }),
+      supabase.rpc('get_balance_sheet', { p_business_id: targetBiz.id, p_as_of_date: end }),
+      supabase.rpc('get_cash_flow_statement', { p_business_id: targetBiz.id, p_start_date: start, p_end_date: end }),
+      supabase.rpc('get_trial_balance', { p_business_id: targetBiz.id, p_start_date: start, p_end_date: end }),
+      supabase.from('transactions').select('*').eq('business_id', targetBiz.id).order('transaction_date', { ascending: false }),
+      supabase.from('invoices').select('*').eq('business_id', targetBiz.id).order('due_date', { ascending: true }),
+      supabase.from('business_members').select('*').eq('business_id', targetBiz.id),
     ]);
 
     const allTx: Transaction[] = txRes.data ?? [];
@@ -209,7 +215,7 @@ export default function AccountantPage() {
       }
     });
 
-    const cachedSups = getCachedSuppliers(b.id);
+    const cachedSups = getCachedSuppliers(targetBiz.id);
     let tradePayablesInventory = 0;
     let tradePayablesCashLoan = 0;
     let tradePayablesFixedAsset = 0;
@@ -539,6 +545,12 @@ export default function AccountantPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/accountant/clients"
+            className="px-3.5 py-2 text-xs font-bold rounded-lg bg-surface2 border border-border text-textPrimary hover:bg-surface1 transition flex items-center gap-1.5"
+          >
+            <span>🏢</span> Access Branch / Switch Business
+          </Link>
           <button
             onClick={() =>
               printAccountantAuditPackPDF(
@@ -604,7 +616,220 @@ export default function AccountantPage() {
       </div>
 
       {/* ======================================================== */}
-      {/* 2. DATA QUALITY FLAGS & AUDIT RADAR                      */}
+      {/* 2. CORE FINANCIAL STATEMENTS (P&L, BS, CF, TB)           */}
+      {/* ======================================================== */}
+      <div className="bg-surface1 border border-border rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+          <div>
+            <h2 className="text-base font-bold text-textPrimary flex items-center gap-2">
+              <span>📑</span> Core Financial Statements &amp; Ledger
+            </h2>
+            <p className="text-xs text-textSecondary">
+              Live double-entry GAAP/IFRS financial statements compiled for {periodLabel}.
+            </p>
+          </div>
+
+          {/* Statement Tab Switcher */}
+          <div className="flex items-center gap-1 bg-surface2 p-1 rounded-lg border border-border overflow-x-auto">
+            <button
+              onClick={() => setSelectedStatementTab('pnl')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
+                selectedStatementTab === 'pnl' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              }`}
+            >
+              📈 Profit &amp; Loss
+            </button>
+            <button
+              onClick={() => setSelectedStatementTab('balance_sheet')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
+                selectedStatementTab === 'balance_sheet' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              }`}
+            >
+              ⚖️ Balance Sheet
+            </button>
+            <button
+              onClick={() => setSelectedStatementTab('cash_flow')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
+                selectedStatementTab === 'cash_flow' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              }`}
+            >
+              💵 Cash Flow
+            </button>
+            <button
+              onClick={() => setSelectedStatementTab('trial_balance')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
+                selectedStatementTab === 'trial_balance' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              }`}
+            >
+              📊 Trial Balance
+            </button>
+          </div>
+        </div>
+
+        {/* 1. PROFIT & LOSS */}
+        {selectedStatementTab === 'pnl' && pnl && (
+          <div className="space-y-2 pt-1 text-xs">
+            <div className="flex justify-between py-2 border-b border-border/60">
+              <span className="font-semibold text-textPrimary">Operating Revenue / Turnover</span>
+              <span className="font-mono font-bold text-textPrimary">{currency} {Number(pnl.revenue).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-border/60">
+              <span className="text-textSecondary">Less: Cost of Goods Sold (Stock Purchases)</span>
+              <span className="font-mono text-danger">- {currency} {Number(pnl.cost_of_goods).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between py-2.5 bg-surface2 px-3 rounded-lg font-bold border border-border">
+              <span>Gross Profit Margin</span>
+              <span className="font-mono">{currency} {(Number(pnl.revenue) - Number(pnl.cost_of_goods)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-border/60">
+              <span className="text-textSecondary">Less: Operating &amp; Staff Expenses (OpEx)</span>
+              <span className="font-mono text-danger">- {currency} {Number(pnl.operating_expenses).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className={`flex justify-between py-3 px-3.5 rounded-xl font-extrabold text-sm border ${
+              (pnl.net_profit || 0) >= 0 ? 'bg-successBg text-success border-success/30' : 'bg-dangerBg text-danger border-danger/30'
+            }`}>
+              <span>NET OPERATING PROFIT / (LOSS)</span>
+              <span className="font-mono">{currency} {Number(pnl.net_profit).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        )}
+
+        {/* 2. BALANCE SHEET */}
+        {selectedStatementTab === 'balance_sheet' && balanceSheet && (
+          <div className="space-y-4 pt-1 text-xs">
+            <div>
+              <p className="text-[11px] uppercase font-extrabold text-accentText tracking-wider mb-2">Current Assets</p>
+              <div className="space-y-1.5 pl-2 border-l-2 border-border">
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Cash in Hand</span>
+                  <span className="font-mono font-medium">{currency} {Number(balanceSheet.cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Bank &amp; Mobile Money Accounts</span>
+                  <span className="font-mono font-medium">{currency} {Number(balanceSheet.bank).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Customer Receivables &amp; Stock</span>
+                  <span className="font-mono font-medium">{currency} {Number(balanceSheet.current_assets_other).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1.5 font-bold border-t border-border mt-1">
+                  <span>Total Current Assets</span>
+                  <span className="font-mono">{currency} {Number(balanceSheet.total_current_assets).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] uppercase font-extrabold text-accentText tracking-wider mb-2">Fixed &amp; Non-Current Assets</p>
+              <div className="space-y-1.5 pl-2 border-l-2 border-border">
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Equipment &amp; Property (Cost)</span>
+                  <span className="font-mono font-medium">{currency} {Number(balanceSheet.fixed_assets_cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Less: Accumulated Depreciation</span>
+                  <span className="font-mono text-danger">- {currency} {Number(balanceSheet.accumulated_depreciation).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1.5 font-bold border-t border-border mt-1">
+                  <span>Net Book Value</span>
+                  <span className="font-mono">{currency} {Number(balanceSheet.fixed_assets_nbv).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between py-2.5 bg-surface2 px-3 rounded-lg font-bold border border-border">
+              <span>TOTAL CAPITAL ASSETS</span>
+              <span className="font-mono text-accentText">{currency} {Number(balanceSheet.total_assets).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+
+            <div>
+              <p className="text-[11px] uppercase font-extrabold text-accentText tracking-wider mb-2">Liabilities &amp; Owners Equity</p>
+              <div className="space-y-1.5 pl-2 border-l-2 border-border">
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Trade Payables &amp; Short-Term Debt</span>
+                  <span className="font-mono font-medium">{currency} {Number(balanceSheet.short_term_liabilities).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Long-Term Borrowing &amp; Loans</span>
+                  <span className="font-mono font-medium">{currency} {Number(balanceSheet.long_term_liabilities).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-textSecondary">Owners Capital &amp; Retained Earnings</span>
+                  <span className="font-mono font-medium">{currency} {Number(balanceSheet.owners_equity + balanceSheet.net_profit_to_date - balanceSheet.drawings_to_date).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between py-1.5 font-bold border-t border-border mt-1">
+                  <span>TOTAL LIABILITIES &amp; EQUITY</span>
+                  <span className="font-mono">{currency} {Number(balanceSheet.total_assets).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. CASH FLOW */}
+        {selectedStatementTab === 'cash_flow' && cashFlow && (
+          <div className="space-y-2 pt-1 text-xs">
+            <div className="flex justify-between py-2 border-b border-border/60">
+              <span className="font-semibold text-textPrimary">Cash Flow from Operating Activities</span>
+              <span className={`font-mono font-bold ${(cashFlow.operating_activities || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                {currency} {Number(cashFlow.operating_activities).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-border/60">
+              <span className="text-textSecondary">Cash Flow from Investing Activities (Asset Acquisitions)</span>
+              <span className="font-mono text-danger">{currency} {Number(cashFlow.investing_activities).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-border/60">
+              <span className="text-textSecondary">Cash Flow from Financing Activities (Loans / Drawings)</span>
+              <span className="font-mono font-medium">{currency} {Number(cashFlow.financing_activities).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className={`flex justify-between py-3 px-3.5 rounded-xl font-extrabold text-sm border ${
+              (cashFlow.net_cash_flow || 0) >= 0 ? 'bg-successBg text-success border-success/30' : 'bg-dangerBg text-danger border-danger/30'
+            }`}>
+              <span>NET CASH FLOW FOR PERIOD</span>
+              <span className="font-mono">{currency} {Number(cashFlow.net_cash_flow).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        )}
+
+        {/* 4. TRIAL BALANCE */}
+        {selectedStatementTab === 'trial_balance' && (
+          <div className="border border-border rounded-lg overflow-x-auto">
+            <table className="w-full text-xs min-w-[500px]">
+              <thead>
+                <tr className="bg-surface2 text-left text-textSecondary border-b border-border">
+                  <th className="px-3 py-2 font-medium">Account Category</th>
+                  <th className="px-3 py-2 font-medium text-right">Debit ({currency})</th>
+                  <th className="px-3 py-2 font-medium text-right">Credit ({currency})</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border font-mono">
+                {trialBalance.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-surface2/50 transition">
+                    <td className="px-3 py-2 font-sans font-medium text-textPrimary">{row.category}</td>
+                    <td className="px-3 py-2 text-right">
+                      {row.debit > 0 ? row.debit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {row.credit > 0 ? row.credit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-surface2 font-bold border-t-2 border-border font-mono">
+                  <td className="px-3 py-2 font-sans">TOTAL</td>
+                  <td className="px-3 py-2 text-right">{totalDebits.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="px-3 py-2 text-right">{totalCredits.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ======================================================== */}
+      {/* 3. DATA QUALITY FLAGS & AUDIT RADAR                      */}
       {/* ======================================================== */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -693,7 +918,11 @@ export default function AccountantPage() {
                   return (
                     <tr key={r.id} className="hover:bg-surface1/40 transition">
                       <td className="px-3 py-2 font-bold text-textPrimary">{r.customer_name}</td>
-                      <td className="px-3 py-2 text-accentText font-semibold">{r.invoice_number}</td>
+                      <td className="px-3 py-2 text-accentText font-semibold">
+                        <Link href={`/invoices?id=${r.id}`} className="hover:underline">
+                          {r.invoice_number}
+                        </Link>
+                      </td>
                       <td className="px-3 py-2 text-textSecondary">{r.due_date}</td>
                       <td className="px-3 py-2 text-right font-bold text-textPrimary">
                         {Number(r.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

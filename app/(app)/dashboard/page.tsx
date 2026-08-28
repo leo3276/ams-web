@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Transaction } from '@/lib/types';
+import { useArchetype } from '@/lib/ArchetypeContext';
 import {
   getCachedBusiness,
   setCachedBusiness,
@@ -59,6 +60,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const { archetype, isEducation, students, schoolSettings } = useArchetype();
   const [businessName, setBusinessName] = useState('My Business');
   const [currency, setCurrency] = useState('GHS');
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -358,22 +360,30 @@ export default function DashboardPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold text-accentText uppercase tracking-wider">{businessName}</p>
-          <h1 className="text-2xl font-bold text-textPrimary">Executive Financial Dashboard</h1>
-          <p className="text-xs text-textSecondary mt-0.5">Real-time liquidity, cash runway, and live cash/bank entries for {periodLabel}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">{archetype.icon}</span>
+            <p className="text-xs font-bold text-accentText uppercase tracking-wider">{businessName}</p>
+            {isEducation && (
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+                {schoolSettings.academicYear} · {schoolSettings.currentTerm}
+              </span>
+            )}
+          </div>
+          <h1 className="text-2xl font-bold text-textPrimary">{archetype.vocabulary.dashboardTitle || 'Executive Financial Dashboard'}</h1>
+          <p className="text-xs text-textSecondary mt-0.5">{archetype.vocabulary.dashboardSubtitle || `Real-time liquidity and live ledger for ${periodLabel}`}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/sales"
             className="px-3.5 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5"
           >
-            <span>🛒</span> Record Sale
+            <span>{isEducation ? '🎓' : '🛒'}</span> {isEducation ? 'Record Fee Inflow' : 'Record Sale'}
           </Link>
           <Link
             href="/invoices"
             className="px-3.5 py-2 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition shadow-sm flex items-center gap-1.5"
           >
-            <span>+</span> Issue Invoice
+            <span>{isEducation ? '⚡' : '+'}</span> {isEducation ? 'Issue Term Bills' : 'Issue Invoice'}
           </Link>
           <Link
             href="/bookkeeping"

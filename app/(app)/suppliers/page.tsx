@@ -1,21 +1,39 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { Supplier, DebtType } from '@/lib/types';
+import { Supplier, DebtType, InventoryItem } from '@/lib/types';
 import { useUserRole } from '@/lib/RoleContext';
 import {
   getCachedBusiness,
-  setCachedBusiness,
   getCachedSuppliers,
   setCachedSuppliers,
   addCachedSupplier,
   updateCachedSupplier,
   deleteCachedSupplier,
   updateCachedSupplierBalance,
+  getCachedInventory,
   isOnline,
 } from '@/lib/offlineStore';
-import { printSupplierDebtBookPDF, BusinessInfo } from '@/lib/pdfGenerator';
+import {
+  getPurchaseOrders,
+  createPurchaseOrder,
+  updatePurchaseOrderStatus,
+  deletePurchaseOrder,
+  getGoodsReceivedNotes,
+  recordGoodsReceived,
+  getSupplierPaymentVouchers,
+  recordSupplierPayout,
+  getWhatsAppPurchaseOrderLink,
+  getWhatsAppSupplierRemittanceLink,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  GoodsReceivedNote,
+  SupplierPaymentVoucher,
+} from '@/lib/supplierPipelineStore';
+import { printSupplierDebtBookPDF } from '@/lib/pdfGenerator';
+import { logAuditEvent } from '@/lib/auditLogger';
 
 const DEBT_TYPE_LABELS: Record<DebtType, { label: string; icon: string; desc: string }> = {
   inventory: {
@@ -40,1014 +58,1110 @@ const DEBT_TYPE_LABELS: Record<DebtType, { label: string; icon: string; desc: st
   },
 };
 
-function parseSuppliersFromTransactions(txs: any[]): Supplier[] {
-  const map: Record<string, Supplier> = {};
-
-  txs.forEach((t) => {
-    let name = '';
-    let isBill = false;
-    let isPay = false;
-
-    if (t.vendor && t.vendor.startsWith('Supplier: ')) {
-      name = t.vendor.replace('Supplier: ', '').trim();
-      isBill = true;
-    } else if (t.vendor && (t.vendor.startsWith('Supplier Payment: ') || t.vendor.startsWith('Supplier Settlement: '))) {
-      name = t.vendor.replace(/Supplier (Payment|Settlement): /, '').trim();
-      isPay = true;
-    } else if (t.category && t.category.startsWith('Accounts Payable')) {
-      name = (t.vendor || 'General Supplier').replace('Supplier: ', '').trim();
-      isBill = t.type === 'short_term_liability' || t.type === 'long_term_liability';
-      isPay = t.type === 'operating_expense';
-    }
-
-    if (!name) return;
-
-    if (!map[name]) {
-      let category = 'Inventory Goods';
-      let phone: string | null = null;
-      let terms = 'Net 30';
-      let debtType: DebtType = 'inventory';
-      let dueDate: string | null = null;
-
-      if (t.category && t.category.includes('|')) {
-        const parts = t.category.split('|').map((s: string) => s.trim());
-        if (parts[1] && !parts[1].includes(':')) category = parts[1];
-        parts.forEach((p: string) => {
-          if (p.startsWith('phone:')) phone = p.replace('phone:', '').trim() || null;
-          if (p.startsWith('terms:')) terms = p.replace('terms:', '').trim() || 'Net 30';
-          if (p.startsWith('debtType:')) debtType = (p.replace('debtType:', '').trim() as DebtType) || 'inventory';
-          if (p.startsWith('due:') || p.startsWith('dueDate:')) dueDate = p.replace(/^(due|dueDate):/, '').trim() || null;
-        });
-      }
-
-      if (!dueDate && t.transaction_date) {
-        dueDate = t.transaction_date;
-      }
-
-      if (t.type === 'long_term_liability' && debtType === 'inventory') debtType = 'fixed_asset';
-
-      map[name] = {
-        id: 'sup_' + encodeURIComponent(name),
-        business_id: t.business_id,
-        name,
-        category,
-        debt_type: debtType,
-        phone,
-        payment_terms: terms,
-        balance_owed: 0,
-        due_date: dueDate,
-        created_at: t.created_at || t.transaction_date,
-      };
-    }
-
-    const amt = Number(t.amount || 0);
-    if (isBill || t.type === 'short_term_liability' || t.type === 'long_term_liability') {
-      map[name].balance_owed += amt;
-    } else if (isPay || t.type === 'operating_expense') {
-      map[name].balance_owed = Math.max(0, map[name].balance_owed - amt);
-    }
-  });
-
-  return Object.values(map);
-}
-
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'owing' | 'settled'>('all');
+  const { role } = useUserRole();
+  const [businessName, setBusinessName] = useState('My Business');
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [currency, setCurrency] = useState('GHS');
+  const [activeTab, setActiveTab] = useState<'directory' | 'orders' | 'dock' | 'payouts'>('directory');
+  const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Modals
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showBillModal, setShowBillModal] = useState(false);
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [savingSupplier, setSavingSupplier] = useState(false);
+  // Core Data Lists
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [grnList, setGrnList] = useState<GoodsReceivedNote[]>([]);
+  const [vouchers, setVouchers] = useState<SupplierPaymentVoucher[]>([]);
 
-  // Form states
+  // Search & Filters
+  const [search, setSearch] = useState('');
+  const [filterDebtTab, setFilterDebtTab] = useState<'all' | 'owing' | 'settled'>('all');
+
+  // =========================================================================
+  // MODAL STATES
+  // =========================================================================
+  // 1. Supplier Add / Edit Modal
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
+  const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
-  const [formCategory, setFormCategory] = useState('Inventory Goods');
+  const [formCategory, setFormCategory] = useState('General Goods');
   const [formDebtType, setFormDebtType] = useState<DebtType>('inventory');
   const [formStartingDebt, setFormStartingDebt] = useState('0');
   const [formTerms, setFormTerms] = useState('Net 30');
-  const [formDueDate, setFormDueDate] = useState('');
-  const [formNotes, setFormNotes] = useState('');
+  const [formMoMoNumber, setFormMoMoNumber] = useState('');
+  const [formBankDetails, setFormBankDetails] = useState('');
 
-  // Bill / Payment form
-  const [txAmount, setTxAmount] = useState('');
-  const [txRef, setTxRef] = useState('');
-  const [txNotes, setTxNotes] = useState('');
-  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  // 2. Create Stock Request (PO) Modal
+  const [showCreatePOModal, setShowCreatePOModal] = useState(false);
+  const [poSupplierId, setPoSupplierId] = useState('');
+  const [poItems, setPoItems] = useState<PurchaseOrderItem[]>([
+    { productName: '', unit: 'pieces', quantityOrdered: 10, estimatedUnitCost: 0, totalCost: 0 },
+  ]);
+  const [poDeliveryDate, setPoDeliveryDate] = useState('');
+  const [poTerms, setPoTerms] = useState('Cash on Delivery');
+  const [poNotes, setPoNotes] = useState('');
 
-  const { role } = useUserRole();
+  // 3. Receive at Dock (GRN) Modal
+  const [showGRNModal, setShowGRNModal] = useState(false);
+  const [selectedPOForGRN, setSelectedPOForGRN] = useState<PurchaseOrder | null>(null);
+  const [grnSupplierId, setGrnSupplierId] = useState('');
+  const [grnItems, setGrnItems] = useState<{ productId?: string; productName: string; quantityOrdered: number; quantityReceived: number; quantityDamaged: number; unitCost: number }[]>([]);
+  const [grnReceivedBy, setGrnReceivedBy] = useState('Store Manager');
+  const [grnInvoiceRef, setGrnInvoiceRef] = useState('');
+
+  // 4. Supplier Payout Desk Modal
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutSupplierId, setPayoutSupplierId] = useState('');
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutMethod, setPayoutMethod] = useState<'momo' | 'bank' | 'cash'>('momo');
+  const [payoutMoMoNumber, setPayoutMoMoNumber] = useState('');
+  const [payoutBankName, setPayoutBankName] = useState('');
+  const [payoutBankAccountNo, setPayoutBankAccountNo] = useState('');
+  const [payoutRef, setPayoutRef] = useState('');
+  const [payoutWhtRate, setPayoutWhtRate] = useState<number>(0);
+  const [payoutPaidFrom, setPayoutPaidFrom] = useState('Store Cash Till');
+  const [payoutNotes, setPayoutNotes] = useState('');
 
   const showNotify = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
-    setTimeout(() => setNotification(null), 4000);
+    setTimeout(() => setNotification(null), 5000);
   };
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) {
-        setSuppliers([]);
-        setLoading(false);
-        return;
-      }
-
-      const { data: bData } = await supabase
-        .from('businesses')
-        .select('id, name, currency')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
-
-      if (!bData) {
-        setSuppliers([]);
-        setLoading(false);
-        return;
-      }
-
-      setBusinessId(bData.id);
-      setCurrency(bData.currency || 'GHS');
-      setCachedBusiness({ id: bData.id, name: bData.name, currency: bData.currency || 'GHS' });
-
-      // 1. Instant load from business-isolated local cache
-      const cachedSups = getCachedSuppliers(bData.id);
-      if (cachedSups && cachedSups.length > 0) {
-        setSuppliers(cachedSups);
-      }
-
-      // 2. Fetch from Supabase ledger for THIS business
-      const { data: txsData } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('business_id', bData.id)
-        .order('transaction_date', { ascending: true });
-
-      if (txsData && txsData.length > 0) {
-        const parsedSups = parseSuppliersFromTransactions(txsData);
-        if (parsedSups.length > 0) {
-          const mergedMap: Record<string, Supplier> = {};
-          cachedSups.forEach((s) => { mergedMap[s.name.toLowerCase()] = { ...s, business_id: bData.id }; });
-          parsedSups.forEach((s) => {
-            const key = s.name.toLowerCase();
-            if (mergedMap[key]) {
-              mergedMap[key].balance_owed = s.balance_owed;
-              if (s.phone) mergedMap[key].phone = s.phone;
-              if (s.debt_type) mergedMap[key].debt_type = s.debt_type;
-              if (s.payment_terms) mergedMap[key].payment_terms = s.payment_terms;
-              if (s.due_date) mergedMap[key].due_date = s.due_date;
-              if (s.created_at && !mergedMap[key].created_at) mergedMap[key].created_at = s.created_at;
-            } else {
-              mergedMap[key] = { ...s, business_id: bData.id };
-            }
-          });
-          const finalSups = Object.values(mergedMap);
-          setSuppliers(finalSups);
-          setCachedSuppliers(finalSups, bData.id);
-        }
-      } else {
-        setSuppliers(cachedSups);
-      }
-    } catch (_e) {
-      const b = getCachedBusiness();
-      if (b) {
-        setSuppliers(getCachedSuppliers(b.id));
-      }
+  const loadAllData = useCallback(() => {
+    const b = getCachedBusiness();
+    const bid = b?.id || 'default_biz';
+    if (b) {
+      setBusinessId(b.id);
+      setBusinessName(b.name);
+      setCurrency(b.currency || 'GHS');
     }
-    setLoading(false);
+
+    setSuppliers(getCachedSuppliers(bid));
+    setInventory(getCachedInventory(bid));
+    setPurchaseOrders(getPurchaseOrders(bid));
+    setGrnList(getGoodsReceivedNotes(bid));
+    setVouchers(getSupplierPaymentVouchers(bid));
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadAllData();
+    window.addEventListener('ams:suppliers-data-updated', loadAllData);
+    window.addEventListener('ams:purchase-orders-updated', loadAllData);
+    window.addEventListener('ams:grn-updated', loadAllData);
+    window.addEventListener('ams:supplier-vouchers-updated', loadAllData);
+    window.addEventListener('ams:inventory-updated', loadAllData);
 
-  // Calculations
-  const totalPayables = suppliers.reduce((sum, s) => sum + Number(s.balance_owed || 0), 0);
-  const totalSuppliersCount = suppliers.length;
-  const owingSuppliersCount = suppliers.filter((s) => Number(s.balance_owed || 0) > 0).length;
-  const settledSuppliersCount = suppliers.filter((s) => Number(s.balance_owed || 0) === 0).length;
+    return () => {
+      window.removeEventListener('ams:suppliers-data-updated', loadAllData);
+      window.removeEventListener('ams:purchase-orders-updated', loadAllData);
+      window.removeEventListener('ams:grn-updated', loadAllData);
+      window.removeEventListener('ams:supplier-vouchers-updated', loadAllData);
+      window.removeEventListener('ams:inventory-updated', loadAllData);
+    };
+  }, [loadAllData]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const overduePayables = suppliers
-    .filter((s) => Number(s.balance_owed || 0) > 0 && s.due_date && s.due_date < todayStr)
-    .reduce((sum, s) => sum + Number(s.balance_owed || 0), 0);
-
-  // Filtered List
-  const filteredSuppliers = suppliers.filter((s) => {
-    const matchesSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.phone && s.phone.includes(search)) ||
-      (s.category && s.category.toLowerCase().includes(search.toLowerCase())) ||
-      (s.debt_type && s.debt_type.toLowerCase().includes(search.toLowerCase()));
-
-    if (!matchesSearch) return false;
-    if (filterTab === 'owing') return Number(s.balance_owed || 0) > 0;
-    if (filterTab === 'settled') return Number(s.balance_owed || 0) === 0;
-    return true;
-  });
-
-  // Open Edit Modal
-  const openEditModal = (s: Supplier) => {
-    setSelectedSupplier(s);
-    setFormName(s.name);
-    setFormPhone(s.phone || '');
-    setFormEmail(s.email || '');
-    setFormCategory(s.category || 'Inventory Goods');
-    setFormDebtType(s.debt_type || 'inventory');
-    setFormStartingDebt(String(s.balance_owed || 0));
-    setFormTerms(s.payment_terms || 'Net 30');
-    setFormDueDate(s.due_date || '');
-    setFormNotes(s.notes || '');
-    setShowEditModal(true);
+  // =========================================================================
+  // SUPPLIER CRUD HANDLERS
+  // =========================================================================
+  const handleOpenAddSupplier = () => {
+    setFormName('');
+    setFormPhone('');
+    setFormEmail('');
+    setFormCategory('General Goods');
+    setFormDebtType('inventory');
+    setFormStartingDebt('0');
+    setFormTerms('Net 30');
+    setFormMoMoNumber('');
+    setFormBankDetails('');
+    setShowAddSupplierModal(true);
   };
 
-  // Open Delete Modal
-  const openDeleteModal = (s: Supplier) => {
-    setSelectedSupplier(s);
-    setShowDeleteModal(true);
-  };
-
-  // Handle Add Supplier
-  const handleSaveSupplier = async (e: React.FormEvent) => {
+  const handleSaveSupplier = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
       showNotify('error', 'Supplier name is required.');
       return;
     }
 
-    setSavingSupplier(true);
-
-    let activeBusinessId = businessId;
-    if (!activeBusinessId) {
-      const cachedB = getCachedBusiness();
-      if (cachedB?.id) {
-        activeBusinessId = cachedB.id;
-        setBusinessId(cachedB.id);
-      }
-    }
-
-    const debtVal = Math.max(0, parseFloat(formStartingDebt) || 0);
+    const bid = businessId || 'default_biz';
+    const startingDebt = parseFloat(formStartingDebt) || 0;
 
     const newSup: Supplier = {
-      id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      business_id: activeBusinessId || 'offline-business-id',
+      id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      business_id: bid,
       name: formName.trim(),
       phone: formPhone.trim() || null,
-      email: formEmail.trim() || null,
-      category: formCategory.trim() || 'Inventory Goods',
+      category: formCategory.trim() || 'General Goods',
       debt_type: formDebtType,
-      balance_owed: debtVal,
-      payment_terms: formTerms || 'Net 30',
-      due_date: formDueDate || null,
-      notes: formNotes.trim() || null,
+      payment_terms: formTerms.trim() || 'Net 30',
+      balance_owed: startingDebt,
       created_at: new Date().toISOString(),
     };
 
-    const updated = addCachedSupplier(newSup);
-    setSuppliers(updated);
-    setShowAddModal(false);
-    showNotify('success', `Creditor "${newSup.name}" added successfully!`);
-
-    // Sync to Supabase
-    if (isOnline() && activeBusinessId && debtVal > 0) {
-      try {
-        const txType = formDebtType === 'fixed_asset' ? 'long_term_liability' : 'short_term_liability';
-        await supabase.from('transactions').insert({
-          business_id: activeBusinessId,
-          transaction_date: formDueDate || todayStr,
-          vendor: `Supplier: ${newSup.name}`,
-          type: txType,
-          category: `Accounts Payable | ${newSup.category} | phone:${newSup.phone || ''} | terms:${newSup.payment_terms} | debtType:${newSup.debt_type} | due:${newSup.due_date || ''}`,
-          amount: debtVal,
-          payment_method: 'cash',
-        });
-      } catch (err) {
-        console.warn('Supabase offline notice:', err);
-      }
-    }
-
-    // Reset
-    setFormName('');
-    setFormPhone('');
-    setFormEmail('');
-    setFormCategory('Inventory Goods');
-    setFormDebtType('inventory');
-    setFormStartingDebt('0');
-    setFormTerms('Net 30');
-    setFormDueDate('');
-    setFormNotes('');
-    setSavingSupplier(false);
+    addCachedSupplier(newSup, bid);
+    loadAllData();
+    setShowAddSupplierModal(false);
+    showNotify('success', `✓ Added supplier "${newSup.name}"`);
   };
 
-  // Handle Edit Supplier
-  const handleUpdateSupplier = async (e: React.FormEvent) => {
+  const handleOpenEditSupplier = (sup: Supplier) => {
+    setEditingSupplier(sup);
+    setFormName(sup.name);
+    setFormPhone(sup.phone || '');
+    setFormCategory(sup.category || 'General Goods');
+    setFormDebtType(sup.debt_type || 'inventory');
+    setFormTerms(sup.payment_terms || 'Net 30');
+    setShowEditSupplierModal(true);
+  };
+
+  const handleUpdateSupplier = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSupplier || !formName.trim()) return;
+    if (!editingSupplier || !formName.trim()) return;
 
-    setSavingSupplier(true);
-    const newDebt = Math.max(0, parseFloat(formStartingDebt) || 0);
+    const bid = businessId || 'default_biz';
+    const updated = updateCachedSupplier(
+      {
+        ...editingSupplier,
+        name: formName.trim(),
+        phone: formPhone.trim() || null,
+        category: formCategory.trim() || 'General Goods',
+        debt_type: formDebtType,
+        payment_terms: formTerms.trim() || 'Net 30',
+      },
+      bid
+    );
 
-    const updatedSup: Supplier = {
-      ...selectedSupplier,
-      name: formName.trim(),
-      phone: formPhone.trim() || null,
-      email: formEmail.trim() || null,
-      category: formCategory.trim() || 'Inventory Goods',
-      debt_type: formDebtType,
-      balance_owed: newDebt,
-      payment_terms: formTerms || 'Net 30',
-      due_date: formDueDate || null,
-      notes: formNotes.trim() || null,
-    };
-
-    const updated = updateCachedSupplier(updatedSup);
     setSuppliers(updated);
-    setShowEditModal(false);
-    showNotify('success', `Creditor "${updatedSup.name}" updated successfully!`);
+    setShowEditSupplierModal(false);
+    showNotify('success', `✓ Updated supplier "${formName}"`);
+  };
 
-    // Update in Supabase if online
-    if (isOnline() && businessId) {
-      try {
-        // Clean previous transactions for this supplier to avoid duplicate entries
-        await supabase
-          .from('transactions')
-          .delete()
-          .eq('business_id', businessId)
-          .ilike('vendor', `Supplier: ${selectedSupplier.name}`);
+  const handleDeleteSupplier = (id: string, name: string) => {
+    if (!confirm(`Delete supplier "${name}" from your records?`)) return;
+    const bid = businessId || 'default_biz';
+    const updated = deleteCachedSupplier(id, bid);
+    setSuppliers(updated);
+    showNotify('success', `✓ Deleted supplier "${name}"`);
+  };
 
-        if (newDebt > 0) {
-          const txType = formDebtType === 'fixed_asset' ? 'long_term_liability' : 'short_term_liability';
-          await supabase.from('transactions').insert({
-            business_id: businessId,
-            transaction_date: updatedSup.due_date || todayStr,
-            vendor: `Supplier: ${updatedSup.name}`,
-            type: txType,
-            category: `Accounts Payable | ${updatedSup.category} | phone:${updatedSup.phone || ''} | terms:${updatedSup.payment_terms} | debtType:${updatedSup.debt_type} | due:${updatedSup.due_date || ''}`,
-            amount: newDebt,
-            payment_method: 'cash',
-          });
+  // =========================================================================
+  // PURCHASE ORDER (STOCK REQUEST) HANDLERS
+  // =========================================================================
+  const handleOpenCreatePO = (preselectedSupplierId?: string) => {
+    setPoSupplierId(preselectedSupplierId || (suppliers[0]?.id || ''));
+    setPoItems([
+      { productName: '', unit: 'pieces', quantityOrdered: 10, estimatedUnitCost: 0, totalCost: 0 },
+    ]);
+    setPoDeliveryDate(new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10)); // +3 days
+    setPoTerms('Cash on Delivery');
+    setPoNotes('');
+    setShowCreatePOModal(true);
+  };
+
+  const handleAddPOItem = () => {
+    setPoItems((prev) => [
+      ...prev,
+      { productName: '', unit: 'pieces', quantityOrdered: 10, estimatedUnitCost: 0, totalCost: 0 },
+    ]);
+  };
+
+  const handleRemovePOItem = (idx: number) => {
+    setPoItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handlePOItemChange = (idx: number, field: keyof PurchaseOrderItem, value: any) => {
+    setPoItems((prev) => {
+      const updated = [...prev];
+      const current = { ...updated[idx], [field]: value };
+      
+      // Auto populate if picked from inventory dropdown
+      if (field === 'productId') {
+        const match = inventory.find((inv) => inv.id === value);
+        if (match) {
+          current.productName = match.name;
+          current.estimatedUnitCost = match.unit_cost;
+          current.sku = match.barcode || undefined;
         }
-      } catch (_e) {}
-    }
+      }
 
-    setSavingSupplier(false);
+      current.totalCost = Math.round((current.quantityOrdered * current.estimatedUnitCost) * 100) / 100;
+      updated[idx] = current;
+      return updated;
+    });
   };
 
-  // Handle Delete Supplier
-  const handleDeleteSupplier = async () => {
-    if (!selectedSupplier) return;
-
-    const supplierToDelete = selectedSupplier;
-    const updated = deleteCachedSupplier(supplierToDelete.id);
-    setSuppliers(updated);
-    setShowDeleteModal(false);
-    showNotify('success', `Creditor "${supplierToDelete.name}" deleted.`);
-
-    // Delete corresponding transactions from Supabase
-    if (isOnline() && businessId) {
-      try {
-        await supabase
-          .from('transactions')
-          .delete()
-          .eq('business_id', businessId)
-          .like('vendor', `%${supplierToDelete.name}%`);
-      } catch (_e) {}
+  const handlePopulateLowStockItems = () => {
+    const lowStock = inventory.filter((inv) => inv.quantity <= 5);
+    if (lowStock.length === 0) {
+      alert('No low-stock items detected in inventory!');
+      return;
     }
 
-    setSelectedSupplier(null);
+    const items: PurchaseOrderItem[] = lowStock.map((inv) => ({
+      productId: inv.id,
+      productName: inv.name,
+      sku: inv.barcode || undefined,
+      unit: 'pieces',
+      quantityOrdered: 15,
+      estimatedUnitCost: inv.unit_cost,
+      totalCost: Math.round(15 * inv.unit_cost * 100) / 100,
+    }));
+
+    setPoItems(items);
+    showNotify('success', `✓ Added ${items.length} low-stock items into Purchase Order`);
   };
 
-  // Handle Record Bill
-  const handleRecordBill = async (e: React.FormEvent) => {
+  const handleSavePO = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSupplier || !txAmount || parseFloat(txAmount) <= 0) {
-      showNotify('error', 'Please enter a valid bill amount.');
+    const sup = suppliers.find((s) => s.id === poSupplierId);
+    if (!sup) {
+      alert('Please select a supplier.');
       return;
     }
 
-    const amt = parseFloat(txAmount);
-    const updated = updateCachedSupplierBalance(selectedSupplier.id, amt);
-    setSuppliers(updated);
-    setShowBillModal(false);
-    showNotify('success', `Added ${currency} ${amt.toLocaleString()} bill for ${selectedSupplier.name}.`);
-
-    if (isOnline() && businessId) {
-      try {
-        const txType = selectedSupplier.debt_type === 'fixed_asset' ? 'long_term_liability' : 'short_term_liability';
-        await supabase.from('transactions').insert({
-          business_id: businessId,
-          transaction_date: txDate,
-          vendor: `Supplier: ${selectedSupplier.name}`,
-          type: txType,
-          category: `Accounts Payable | ${selectedSupplier.category || 'Inventory'} | Ref:${txRef || 'Bill'} | debtType:${selectedSupplier.debt_type || 'inventory'}`,
-          amount: amt,
-          payment_method: 'cash',
-        });
-      } catch (_e) {}
-    }
-
-    setTxAmount('');
-    setTxRef('');
-    setTxNotes('');
-  };
-
-  // Handle Record Payment
-  const handleRecordPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSupplier || !txAmount || parseFloat(txAmount) <= 0) {
-      showNotify('error', 'Please enter a valid payment amount.');
+    const validItems = poItems.filter((i) => i.productName.trim() && i.quantityOrdered > 0);
+    if (validItems.length === 0) {
+      alert('Please add at least one valid stock item with quantity.');
       return;
     }
 
-    const amt = parseFloat(txAmount);
-    const updated = updateCachedSupplierBalance(selectedSupplier.id, -amt);
-    setSuppliers(updated);
-    setShowPayModal(false);
-    showNotify('success', `Settled ${currency} ${amt.toLocaleString()} for ${selectedSupplier.name}.`);
+    const totalAmount = validItems.reduce((acc, i) => acc + i.totalCost, 0);
 
-    if (isOnline() && businessId) {
-      try {
-        await supabase.from('transactions').insert({
-          business_id: businessId,
-          transaction_date: txDate,
-          vendor: `Supplier Payment: ${selectedSupplier.name}`,
-          type: 'operating_expense',
-          category: 'Supplier Payables',
-          amount: amt,
-          payment_method: 'cash',
-        });
-      } catch (_e) {}
-    }
-
-    setTxAmount('');
-    setTxRef('');
-    setTxNotes('');
-  };
-
-  // Export Creditor Debt Book to PDF
-  const handleExportStylishPDF = () => {
-    if (suppliers.length === 0) {
-      showNotify('error', 'No supplier records to export.');
-      return;
-    }
-    const cachedB = getCachedBusiness();
-    const bInfo: BusinessInfo = {
-      name: cachedB?.name || 'My Business',
-      currency: currency || 'GHS',
-      taxId: null,
-    };
-    printSupplierDebtBookPDF(bInfo, suppliers);
-  };
-
-  // Export Creditor Debt Book to CSV
-  const exportDebtBookCSV = () => {
-    if (suppliers.length === 0) {
-      showNotify('error', 'No supplier records to export.');
-      return;
-    }
-
-    let csv = 'Supplier Name,Debt Type,Category,Phone,Email,Payment Terms,Due Date,Outstanding Debt Owed (Liability),Status,Notes\n';
-    suppliers.forEach((s) => {
-      const status = Number(s.balance_owed || 0) > 0 ? 'Owing' : 'Settled';
-      const debtTypeLabel = s.debt_type ? DEBT_TYPE_LABELS[s.debt_type]?.label : 'Inventory Goods';
-      csv += `"${s.name}","${debtTypeLabel}","${s.category || ''}","${s.phone || ''}","${s.email || ''}","${s.payment_terms || ''}","${s.due_date || ''}",${s.balance_owed || 0},"${status}","${(s.notes || '').replace(/"/g, '""')}"\n`;
+    const po = createPurchaseOrder({
+      businessId: businessId || 'default_biz',
+      supplierId: sup.id,
+      supplierName: sup.name,
+      supplierPhone: sup.phone || undefined,
+      items: validItems,
+      totalAmount,
+      status: 'sent',
+      expectedDeliveryDate: poDeliveryDate,
+      paymentTerms: poTerms,
+      notes: poNotes.trim(),
     });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `AMS_Creditors_Accounts_Payable_${todayStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showNotify('success', 'Accounts Payable Debt Book exported successfully!');
+    loadAllData();
+    setShowCreatePOModal(false);
+    showNotify('success', `✓ Created Purchase Order ${po.poNumber}`);
   };
 
-  if (role === 'employee') {
-    return (
-      <div className="max-w-xl mx-auto my-16 p-8 bg-surface2 border border-border rounded-2xl text-center space-y-4 shadow-sm">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 font-black text-2xl flex items-center justify-center mx-auto">
-          🛡️
-        </div>
-        <h2 className="text-lg font-bold text-textPrimary">Confidential Business Liabilities</h2>
-        <p className="text-xs text-textSecondary leading-relaxed">
-          Creditor payables, supplier credit terms, and short-term debt records are confidential and accessible only to Business Owners and certified Accountants.
-        </p>
-      </div>
+  // =========================================================================
+  // GOODS RECEIVED NOTE (GRN) DOCK HANDLERS
+  // =========================================================================
+  const handleOpenGRNDock = (po?: PurchaseOrder) => {
+    if (po) {
+      setSelectedPOForGRN(po);
+      setGrnSupplierId(po.supplierId);
+      setGrnItems(
+        po.items.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          quantityOrdered: i.quantityOrdered,
+          quantityReceived: i.quantityOrdered,
+          quantityDamaged: 0,
+          unitCost: i.estimatedUnitCost,
+        }))
+      );
+    } else {
+      setSelectedPOForGRN(null);
+      setGrnSupplierId(suppliers[0]?.id || '');
+      setGrnItems([
+        { productName: '', quantityOrdered: 10, quantityReceived: 10, quantityDamaged: 0, unitCost: 0 },
+      ]);
+    }
+    setGrnReceivedBy('Store Manager');
+    setGrnInvoiceRef('');
+    setShowGRNModal(true);
+  };
+
+  const handleAcceptGRNShipment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const sup = suppliers.find((s) => s.id === grnSupplierId);
+    if (!sup) {
+      alert('Please select a supplier for this delivery.');
+      return;
+    }
+
+    const validItems = grnItems.filter((i) => i.productName.trim() && i.quantityReceived > 0);
+    if (validItems.length === 0) {
+      alert('Please enter received items.');
+      return;
+    }
+
+    const totalValue = validItems.reduce(
+      (acc, i) => acc + Math.max(0, i.quantityReceived - i.quantityDamaged) * i.unitCost,
+      0
     );
-  }
+
+    const grn = recordGoodsReceived({
+      businessId: businessId || 'default_biz',
+      poId: selectedPOForGRN?.id,
+      poNumber: selectedPOForGRN?.poNumber,
+      supplierId: sup.id,
+      supplierName: sup.name,
+      items: validItems.map((i) => ({
+        productId: i.productId,
+        productName: i.productName,
+        quantityOrdered: i.quantityOrdered,
+        quantityReceived: i.quantityReceived,
+        quantityDamaged: i.quantityDamaged,
+        unitCost: i.unitCost,
+        totalCost: Math.round(Math.max(0, i.quantityReceived - i.quantityDamaged) * i.unitCost * 100) / 100,
+      })),
+      totalValue,
+      receivedBy: grnReceivedBy.trim() || 'Storekeeper',
+      receivedDate: new Date().toISOString().slice(0, 10),
+      invoiceReference: grnInvoiceRef.trim(),
+    });
+
+    loadAllData();
+    setShowGRNModal(false);
+    showNotify('success', `✓ Accepted shipment ${grn.grnNumber}! Inventory and Supplier Debt updated automatically.`);
+  };
+
+  // =========================================================================
+  // DIRECT SUPPLIER PAYOUT DESK HANDLERS
+  // =========================================================================
+  const handleOpenPayoutModal = (sup?: Supplier) => {
+    const targetSup = sup || suppliers[0];
+    if (!targetSup) {
+      alert('No suppliers registered yet.');
+      return;
+    }
+    setPayoutSupplierId(targetSup.id);
+    setPayoutAmount(String(targetSup.balance_owed > 0 ? targetSup.balance_owed : ''));
+    setPayoutMethod('momo');
+    setPayoutMoMoNumber(targetSup.phone || '');
+    setPayoutBankName('');
+    setPayoutBankAccountNo('');
+    setPayoutRef('');
+    setPayoutWhtRate(0);
+    setPayoutPaidFrom('Store MTN MoMo Wallet');
+    setPayoutNotes('');
+    setShowPayoutModal(true);
+  };
+
+  const activePayoutSupplier = useMemo(
+    () => suppliers.find((s) => s.id === payoutSupplierId),
+    [suppliers, payoutSupplierId]
+  );
+
+  const calculatedWhtAmount = useMemo(() => {
+    const amt = parseFloat(payoutAmount) || 0;
+    return Math.round(((amt * payoutWhtRate) / 100) * 100) / 100;
+  }, [payoutAmount, payoutWhtRate]);
+
+  const calculatedNetDisbursed = useMemo(() => {
+    const amt = parseFloat(payoutAmount) || 0;
+    return Math.round((amt - calculatedWhtAmount) * 100) / 100;
+  }, [payoutAmount, calculatedWhtAmount]);
+
+  const handleExecuteSupplierPayout = (e: React.FormEvent) => {
+    e.preventDefault();
+    const settleAmt = parseFloat(payoutAmount);
+    if (!payoutSupplierId || isNaN(settleAmt) || settleAmt <= 0) {
+      alert('Please enter a valid payout amount.');
+      return;
+    }
+
+    const sup = activePayoutSupplier;
+    if (!sup) return;
+
+    const res = recordSupplierPayout({
+      supplierId: sup.id,
+      supplierName: sup.name,
+      supplierPhone: sup.phone || undefined,
+      amountToSettle: settleAmt,
+      withholdingTaxRate: payoutWhtRate,
+      paymentMethod: payoutMethod,
+      momoNumber: payoutMoMoNumber.trim(),
+      bankName: payoutBankName.trim(),
+      bankAccountNumber: payoutBankAccountNo.trim(),
+      paymentReference: payoutRef.trim(),
+      paidFromAccount: payoutPaidFrom,
+      authorizedBy: 'Store Owner',
+      notes: payoutNotes.trim(),
+    });
+
+    if (res.success && res.voucher) {
+      // Record in immutable audit trail
+      logAuditEvent({
+        actionType: 'DISBURSE_PAYOUT',
+        entityType: 'supplier_payout',
+        entityId: res.voucher.id,
+        entityName: sup.name,
+        description: `Disbursed ${currency} ${res.voucher.netAmountDisbursed.toLocaleString()} to ${sup.name} via ${payoutMethod.toUpperCase()} (Voucher #${res.voucher.voucherNumber})`,
+        newValue: res.voucher,
+      });
+
+      loadAllData();
+      setShowPayoutModal(false);
+      showNotify(
+        'success',
+        `✓ Disbursed ${currency} ${res.voucher.netAmountDisbursed.toLocaleString()} to ${sup.name}! Voucher #${res.voucher.voucherNumber}`
+      );
+    } else {
+      alert(res.error || 'Failed to record payout.');
+    }
+  };
+
+  // Filtered Suppliers
+  const filteredSuppliers = useMemo(() => {
+    return suppliers.filter((s) => {
+      const q = (search || '').toLowerCase();
+      const matchSearch =
+        s.name.toLowerCase().includes(q) ||
+        (s.phone || '').includes(search) ||
+        (s.category || '').toLowerCase().includes(q);
+
+      if (!matchSearch) return false;
+      if (filterDebtTab === 'owing' && Number(s.balance_owed || 0) <= 0) return false;
+      if (filterDebtTab === 'settled' && Number(s.balance_owed || 0) > 0) return false;
+      return true;
+    });
+  }, [suppliers, search, filterDebtTab]);
+
+  const totalAccountsPayable = useMemo(
+    () => suppliers.reduce((acc, s) => acc + Number(s.balance_owed || 0), 0),
+    [suppliers]
+  );
+
+  const totalPayoutsThisMonth = useMemo(() => {
+    const curMonth = new Date().toISOString().slice(0, 7);
+    return vouchers
+      .filter((v) => v.paymentDate.startsWith(curMonth))
+      .reduce((acc, v) => acc + v.netAmountDisbursed, 0);
+  }, [vouchers]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Toast Notification */}
+    <div className="max-w-7xl mx-auto space-y-6 text-slate-900">
+      
+      {/* 1. TOP HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <span className="text-2xl">🏭</span>
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                Supplier Hub, Stock Requests &amp; Payout Desk
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage suppliers, dispatch purchase orders, receive dock inventory, and disburse MoMo/Bank payments.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => handleOpenCreatePO()}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+          >
+            <span>📋 Request Stock (PO)</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenPayoutModal()}
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+          >
+            <span>💸 Pay Supplier Bill</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Notification Toast */}
       {notification && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl text-xs font-bold shadow-xl flex items-center gap-2.5 transition-all ${
-            notification.type === 'success' ? 'bg-textPrimary text-white' : 'bg-danger text-white'
+          className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between shadow-xs ${
+            notification.type === 'success' ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' : 'bg-red-50 text-red-900 border border-red-200'
           }`}
         >
-          <span>{notification.type === 'success' ? '✓' : '⚠️'}</span>
           <span>{notification.message}</span>
+          <button onClick={() => setNotification(null)} className="font-bold ml-2">✕</button>
         </div>
       )}
 
-      {/* Header & Main Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-bold text-textPrimary tracking-tight">
-              Creditors &amp; Debt Book
-            </h1>
-            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-dangerBg text-danger border border-danger/20 uppercase tracking-wider">
-              Liabilities Ledger
-            </span>
-          </div>
-          <p className="text-xs text-textSecondary mt-0.5">
-            Track suppliers, credit purchases, loans, payment terms, and accounts payable obligations.
+      {/* 2. KPI METRICS CARDS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-medium text-slate-500">Total Accounts Payable (Debt)</p>
+          <p className="text-2xl font-bold text-red-600 mt-1 font-mono">
+            {currency} {totalAccountsPayable.toLocaleString()}
+          </p>
+          <p className="text-[11px] text-red-600 mt-0.5 font-medium">
+            {suppliers.filter((s) => Number(s.balance_owed || 0) > 0).length} suppliers owed
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={handleExportStylishPDF}
-            className="px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-accentText hover:opacity-90 transition flex items-center gap-1.5 shadow-sm"
-          >
-            <span>📄 Export Stylish PDF</span>
-          </button>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-medium text-slate-500">Stock Requisitions (PO)</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1 font-mono">
+            {purchaseOrders.length} Orders
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {purchaseOrders.filter((po) => po.status === 'sent').length} pending delivery
+          </p>
+        </div>
 
-          <button
-            onClick={exportDebtBookCSV}
-            className="px-3.5 py-2 rounded-lg text-xs font-semibold text-textPrimary bg-surface2 border border-border hover:bg-surface1 transition flex items-center gap-1.5 shadow-sm"
-          >
-            <span>📥 Export AP Ledger</span>
-          </button>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-medium text-slate-500">Disbursed This Month</p>
+          <p className="text-2xl font-bold text-emerald-700 mt-1 font-mono">
+            {currency} {totalPayoutsThisMonth.toLocaleString()}
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Across {vouchers.length} payment vouchers</p>
+        </div>
 
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-textPrimary hover:bg-black/90 transition flex items-center gap-1.5 shadow-sm"
-          >
-            <span>+ Add Creditor / Supplier</span>
-          </button>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-medium text-slate-500">Active Supply Partners</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1 font-mono">
+            {suppliers.length}
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Registered vendors</p>
         </div>
       </div>
 
-      {/* Short-Term Liability Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="p-4 rounded-xl border border-danger/20 bg-dangerBg/50 relative">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-danger">
-              Total Liabilities &amp; Payables
-            </span>
-            <span className="text-base">⚠️</span>
-          </div>
-          <p className="text-xl sm:text-2xl font-bold text-danger font-mono mt-1.5">
-            {currency} {totalPayables.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-[10px] text-textMuted mt-0.5">
-            Total Debt Owed on Balance Sheet
-          </p>
-        </div>
+      {/* 3. FOUR CORE MODULE TABS */}
+      <div className="flex items-center gap-1.5 border-b border-slate-200 overflow-x-auto pb-2">
+        <button
+          onClick={() => setActiveTab('directory')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+            activeTab === 'directory'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <span>👥 Supplier Directory &amp; Debt Book</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
+            {suppliers.length}
+          </span>
+        </button>
 
-        <div className="p-4 rounded-xl border border-border bg-surface2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-textMuted">
-              Creditors Owing Debt
-            </span>
-            <span className="text-base">🏢</span>
-          </div>
-          <p className="text-xl sm:text-2xl font-bold text-textPrimary font-mono mt-1.5">
-            {owingSuppliersCount} <span className="text-xs font-normal text-textMuted">/ {totalSuppliersCount} Total</span>
-          </p>
-          <p className="text-[10px] text-textMuted mt-0.5">
-            {settledSuppliersCount} suppliers settled
-          </p>
-        </div>
+        <button
+          onClick={() => setActiveTab('orders')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+            activeTab === 'orders'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <span>📋 Stock Requests &amp; POs</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
+            {purchaseOrders.length}
+          </span>
+        </button>
 
-        <div className="p-4 rounded-xl border border-border bg-surface2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-textMuted">
-              Overdue Payables
-            </span>
-            <span className="text-base">⏳</span>
-          </div>
-          <p className="text-xl sm:text-2xl font-bold text-danger font-mono mt-1.5">
-            {currency} {overduePayables.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-[10px] text-textMuted mt-0.5">
-            Past agreed payment terms
-          </p>
-        </div>
+        <button
+          onClick={() => setActiveTab('dock')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+            activeTab === 'dock'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <span>🚚 Receiving Dock (GRN)</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
+            {grnList.length}
+          </span>
+        </button>
 
-        <div className="p-4 rounded-xl border border-success/20 bg-successBg">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-success">
-              Settlement Health
-            </span>
-            <span className="text-base">✓</span>
-          </div>
-          <p className="text-xl sm:text-2xl font-bold text-success font-mono mt-1.5">
-            {totalPayables === 0 ? '100%' : `${Math.round((settledSuppliersCount / (totalSuppliersCount || 1)) * 100)}%`}
-          </p>
-          <p className="text-[10px] text-textMuted mt-0.5">
-            Creditor settlement ratio
-          </p>
-        </div>
+        <button
+          onClick={() => setActiveTab('payouts')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+            activeTab === 'payouts'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <span>💸 Direct Payout Desk &amp; Vouchers</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
+            {vouchers.length}
+          </span>
+        </button>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-surface1 border border-border w-full sm:w-auto">
-          <button
-            onClick={() => setFilterTab('all')}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
-              filterTab === 'all'
-                ? 'bg-surface2 text-textPrimary shadow-sm'
-                : 'text-textSecondary hover:text-textPrimary'
-            }`}
-          >
-            All ({totalSuppliersCount})
-          </button>
-          <button
-            onClick={() => setFilterTab('owing')}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition flex items-center gap-1 ${
-              filterTab === 'owing'
-                ? 'bg-surface2 text-danger shadow-sm'
-                : 'text-textSecondary hover:text-danger'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-danger"></span>
-            Owing ({owingSuppliersCount})
-          </button>
-          <button
-            onClick={() => setFilterTab('settled')}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition flex items-center gap-1 ${
-              filterTab === 'settled'
-                ? 'bg-surface2 text-success shadow-sm'
-                : 'text-textSecondary hover:text-success'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
-            Settled ({settledSuppliersCount})
-          </button>
-        </div>
-
-        <div className="relative w-full sm:w-72">
-          <input
-            type="text"
-            placeholder="Search creditor, phone, debt type..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 rounded-lg text-xs bg-surface2 border border-border text-textPrimary placeholder-textMuted focus:outline-none focus:border-accent"
-          />
-          <span className="absolute left-2.5 top-2 text-textMuted text-xs">🔍</span>
-        </div>
-      </div>
-
-      {/* Supplier Directory List */}
-      {loading ? (
-        <div className="border border-border rounded-xl p-12 text-center bg-surface2">
-          <p className="text-xs text-textMuted animate-pulse">Loading creditors &amp; debt registry...</p>
-        </div>
-      ) : filteredSuppliers.length === 0 ? (
-        <div className="border border-border rounded-xl p-12 text-center bg-surface2">
-          <span className="text-3xl">🏭</span>
-          <h3 className="text-sm font-bold text-textPrimary mt-2">No Creditors Found</h3>
-          <p className="text-xs text-textSecondary mt-1 max-w-md mx-auto">
-            {search
-              ? 'No creditors match your search filter.'
-              : 'Add your suppliers, inventory vendors, and loan creditors to track payables and balance sheet liabilities.'}
-          </p>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="mt-4 px-4 py-2 rounded-lg text-xs font-bold text-white bg-textPrimary hover:bg-black/90 transition shadow-sm"
-          >
-            + Add First Creditor
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSuppliers.map((s) => {
-            const isOwing = Number(s.balance_owed || 0) > 0;
-            const isOverdue = isOwing && s.due_date && s.due_date < todayStr;
-            const debtMeta = s.debt_type ? DEBT_TYPE_LABELS[s.debt_type] : DEBT_TYPE_LABELS.inventory;
-
-            return (
-              <div
-                key={s.id}
-                className={`p-5 rounded-xl border bg-surface2 transition flex flex-col justify-between shadow-sm hover:border-accent/40 ${
-                  isOverdue
-                    ? 'border-danger/40 bg-dangerBg/30'
-                    : isOwing
-                    ? 'border-border'
-                    : 'border-border'
-                }`}
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="text-sm font-bold text-textPrimary truncate">{s.name}</h3>
-                      </div>
-                      <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-surface1 text-textSecondary flex items-center gap-1">
-                          <span>{debtMeta.icon}</span>
-                          <span>{debtMeta.label}</span>
-                        </span>
-                        <span className="text-[10px] text-textMuted">· {s.category || 'General'}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span
-                        className={`text-[9.5px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                          isOverdue
-                            ? 'bg-dangerBg text-danger border border-danger/20'
-                            : isOwing
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-successBg text-success border border-success/20'
-                        }`}
-                      >
-                        {isOverdue ? 'Overdue' : isOwing ? 'Owing Debt' : 'Settled ✓'}
-                      </span>
-
-                      {/* Edit & Delete Action Icons */}
-                      <button
-                        onClick={() => openEditModal(s)}
-                        title="Edit Creditor"
-                        className="p-1 text-textMuted hover:text-textPrimary transition"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(s)}
-                        title="Delete Creditor"
-                        className="p-1 text-textMuted hover:text-danger transition"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-surface1 border border-border mb-3">
-                    <span className="text-[9.5px] text-textMuted font-bold uppercase tracking-wider block">
-                      Outstanding Payable ({s.debt_type === 'fixed_asset' ? 'Long-Term Liability' : 'Short-Term Liability'})
-                    </span>
-                    <p
-                      className={`text-lg font-bold font-mono mt-0.5 ${
-                        isOwing ? 'text-danger' : 'text-success'
-                      }`}
-                    >
-                      {currency}{' '}
-                      {Number(s.balance_owed || 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  </div>
-
-                  <div className="text-xs text-textSecondary space-y-1 mb-3">
-                    {s.phone && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-textMuted">Phone / MoMo:</span>
-                        <span className="font-semibold text-textPrimary font-mono">{s.phone}</span>
-                      </div>
-                    )}
-                    {s.payment_terms && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-textMuted">Terms:</span>
-                        <span>{s.payment_terms}</span>
-                      </div>
-                    )}
-                    {s.due_date ? (
-                      <div className="flex items-center justify-between">
-                        <span className="text-textMuted">Due Date:</span>
-                        <span className={isOverdue ? 'text-danger font-bold' : 'font-medium text-textPrimary'}>{s.due_date}</span>
-                      </div>
-                    ) : s.created_at ? (
-                      <div className="flex items-center justify-between">
-                        <span className="text-textMuted">Date:</span>
-                        <span className="text-textSecondary">{s.created_at.slice(0, 10)}</span>
-                      </div>
-                    ) : null}
-                    {s.notes && (
-                      <p className="text-[11px] text-textMuted italic pt-1 border-t border-border/50 truncate">
-                        &ldquo;{s.notes}&rdquo;
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-3 border-t border-border">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedSupplier(s);
-                        setShowBillModal(true);
-                      }}
-                      className="py-1.5 px-3 rounded-lg text-xs font-semibold text-textPrimary bg-surface1 hover:bg-border transition text-center"
-                    >
-                      + Credit Bill
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setSelectedSupplier(s);
-                        setShowPayModal(true);
-                      }}
-                      className="py-1.5 px-3 rounded-lg text-xs font-semibold text-success bg-successBg hover:bg-green-100 transition text-center"
-                    >
-                      💸 Settle Debt
-                    </button>
-                  </div>
-
-                  {s.phone && (
-                    <a
-                      href={`https://wa.me/${s.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(
-                        s.name
-                      )},%20regarding%20our%20account%20balance%20of%20${currency}%20${Number(s.balance_owed || 0).toLocaleString()}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-1.5 px-3 rounded-lg text-[11px] font-semibold text-textSecondary bg-surface1 hover:text-success transition flex items-center justify-center gap-1"
-                    >
-                      <span>💬 WhatsApp Supplier</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL 1: ADD NEW CREDITOR / SUPPLIER                     */}
-      {/* ======================================================== */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface2 rounded-xl max-w-lg w-full p-6 border border-border shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-              <div>
-                <h2 className="text-base font-bold text-textPrimary">Add New Creditor / Supplier</h2>
-                <p className="text-xs text-textSecondary mt-0.5">Register vendor or loan debt for your Balance Sheet</p>
-              </div>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="text-textMuted hover:text-textPrimary text-lg font-bold"
-              >
-                ✕
-              </button>
+      {/* ===================================================================== */}
+      {/* TAB 1: SUPPLIER DIRECTORY & DEBT BOOK                                  */}
+      {/* ===================================================================== */}
+      {activeTab === 'directory' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Search suppliers by name, phone, or category..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-slate-900 text-slate-900"
+              />
+              <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">🔍</span>
             </div>
 
-            <form onSubmit={handleSaveSupplier} className="space-y-3.5 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+                {(['all', 'owing', 'settled'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setFilterDebtTab(tab)}
+                    className={`px-3 py-1 rounded-md capitalize font-medium transition ${
+                      filterDebtTab === tab ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleOpenAddSupplier}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold shadow-xs hover:bg-slate-800 transition"
+              >
+                + Add Supplier
+              </button>
+            </div>
+          </div>
+
+          {filteredSuppliers.length === 0 ? (
+            <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
+              <span className="text-3xl mb-2 inline-block">🏭</span>
+              <h3 className="text-sm font-bold text-slate-900 mb-1">No Suppliers Found</h3>
+              <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
+                Register your distributors, wholesalers, and credit suppliers to manage stock requests and pay bills.
+              </p>
+              <button
+                onClick={handleOpenAddSupplier}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold"
+              >
+                + Register First Supplier
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Supplier Name</th>
+                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4">Phone / Contact</th>
+                      <th className="py-3 px-4">Payment Terms</th>
+                      <th className="py-3 px-4 text-right">Balance Owed ({currency})</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredSuppliers.map((s) => {
+                      const balance = Number(s.balance_owed || 0);
+                      return (
+                        <tr key={s.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 px-4 font-bold text-slate-900">{s.name}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                              {s.category}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-700">{s.phone || '—'}</td>
+                          <td className="py-3 px-4 text-slate-600">{s.payment_terms || 'Net 30'}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold">
+                            {balance > 0 ? (
+                              <span className="text-red-600">{currency} {balance.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-emerald-700">Cleared ✓</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {balance > 0 && (
+                                <button
+                                  onClick={() => handleOpenPayoutModal(s)}
+                                  className="px-2.5 py-1 rounded-md bg-slate-900 text-white font-semibold text-[11px] hover:bg-slate-800 transition"
+                                >
+                                  💸 Pay
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleOpenCreatePO(s.id)}
+                                className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-medium text-[11px] hover:bg-slate-200 transition"
+                              >
+                                📋 Request PO
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditSupplier(s)}
+                                className="p-1 rounded text-slate-400 hover:text-slate-900"
+                                title="Edit"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSupplier(s.id, s.name)}
+                                className="p-1 rounded text-slate-400 hover:text-red-600"
+                                title="Delete"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 2: STOCK REQUESTS & PURCHASE ORDERS (PO)                           */}
+      {/* ===================================================================== */}
+      {activeTab === 'orders' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Purchase Orders &amp; Stock Requisitions</h2>
+              <p className="text-xs text-slate-500">Official supplier orders sent with WhatsApp and PDF slips.</p>
+            </div>
+            <button
+              onClick={() => handleOpenCreatePO()}
+              className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+            >
+              + Create Stock Request (PO)
+            </button>
+          </div>
+
+          {purchaseOrders.length === 0 ? (
+            <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
+              <span className="text-3xl mb-2 inline-block">📋</span>
+              <h3 className="text-sm font-bold text-slate-900 mb-1">No Purchase Orders Created Yet</h3>
+              <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
+                Create stock requests to order goods from suppliers with 1-click WhatsApp dispatch.
+              </p>
+              <button
+                onClick={() => handleOpenCreatePO()}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold"
+              >
+                + Create Stock Request
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {purchaseOrders.map((po) => {
+                const waLink = getWhatsAppPurchaseOrderLink(po, businessName, currency);
+                return (
+                  <div
+                    key={po.id}
+                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="font-mono text-xs font-bold text-slate-900">{po.poNumber}</span>
+                        <h3 className="text-sm font-bold text-slate-900 mt-0.5">{po.supplierName}</h3>
+                        <p className="text-xs text-slate-500">{po.items.length} items ordered · {po.createdAt.slice(0, 10)}</p>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          po.status === 'received'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}
+                      >
+                        {po.status}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Total Value:</span>
+                        <span className="font-mono font-bold text-slate-900">{currency} {po.totalAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Expected Delivery:</span>
+                        <span className="text-slate-700">{po.expectedDeliveryDate || 'Immediate'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Terms:</span>
+                        <span className="text-slate-700">{po.paymentTerms}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                      {po.status !== 'received' ? (
+                        <button
+                          onClick={() => handleOpenGRNDock(po)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 transition"
+                        >
+                          🚚 Receive at Dock
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-emerald-700">✓ Received at Dock</span>
+                      )}
+
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-xs hover:bg-emerald-100 transition inline-flex items-center gap-1"
+                      >
+                        <span>📱 WhatsApp PO</span>
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 3: RECEIVING DOCK (GRN - GOODS RECEIVED NOTES)                     */}
+      {/* ===================================================================== */}
+      {activeTab === 'dock' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Goods Receiving Dock (GRN)</h2>
+              <p className="text-xs text-slate-500">Inspect arriving deliveries, auto-update inventory stock, and log Accounts Payable.</p>
+            </div>
+            <button
+              onClick={() => handleOpenGRNDock()}
+              className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs"
+            >
+              + Receive Delivery Shipment
+            </button>
+          </div>
+
+          {grnList.length === 0 ? (
+            <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
+              <span className="text-3xl mb-2 inline-block">🚚</span>
+              <h3 className="text-sm font-bold text-slate-900 mb-1">No Deliveries Received Yet</h3>
+              <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
+                When suppliers deliver goods to your dock, receive them here to automatically increase your inventory.
+              </p>
+              <button
+                onClick={() => handleOpenGRNDock()}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold"
+              >
+                + Receive Delivery
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">GRN #</th>
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Supplier</th>
+                      <th className="py-3 px-4">Items Received</th>
+                      <th className="py-3 px-4">Received By</th>
+                      <th className="py-3 px-4 text-right">Total Shipment Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {grnList.map((g) => (
+                      <tr key={g.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 px-4 font-mono font-bold text-slate-900">{g.grnNumber}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{g.receivedDate}</td>
+                        <td className="py-3 px-4 font-bold text-slate-900">{g.supplierName}</td>
+                        <td className="py-3 px-4 text-slate-700">
+                          {g.items.map((i) => `${i.productName} (${i.quantityReceived})`).join(', ')}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600">{g.receivedBy}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                          {currency} {g.totalValue.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 4: DIRECT SUPPLIER PAYOUT DESK & VOUCHERS                          */}
+      {/* ===================================================================== */}
+      {activeTab === 'payouts' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Direct Supplier Payout Desk</h2>
+              <p className="text-xs text-slate-500">Disburse MoMo / Bank supplier settlements, generate payment vouchers, and send WhatsApp remittance slips.</p>
+            </div>
+            <button
+              onClick={() => handleOpenPayoutModal()}
+              className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5"
+            >
+              <span>💸 Execute Supplier Payout</span>
+            </button>
+          </div>
+
+          {vouchers.length === 0 ? (
+            <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
+              <span className="text-3xl mb-2 inline-block">💸</span>
+              <h3 className="text-sm font-bold text-slate-900 mb-1">No Supplier Payouts Executed Yet</h3>
+              <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
+                Pay supplier credit bills directly via Mobile Money or Bank and generate official payment vouchers.
+              </p>
+              <button
+                onClick={() => handleOpenPayoutModal()}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold"
+              >
+                + Execute First Payout
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Voucher #</th>
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Supplier</th>
+                      <th className="py-3 px-4">Channel</th>
+                      <th className="py-3 px-4">Gross Settled</th>
+                      <th className="py-3 px-4">WHT (Tax)</th>
+                      <th className="py-3 px-4">Net Disbursed</th>
+                      <th className="py-3 px-4 text-right">WhatsApp Remittance Slip</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {vouchers.map((v) => {
+                      const waLink = getWhatsAppSupplierRemittanceLink(v, businessName, currency);
+                      return (
+                        <tr key={v.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-900">{v.voucherNumber}</td>
+                          <td className="py-3 px-4 font-mono text-slate-600">{v.paymentDate}</td>
+                          <td className="py-3 px-4 font-bold text-slate-900">{v.supplierName}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-800 border border-slate-200">
+                              {v.paymentMethod}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-800">{currency} {v.amountPaid.toLocaleString()}</td>
+                          <td className="py-3 px-4 font-mono text-amber-700">
+                            {v.withholdingTaxAmount > 0 ? `-${currency} ${v.withholdingTaxAmount.toLocaleString()} (${v.withholdingTaxRate}%)` : '0%'}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-emerald-700">
+                            {currency} {v.netAmountDisbursed.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <a
+                              href={waLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px] hover:bg-emerald-100 transition inline-block"
+                            >
+                              📱 Send WhatsApp Slip
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 5. MODAL 1: ADD / REGISTER SUPPLIER                                   */}
+      {/* ===================================================================== */}
+      {showAddSupplierModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">Register Supply Partner</h3>
+              <button onClick={() => setShowAddSupplierModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveSupplier} className="space-y-3.5">
               <div>
-                <label className="block font-semibold text-textPrimary mb-1">Creditor / Supplier Name *</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Supplier / Wholesaler Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Fanmilk Ghana Ltd / Commercial Bank Loan"
+                  placeholder="e.g. FanMilk Ghana Ltd / Nestlé Distributor"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                  className="w-full px-3 py-2.5 text-xs rounded-lg border border-slate-200 text-slate-900 font-medium"
                 />
-              </div>
-
-              {/* Debt Type Selection */}
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">
-                  Debt Classification &amp; Balance Sheet Impact *
-                </label>
-                <select
-                  value={formDebtType}
-                  onChange={(e) => setFormDebtType(e.target.value as DebtType)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs font-semibold focus:outline-none focus:border-accent"
-                >
-                  <option value="inventory">📦 Inventory Goods on Credit (Adds to Inventory Asset &amp; Accounts Payable)</option>
-                  <option value="cash_loan">💵 Cash Loan / Borrowing (Adds to Cash in Hand &amp; Short-Term Liability)</option>
-                  <option value="fixed_asset">🚜 Equipment / Machinery Financing (Adds to Fixed Assets &amp; Long-Term Liability)</option>
-                  <option value="service_expense">💡 Service / OpEx on Credit (Accrued Utilities, Rent, Logistics)</option>
-                </select>
-                <p className="text-[10.5px] text-textMuted mt-1">
-                  {DEBT_TYPE_LABELS[formDebtType]?.desc}
-                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Phone / WhatsApp / MoMo</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Phone / WhatsApp Number</label>
                   <input
                     type="text"
                     placeholder="e.g. 0244123456"
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Category</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Supply Category</label>
                   <input
                     type="text"
-                    placeholder="e.g. Dairy, Packaging, Machinery, Loan"
+                    placeholder="e.g. Beverages, Provisions, Toiletries"
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-textPrimary mb-1">
-                    Starting Debt Owed ({currency})
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={formStartingDebt}
-                    onChange={(e) => setFormStartingDebt(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs font-mono focus:outline-none focus:border-accent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Payment Terms</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Payment Terms</label>
                   <select
                     value={formTerms}
                     onChange={(e) => setFormTerms(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
                   >
+                    <option value="Cash on Delivery">Cash on Delivery (COD)</option>
                     <option value="Net 7">Net 7 Days</option>
-                    <option value="Net 14">Net 14 Days</option>
+                    <option value="Net 15">Net 15 Days</option>
                     <option value="Net 30">Net 30 Days</option>
-                    <option value="Net 60">Net 60 Days</option>
-                    <option value="COD">Cash on Delivery (COD)</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Payment Due Date</label>
-                  <input
-                    type="date"
-                    value={formDueDate}
-                    onChange={(e) => setFormDueDate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                  />
-                </div>
 
                 <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Email Address</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Initial Balance Owed ({currency})</label>
                   <input
-                    type="email"
-                    placeholder="supplier@company.com"
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                    type="number"
+                    value={formStartingDebt}
+                    onChange={(e) => setFormStartingDebt(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-mono font-bold"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Notes / Terms</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Warehouse location, delivery schedules, interest rates"
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3.5 py-2 rounded-lg font-semibold text-textSecondary hover:bg-surface1 transition"
+                  onClick={() => setShowAddSupplierModal(false)}
+                  className="px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={savingSupplier}
-                  className="px-5 py-2 rounded-lg font-bold text-white bg-textPrimary hover:bg-black/90 transition shadow-sm disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-xs"
                 >
-                  {savingSupplier ? 'Saving...' : 'Save Creditor'}
+                  ✓ Save Supplier
                 </button>
               </div>
             </form>
@@ -1055,155 +1169,458 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* MODAL 2: EDIT CREDITOR / SUPPLIER                        */}
-      {/* ======================================================== */}
-      {showEditModal && selectedSupplier && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface2 rounded-xl max-w-lg w-full p-6 border border-border shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
+      {/* ===================================================================== */}
+      {/* 6. MODAL 2: CREATE PURCHASE ORDER (STOCK REQUEST)                     */}
+      {/* ===================================================================== */}
+      {showCreatePOModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h2 className="text-base font-bold text-textPrimary">Edit Creditor / Supplier</h2>
-                <p className="text-xs text-textSecondary mt-0.5">Update details, debt classification, and balance</p>
+                <h3 className="text-base font-bold text-slate-900">Request Stock from Supplier (Purchase Order)</h3>
+                <p className="text-xs text-slate-500">Auto-fills low-stock items and sends directly to supplier WhatsApp.</p>
               </div>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-textMuted hover:text-textPrimary text-lg font-bold"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowCreatePOModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
             </div>
 
-            <form onSubmit={handleUpdateSupplier} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Creditor / Supplier Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                />
+            <form onSubmit={handleSavePO} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Select Supplier *</label>
+                  <select
+                    value={poSupplierId}
+                    onChange={(e) => setPoSupplierId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-bold"
+                  >
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.payment_terms || 'Net 30'})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Expected Delivery Date</label>
+                  <input
+                    type="date"
+                    value={poDeliveryDate}
+                    onChange={(e) => setPoDeliveryDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-mono"
+                  />
+                </div>
               </div>
 
+              {/* Fast low-stock auto-populate */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-xs text-slate-700 font-medium">Have low-stock products in store?</span>
+                <button
+                  type="button"
+                  onClick={handlePopulateLowStockItems}
+                  className="px-3 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs hover:bg-amber-200 transition"
+                >
+                  ⚡ Auto-Add Low-Stock Items
+                </button>
+              </div>
+
+              {/* Order Items Table */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-900 uppercase">Items to Order</label>
+                  <button
+                    type="button"
+                    onClick={handleAddPOItem}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                  >
+                    + Add Another Item
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {poItems.map((item, idx) => (
+                    <div key={idx} className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                      <div className="flex-1 min-w-[140px]">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Product Name"
+                          value={item.productName}
+                          onChange={(e) => handlePOItemChange(idx, 'productName', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded border border-slate-200 bg-white font-medium"
+                        />
+                      </div>
+
+                      <div className="w-20">
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          placeholder="Qty"
+                          value={item.quantityOrdered}
+                          onChange={(e) => handlePOItemChange(idx, 'quantityOrdered', parseFloat(e.target.value) || 0)}
+                          className="w-full px-2 py-1.5 rounded border border-slate-200 bg-white font-mono font-bold"
+                        />
+                      </div>
+
+                      <div className="w-24">
+                        <select
+                          value={item.unit}
+                          onChange={(e) => handlePOItemChange(idx, 'unit', e.target.value)}
+                          className="w-full px-2 py-1.5 rounded border border-slate-200 bg-white"
+                        >
+                          <option value="pieces">Pieces</option>
+                          <option value="cartons">Cartons</option>
+                          <option value="boxes">Boxes</option>
+                          <option value="packs">Packs</option>
+                          <option value="kg">Kg</option>
+                        </select>
+                      </div>
+
+                      <div className="w-24">
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          placeholder="Est. Cost"
+                          value={item.estimatedUnitCost}
+                          onChange={(e) => handlePOItemChange(idx, 'estimatedUnitCost', parseFloat(e.target.value) || 0)}
+                          className="w-full px-2 py-1.5 rounded border border-slate-200 bg-white font-mono font-bold"
+                        />
+                      </div>
+
+                      <div className="w-24 text-right font-mono font-bold text-slate-900">
+                        {currency} {item.totalCost.toLocaleString()}
+                      </div>
+
+                      {poItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePOItem(idx)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end pt-2 text-xs font-bold text-slate-900">
+                  Total Value: {currency} {poItems.reduce((acc, i) => acc + i.totalCost, 0).toLocaleString()}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePOModal(false)}
+                  className="px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-xs"
+                >
+                  ✓ Dispatch Stock Request (PO)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 7. MODAL 3: RECEIVE SHIPMENT AT DOCK (GRN)                             */}
+      {/* ===================================================================== */}
+      {showGRNModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <label className="block font-semibold text-textPrimary mb-1">
-                  Debt Classification &amp; Balance Sheet Impact *
-                </label>
+                <h3 className="text-base font-bold text-slate-900">Receive Stock at Dock (Goods Received Note)</h3>
+                <p className="text-xs text-slate-500">Inspect arriving deliveries and auto-increment store inventory.</p>
+              </div>
+              <button onClick={() => setShowGRNModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleAcceptGRNShipment} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Supplier Delivering *</label>
+                  <select
+                    value={grnSupplierId}
+                    onChange={(e) => setGrnSupplierId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-bold"
+                  >
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Supplier Delivery Invoice Ref #</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. INV-8924 / Waybill 104"
+                    value={grnInvoiceRef}
+                    onChange={(e) => setGrnInvoiceRef(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Items Received Table */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-900 uppercase">Received Goods Inspection</label>
+                <div className="space-y-2">
+                  {grnItems.map((item, idx) => (
+                    <div key={idx} className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                      <div className="flex-1 min-w-[140px]">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Product Name"
+                          value={item.productName}
+                          onChange={(e) => {
+                            const updated = [...grnItems];
+                            updated[idx].productName = e.target.value;
+                            setGrnItems(updated);
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded border border-slate-200 bg-white font-medium"
+                        />
+                      </div>
+
+                      <div className="w-20">
+                        <label className="block text-[10px] text-slate-500">Delivered</label>
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={item.quantityReceived}
+                          onChange={(e) => {
+                            const updated = [...grnItems];
+                            updated[idx].quantityReceived = parseFloat(e.target.value) || 0;
+                            setGrnItems(updated);
+                          }}
+                          className="w-full px-2 py-1 rounded border border-slate-200 bg-white font-mono font-bold"
+                        />
+                      </div>
+
+                      <div className="w-20">
+                        <label className="block text-[10px] text-red-500">Damaged</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.quantityDamaged}
+                          onChange={(e) => {
+                            const updated = [...grnItems];
+                            updated[idx].quantityDamaged = parseFloat(e.target.value) || 0;
+                            setGrnItems(updated);
+                          }}
+                          className="w-full px-2 py-1 rounded border border-slate-200 bg-white font-mono text-red-600 font-bold"
+                        />
+                      </div>
+
+                      <div className="w-24">
+                        <label className="block text-[10px] text-slate-500">Unit Buying Cost</label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={item.unitCost}
+                          onChange={(e) => {
+                            const updated = [...grnItems];
+                            updated[idx].unitCost = parseFloat(e.target.value) || 0;
+                            setGrnItems(updated);
+                          }}
+                          className="w-full px-2 py-1 rounded border border-slate-200 bg-white font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowGRNModal(false)}
+                  className="px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-xs"
+                >
+                  ✓ Accept Shipment &amp; Restock Inventory
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 8. MODAL 4: DIRECT SUPPLIER PAYOUT DESK                                */}
+      {/* ===================================================================== */}
+      {showPayoutModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Direct Supplier Payout Desk</h3>
+                <p className="text-xs text-slate-500">Disburse payment to supplier MoMo or Bank account.</p>
+              </div>
+              <button onClick={() => setShowPayoutModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleExecuteSupplierPayout} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Select Supplier *</label>
                 <select
-                  value={formDebtType}
-                  onChange={(e) => setFormDebtType(e.target.value as DebtType)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs font-semibold focus:outline-none focus:border-accent"
+                  value={payoutSupplierId}
+                  onChange={(e) => {
+                    setPayoutSupplierId(e.target.value);
+                    const s = suppliers.find((item) => item.id === e.target.value);
+                    if (s) {
+                      setPayoutAmount(String(s.balance_owed > 0 ? s.balance_owed : ''));
+                      setPayoutMoMoNumber(s.phone || '');
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 text-xs rounded-lg border border-slate-200 text-slate-900 font-bold"
                 >
-                  <option value="inventory">📦 Inventory Goods on Credit (Adds to Inventory Asset &amp; Accounts Payable)</option>
-                  <option value="cash_loan">💵 Cash Loan / Borrowing (Adds to Cash in Hand &amp; Short-Term Liability)</option>
-                  <option value="fixed_asset">🚜 Equipment / Machinery Financing (Adds to Fixed Assets &amp; Long-Term Liability)</option>
-                  <option value="service_expense">💡 Service / OpEx on Credit (Accrued Utilities, Rent, Logistics)</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} — Current Debt: {currency} {Number(s.balance_owed || 0).toLocaleString()}
+                    </option>
+                  ))}
                 </select>
-                <p className="text-[10.5px] text-textMuted mt-1">
-                  {DEBT_TYPE_LABELS[formDebtType]?.desc}
-                </p>
               </div>
+
+              {activePayoutSupplier && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex justify-between items-center">
+                  <span className="text-slate-500">Outstanding Balance Owed:</span>
+                  <span className="font-mono font-bold text-red-600 text-sm">
+                    {currency} {Number(activePayoutSupplier.balance_owed || 0).toLocaleString()}
+                  </span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Phone / WhatsApp / MoMo</label>
-                  <input
-                    type="text"
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Category</label>
-                  <input
-                    type="text"
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-textPrimary mb-1">
-                    Current Debt Owed ({currency})
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Gross Debt to Settle ({currency}) *
                   </label>
                   <input
                     type="number"
-                    step="0.01"
-                    min="0"
-                    value={formStartingDebt}
-                    onChange={(e) => setFormStartingDebt(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs font-mono focus:outline-none focus:border-accent"
+                    step="any"
+                    required
+                    value={payoutAmount}
+                    onChange={(e) => setPayoutAmount(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs rounded-lg border border-slate-200 text-slate-900 font-mono font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Payment Terms</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Payment Method *</label>
                   <select
-                    value={formTerms}
-                    onChange={(e) => setFormTerms(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                    value={payoutMethod}
+                    onChange={(e) => setPayoutMethod(e.target.value as any)}
+                    className="w-full px-3 py-2.5 text-xs rounded-lg border border-slate-200 text-slate-900 font-medium"
                   >
-                    <option value="Net 7">Net 7 Days</option>
-                    <option value="Net 14">Net 14 Days</option>
-                    <option value="Net 30">Net 30 Days</option>
-                    <option value="Net 60">Net 60 Days</option>
-                    <option value="COD">Cash on Delivery (COD)</option>
+                    <option value="momo">MTN / Telecel Mobile Money</option>
+                    <option value="bank">Bank Transfer (GhIPSS / Instant Pay)</option>
+                    <option value="cash">Store Cash Drawer</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {payoutMethod === 'momo' && (
                 <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Payment Due Date</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Supplier MoMo Number</label>
                   <input
-                    type="date"
-                    value={formDueDate}
-                    onChange={(e) => setFormDueDate(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                    type="text"
+                    placeholder="e.g. 0244123456"
+                    value={payoutMoMoNumber}
+                    onChange={(e) => setPayoutMoMoNumber(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-mono"
                   />
                 </div>
+              )}
 
-                <div>
-                  <label className="block font-semibold text-textPrimary mb-1">Email Address</label>
+              {payoutMethod === 'bank' && (
+                <div className="grid grid-cols-2 gap-2">
                   <input
-                    type="email"
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                    type="text"
+                    placeholder="Bank Name (e.g. Ecobank / GCB)"
+                    value={payoutBankName}
+                    onChange={(e) => setPayoutBankName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Account Number"
+                    value={payoutBankAccountNo}
+                    onChange={(e) => setPayoutBankAccountNo(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-mono"
                   />
                 </div>
+              )}
+
+              {/* Statutory WHT Section */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800">Statutory Withholding Tax (WHT)</span>
+                  <select
+                    value={payoutWhtRate}
+                    onChange={(e) => setPayoutWhtRate(parseFloat(e.target.value))}
+                    className="px-2 py-1 rounded border border-slate-200 bg-white font-medium text-xs"
+                  >
+                    <option value="0">0% (Exempt / Standard)</option>
+                    <option value="3">3% WHT (Standard Goods)</option>
+                    <option value="5">5% WHT (Services &amp; Logistics)</option>
+                  </select>
+                </div>
+
+                {payoutWhtRate > 0 && (
+                  <div className="text-xs space-y-1 pt-1 border-t border-slate-200 text-slate-600">
+                    <div className="flex justify-between">
+                      <span>WHT Deducted ({payoutWhtRate}%):</span>
+                      <span className="font-mono text-amber-700 font-bold">-{currency} {calculatedWhtAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-900">
+                      <span>Net Cash Disbursed to Supplier:</span>
+                      <span className="font-mono text-emerald-700">{currency} {calculatedNetDisbursed.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="block font-semibold text-textPrimary mb-1">Notes / Terms</label>
-                <textarea
-                  rows={2}
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
+                <label className="block text-xs font-medium text-slate-700 mb-1">Transaction Ref / Cheque No. (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. MoMo Trans ID / Cheque #00492"
+                  value={payoutRef}
+                  onChange={(e) => setPayoutRef(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-3.5 py-2 rounded-lg font-semibold text-textSecondary hover:bg-surface1 transition"
+                  onClick={() => setShowPayoutModal(false)}
+                  className="px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={savingSupplier}
-                  className="px-5 py-2 rounded-lg font-bold text-white bg-textPrimary hover:bg-black/90 transition shadow-sm disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-xs"
                 >
-                  {savingSupplier ? 'Updating...' : 'Save Changes'}
+                  ✓ Disburse {currency} {calculatedNetDisbursed.toLocaleString()}
                 </button>
               </div>
             </form>
@@ -1211,206 +1628,6 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* MODAL 3: DELETE CONFIRMATION                             */}
-      {/* ======================================================== */}
-      {showDeleteModal && selectedSupplier && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface2 rounded-xl max-w-sm w-full p-6 border border-border shadow-2xl text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-dangerBg text-danger font-bold text-xl flex items-center justify-center mx-auto">
-              🗑️
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-textPrimary">Delete Creditor?</h2>
-              <p className="text-xs text-textSecondary mt-1">
-                Are you sure you want to delete <strong className="text-textPrimary">{selectedSupplier.name}</strong>? Outstanding debt of{' '}
-                <strong className="text-danger font-mono">{currency} {Number(selectedSupplier.balance_owed || 0).toLocaleString()}</strong> will be removed from your liabilities.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="py-2 px-4 rounded-lg text-xs font-semibold text-textSecondary bg-surface1 hover:bg-border transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteSupplier}
-                className="py-2 px-4 rounded-lg text-xs font-bold text-white bg-danger hover:bg-red-700 transition shadow-sm"
-              >
-                Yes, Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL 4: RECORD CREDIT BILL                              */}
-      {/* ======================================================== */}
-      {showBillModal && selectedSupplier && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface2 rounded-xl max-w-md w-full p-6 border border-border shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
-              <div>
-                <h2 className="text-base font-bold text-textPrimary">Record Credit Purchase / Bill</h2>
-                <p className="text-xs text-textSecondary mt-0.5">Increases liability for {selectedSupplier.name}</p>
-              </div>
-              <button
-                onClick={() => setShowBillModal(false)}
-                className="text-textMuted hover:text-textPrimary text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleRecordBill} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Bill Amount ({currency}) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  min="0.01"
-                  placeholder="0.00"
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary font-mono text-sm font-bold focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Invoice / Waybill Ref #</label>
-                <input
-                  type="text"
-                  placeholder="e.g. INV-9842"
-                  value={txRef}
-                  onChange={(e) => setTxRef(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Transaction Date</label>
-                <input
-                  type="date"
-                  value={txDate}
-                  onChange={(e) => setTxDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Particulars / Description</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 50 cartons frozen milk on credit"
-                  value={txNotes}
-                  onChange={(e) => setTxNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowBillModal(false)}
-                  className="px-3.5 py-2 rounded-lg font-semibold text-textSecondary hover:bg-surface1 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-lg font-bold text-white bg-textPrimary hover:bg-black/90 transition shadow-sm"
-                >
-                  Add Bill
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL 5: SETTLE DEBT / RECORD PAYMENT                    */}
-      {/* ======================================================== */}
-      {showPayModal && selectedSupplier && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface2 rounded-xl max-w-md w-full p-6 border border-border shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
-              <div>
-                <h2 className="text-base font-bold text-textPrimary">Record Debt Settlement</h2>
-                <p className="text-xs text-textSecondary mt-0.5">
-                  Current debt: <strong className="text-danger font-mono">{currency} {Number(selectedSupplier.balance_owed || 0).toLocaleString()}</strong>
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPayModal(false)}
-                className="text-textMuted hover:text-textPrimary text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleRecordPayment} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Payment Amount ({currency}) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  min="0.01"
-                  max={selectedSupplier.balance_owed || 99999999}
-                  placeholder="0.00"
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary font-mono text-sm font-bold focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Receipt / MoMo / Cheque Ref #</label>
-                <input
-                  type="text"
-                  placeholder="e.g. MoMo Ref: 20260821098"
-                  value={txRef}
-                  onChange={(e) => setTxRef(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-textPrimary mb-1">Payment Date</label>
-                <input
-                  type="date"
-                  value={txDate}
-                  onChange={(e) => setTxDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg bg-surface0 border border-border text-textPrimary text-xs focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowPayModal(false)}
-                  className="px-3.5 py-2 rounded-lg font-semibold text-textSecondary hover:bg-surface1 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-lg font-bold text-white bg-success hover:bg-green-700 transition shadow-sm"
-                >
-                  Confirm Settlement
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

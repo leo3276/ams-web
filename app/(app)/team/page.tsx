@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useUserRole, UserRole, StaffMember } from '@/lib/RoleContext';
+import { useArchetype } from '@/lib/ArchetypeContext';
 
 export default function TeamManagementPage() {
+  const { archetype, isEducation } = useArchetype();
   const {
     role,
     isOwner,

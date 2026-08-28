@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem } from '@/lib/types';
+import { useArchetype } from '@/lib/ArchetypeContext';
 import Link from 'next/link';
 
 interface RecentSale {
@@ -25,6 +26,7 @@ import {
 } from '@/lib/offlineStore';
 
 export default function RecordSalePage() {
+  const { archetype, isEducation, students, schoolSettings } = useArchetype();
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [currency, setCurrency] = useState('GHS');
   const [items, setItems] = useState<InventoryItem[]>([]);

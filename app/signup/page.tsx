@@ -119,6 +119,8 @@ export default function SignUpPage() {
     if (data.user) {
       localStorage.setItem(`ams:owner_pin:${data.user.id}`, cleanPin);
       localStorage.setItem(`ams:owner_pin:${cleanEmail}`, cleanPin);
+      // Ensure new accounts automatically trigger the full walkthrough guide
+      localStorage.removeItem('ams:web_walkthrough_completed_v1');
     }
 
     // If email confirmation is disabled or session exists, navigate immediately

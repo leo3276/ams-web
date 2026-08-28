@@ -34,6 +34,103 @@ function getActiveBusinessId(explicitId?: string): string {
 }
 
 // 1. Business & User Cache
+const KEY_KNOWN_BUSINESSES = 'ams:known_businesses_list_v1';
+const KEY_BUSINESS_PINS_MAP = 'ams:business_pins_map_v1';
+const KEY_ACCOUNTANT_PINS_MAP = 'ams:accountant_pins_map_v1';
+
+export function getBusinessSecurityPin(businessId: string): string {
+  if (typeof window === 'undefined' || !businessId) return '1234';
+  try {
+    const raw = localStorage.getItem(KEY_BUSINESS_PINS_MAP);
+    const map = raw ? JSON.parse(raw) : {};
+    return map[businessId] || '1234';
+  } catch (_e) {
+    return '1234';
+  }
+}
+
+export function setBusinessSecurityPin(businessId: string, pin: string) {
+  if (typeof window === 'undefined' || !businessId) return;
+  try {
+    const raw = localStorage.getItem(KEY_BUSINESS_PINS_MAP);
+    const map = raw ? JSON.parse(raw) : {};
+    map[businessId] = pin.trim();
+    localStorage.setItem(KEY_BUSINESS_PINS_MAP, JSON.stringify(map));
+  } catch (_e) {}
+}
+
+export function getAccountantSecurityPin(businessId: string): string | null {
+  if (typeof window === 'undefined' || !businessId) return null;
+  try {
+    const raw = localStorage.getItem(KEY_ACCOUNTANT_PINS_MAP);
+    const map = raw ? JSON.parse(raw) : {};
+    return map[businessId] || null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+export function setAccountantSecurityPin(businessId: string, pin: string) {
+  if (typeof window === 'undefined' || !businessId) return;
+  try {
+    const raw = localStorage.getItem(KEY_ACCOUNTANT_PINS_MAP);
+    const map = raw ? JSON.parse(raw) : {};
+    map[businessId] = pin.trim();
+    localStorage.setItem(KEY_ACCOUNTANT_PINS_MAP, JSON.stringify(map));
+  } catch (_e) {}
+}
+
+import { verifySecurePin, hashPin } from './securityEngine';
+
+/**
+ * Validates a PIN for switching into a business with cryptographic hashing and brute-force lockout protection.
+ * Returns: { valid: boolean; role?: 'owner' | 'accountant'; error?: string }
+ */
+export function verifyBusinessAccessPin(
+  businessId: string,
+  inputPin: string
+): { valid: boolean; role?: 'owner' | 'accountant'; error?: string } {
+  const cleanInput = inputPin.trim();
+  const ownerStored = getBusinessSecurityPin(businessId);
+  const accountantStored = getAccountantSecurityPin(businessId);
+
+  // 1. Check Accountant PIN
+  if (accountantStored) {
+    const acctCheck = verifySecurePin(`acct_${businessId}`, cleanInput, accountantStored);
+    if (acctCheck.success) {
+      return { valid: true, role: 'accountant' };
+    }
+  }
+
+  // 2. Check Owner Master PIN
+  const ownerCheck = verifySecurePin(`owner_${businessId}`, cleanInput, ownerStored);
+  if (ownerCheck.success) {
+    return { valid: true, role: 'owner' };
+  }
+
+  return { valid: false, error: ownerCheck.error || 'Invalid Security PIN' };
+}
+
+export function getKnownBusinesses(): CachedBusiness[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(KEY_KNOWN_BUSINESSES);
+    return raw ? JSON.parse(raw) : [];
+  } catch (_e) {
+    return [];
+  }
+}
+
+export function registerKnownBusiness(b: CachedBusiness) {
+  if (typeof window === 'undefined' || !b?.id) return;
+  try {
+    const existing = getKnownBusinesses();
+    const filtered = existing.filter((item) => item.id !== b.id);
+    const updated = [b, ...filtered];
+    localStorage.setItem(KEY_KNOWN_BUSINESSES, JSON.stringify(updated));
+  } catch (_e) {}
+}
+
 export function getCachedBusiness(): CachedBusiness | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -48,6 +145,7 @@ export function setCachedBusiness(b: CachedBusiness) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(KEY_BUSINESS, JSON.stringify(b));
+    registerKnownBusiness(b);
   } catch (_e) {}
 }
 

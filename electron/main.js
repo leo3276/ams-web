@@ -116,34 +116,28 @@ async function createWindow() {
     } catch (_e) {}
   }
 
-  // Smart Loader: Try localhost:3000 first, fallback immediately to local static server
-  let loaded = false;
-  try {
-    const devUrl = 'http://localhost:3000';
-    const testReq = http.get(devUrl, async (res) => {
-      if (res.statusCode === 200 || res.statusCode === 304 || res.statusCode === 307 || res.statusCode === 308) {
-        await mainWindow.loadURL(devUrl);
-        loaded = true;
-      }
-    });
-    testReq.on('error', async () => {
-      if (!loaded) {
+  // Smart Loader: Load Next.js dev server or fall back to local static server
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  
+  if (isDev) {
+    try {
+      await mainWindow.loadURL('http://127.0.0.1:3000/login');
+    } catch (devErr) {
+      console.warn('Could not load Next.js dev server, starting local static fallback:', devErr.message);
+      try {
         const port = await startLocalServer();
         await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
-        loaded = true;
+      } catch (staticErr) {
+        console.error('Failed to load static fallback:', staticErr.message);
       }
-    });
-    testReq.setTimeout(1500, async () => {
-      testReq.abort();
-      if (!loaded) {
-        const port = await startLocalServer();
-        await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
-        loaded = true;
-      }
-    });
-  } catch (_e) {
-    const port = await startLocalServer();
-    await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
+    }
+  } else {
+    try {
+      const port = await startLocalServer();
+      await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
+    } catch (err) {
+      console.error('Failed to load production window:', err.message);
+    }
   }
 
   // Intercept external links to open in the user's default browser

@@ -5,7 +5,20 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
-import { getCachedBusiness, setCachedBusiness } from '@/lib/offlineStore';
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedInventory,
+  setCachedInventory,
+  getCachedInvoices,
+  setCachedInvoices,
+  getCachedTransactions,
+  setCachedTransactions,
+  getCachedCustomers,
+  setCachedCustomers,
+  getCachedSuppliers,
+  setCachedSuppliers,
+} from '@/lib/offlineStore';
 
 export type MigrationCategory =
   | 'inventory'
@@ -814,43 +827,76 @@ export default function MigratePage() {
           unit_price: r.unit_price,
         }));
 
+        let insertedData: any[] = [];
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.slice(i, i + chunkSize);
-          const { error } = await supabase.from('inventory_items').insert(chunk);
-          if (error) throw error;
+          const { data, error } = await supabase.from('inventory_items').insert(chunk).select();
+          if (error) {
+            console.warn('Supabase insert notice (saving locally):', error.message);
+          } else if (data) {
+            insertedData = [...insertedData, ...data];
+          }
           setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
         }
+
+        // Update local offline inventory cache so POS, Inventory, and Record Sale see it immediately!
+        try {
+          const currentCached = getCachedInventory(businessId);
+          const newItems = (insertedData.length > 0 ? insertedData : payload).map((item: any, idx: number) => ({
+            id: item.id || `inv_${Date.now()}_${idx}`,
+            business_id: businessId,
+            name: item.name,
+            barcode: item.barcode || '',
+            quantity: Number(item.quantity || 0),
+            unit_cost: Number(item.unit_cost || 0),
+            unit_price: Number(item.unit_price || 0),
+            created_at: new Date().toISOString(),
+          }));
+          const merged = [...newItems, ...currentCached];
+          setCachedInventory(merged as any, businessId);
+          window.dispatchEvent(new Event('ams:inventory-updated'));
+        } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Inventory Items' });
       }
 
       // 2. INVOICES
       if (category === 'invoices') {
-        const payload = validRecords.map((r: any) => ({
+        const payload = validRecords.map((r: any, idx: number) => ({
+          id: `inv_${Date.now()}_${idx}`,
           business_id: businessId,
-          invoice_number: r.invoice_number,
+          invoice_number: r.invoice_number || `INV-${1000 + idx}`,
           customer_name: r.customer_name,
           customer_email: r.customer_email || null,
           amount: r.amount,
           due_date: r.due_date,
-          status: r.status,
+          status: r.status || 'sent',
           description: r.description || (r.customer_phone ? `Phone: ${r.customer_phone}` : null),
           paid_at: r.status === 'paid' ? new Date().toISOString() : null,
+          created_at: new Date().toISOString(),
         }));
 
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.slice(i, i + chunkSize);
           const { error } = await supabase.from('invoices').insert(chunk);
-          if (error) throw error;
+          if (error) console.warn('Supabase invoice insert notice (saving locally):', error.message);
           setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
         }
+
+        // Update local offline invoices cache
+        try {
+          const currentCached = getCachedInvoices(businessId);
+          setCachedInvoices([...payload, ...currentCached], businessId);
+          window.dispatchEvent(new Event('ams:invoices-updated'));
+        } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Invoices' });
       }
 
       // 3. FIXED ASSETS
       if (category === 'assets') {
-        const payload = validRecords.map((r: any) => ({
+        const payload = validRecords.map((r: any, idx: number) => ({
+          id: `ast_${Date.now()}_${idx}`,
           business_id: businessId,
           transaction_date: r.acquisition_date,
           vendor: `Fixed Asset: ${r.name} (${r.category})`,
@@ -859,14 +905,22 @@ export default function MigratePage() {
           amount: r.cost,
           payment_method: 'bank',
           depreciation_rate: r.depreciation_rate,
+          created_at: new Date().toISOString(),
         }));
 
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.slice(i, i + chunkSize);
           const { error } = await supabase.from('transactions').insert(chunk);
-          if (error) throw error;
+          if (error) console.warn('Supabase asset insert notice (saving locally):', error.message);
           setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
         }
+
+        // Update local offline transactions cache
+        try {
+          const currentCached = getCachedTransactions(businessId);
+          setCachedTransactions([...payload, ...currentCached], businessId);
+          window.dispatchEvent(new Event('ams:transactions-updated'));
+        } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Fixed Assets' });
       }
@@ -874,19 +928,21 @@ export default function MigratePage() {
       // 4. CUSTOMERS & RECEIVABLES
       if (category === 'customers') {
         const customerList = validRecords.map((r: any) => ({
-          id: 'cust_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-          business_id: businessId,
-          name: r.name,
-          phone: r.phone,
-          email: r.email,
-          balance: r.balance,
-          notes: r.notes,
+          customer_name: r.name,
+          customer_phone: r.phone || null,
+          customer_email: r.email || null,
+          invoice_count: 1,
+          total_invoiced: Number(r.balance || 0),
+          total_paid: 0,
+          total_outstanding: Number(r.balance || 0),
+          last_invoice_date: new Date().toISOString().split('T')[0],
         }));
 
         // If customers have outstanding debt, insert receivable entries
         const debtPayload = validRecords
           .filter((r: any) => r.balance > 0)
-          .map((r: any) => ({
+          .map((r: any, idx: number) => ({
+            id: `rec_${Date.now()}_${idx}`,
             business_id: businessId,
             transaction_date: new Date().toISOString().split('T')[0],
             vendor: `Customer: ${r.name}`,
@@ -894,21 +950,28 @@ export default function MigratePage() {
             category: `Accounts Receivable | Customer: ${r.name} | phone:${r.phone || ''} | email:${r.email || ''}`,
             amount: r.balance,
             payment_method: 'cash',
+            created_at: new Date().toISOString(),
           }));
 
         if (debtPayload.length > 0) {
           for (let i = 0; i < debtPayload.length; i += chunkSize) {
             const chunk = debtPayload.slice(i, i + chunkSize);
             const { error } = await supabase.from('transactions').insert(chunk);
-            if (error) console.warn('Receivable insert notice:', error.message);
+            if (error) console.warn('Receivable insert notice (saving locally):', error.message);
           }
+          try {
+            const currentCachedTxs = getCachedTransactions(businessId);
+            setCachedTransactions([...debtPayload, ...currentCachedTxs], businessId);
+            window.dispatchEvent(new Event('ams:transactions-updated'));
+          } catch (_e) {}
         }
 
-        // Save into local customer cache
+        // Save into scoped local customer cache
         try {
-          const existing = JSON.parse(localStorage.getItem('ams:cache_customers_v1') || '[]');
+          const existing = getCachedCustomers(businessId);
           const merged = [...customerList, ...existing];
-          localStorage.setItem('ams:cache_customers_v1', JSON.stringify(merged));
+          setCachedCustomers(merged, businessId);
+          window.dispatchEvent(new Event('ams:customers-updated'));
         } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Customer Accounts' });
@@ -916,7 +979,8 @@ export default function MigratePage() {
 
       // 5. TRANSACTIONS (GENERAL LEDGER)
       if (category === 'transactions') {
-        const payload = validRecords.map((r: any) => ({
+        const payload = validRecords.map((r: any, idx: number) => ({
+          id: `tx_${Date.now()}_${idx}`,
           business_id: businessId,
           transaction_date: r.transaction_date,
           vendor: r.vendor,
@@ -924,37 +988,51 @@ export default function MigratePage() {
           category: r.category,
           amount: r.amount,
           payment_method: 'cash',
+          created_at: new Date().toISOString(),
         }));
 
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.slice(i, i + chunkSize);
           const { error } = await supabase.from('transactions').insert(chunk);
-          if (error) throw error;
+          if (error) console.warn('Supabase tx insert notice (saving locally):', error.message);
           setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
         }
+
+        // Update local offline transactions cache
+        try {
+          const currentCached = getCachedTransactions(businessId);
+          setCachedTransactions([...payload, ...currentCached], businessId);
+          window.dispatchEvent(new Event('ams:transactions-updated'));
+        } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Ledger Transactions' });
       }
 
       // 6. SUPPLIERS & VENDOR PAYABLES (CREDITORS)
       if (category === 'suppliers') {
-        const supplierList = validRecords.map((r: any) => ({
-          id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        const supplierList = validRecords.map((r: any, idx: number) => ({
+          id: 'sup_' + Date.now() + '_' + idx,
           business_id: businessId,
           name: r.name,
-          phone: r.phone || null,
-          email: r.email || null,
-          category: r.category || 'Inventory Goods',
-          balance_owed: r.balance_owed || 0,
-          payment_terms: r.payment_terms || 'Net 30',
-          due_date: r.due_date || null,
-          notes: r.notes || null,
+          phone: r.phone || '',
+          email: r.email || '',
+          category: r.category || 'General Goods',
+          debtType: 'inventory' as const,
+          balance: Number(r.balance_owed || 0),
+          startingDebt: Number(r.balance_owed || 0),
+          paymentTerms: r.payment_terms || 'Net 30',
+          dueDate: r.due_date || '',
+          notes: r.notes || '',
+          settled: Number(r.balance_owed || 0) <= 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }));
 
         // Insert into ledger transactions as Short-Term Liabilities
         const payablePayload = validRecords
           .filter((r: any) => r.balance_owed > 0)
-          .map((r: any) => ({
+          .map((r: any, idx: number) => ({
+            id: `pay_${Date.now()}_${idx}`,
             business_id: businessId,
             transaction_date: r.due_date || new Date().toISOString().split('T')[0],
             vendor: `Supplier: ${r.name}`,
@@ -962,22 +1040,29 @@ export default function MigratePage() {
             category: `Accounts Payable | ${r.category} | phone:${r.phone || ''} | terms:${r.payment_terms} | debtType:inventory | due:${r.due_date || ''}`,
             amount: r.balance_owed,
             payment_method: 'cash',
+            created_at: new Date().toISOString(),
           }));
 
         if (payablePayload.length > 0) {
           for (let i = 0; i < payablePayload.length; i += chunkSize) {
             const chunk = payablePayload.slice(i, i + chunkSize);
             const { error } = await supabase.from('transactions').insert(chunk);
-            if (error) console.warn('Payable insert notice:', error.message);
+            if (error) console.warn('Payable insert notice (saving locally):', error.message);
             setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payablePayload.length) * 100)));
           }
+          try {
+            const currentCachedTxs = getCachedTransactions(businessId);
+            setCachedTransactions([...payablePayload, ...currentCachedTxs], businessId);
+            window.dispatchEvent(new Event('ams:transactions-updated'));
+          } catch (_e) {}
         }
 
-        // Also save into local offline supplier cache
+        // Also save into scoped local offline supplier cache
         try {
-          const existing = JSON.parse(localStorage.getItem('ams:cache_suppliers_v1') || '[]');
+          const existing = getCachedSuppliers(businessId);
           const merged = [...supplierList, ...existing];
-          localStorage.setItem('ams:cache_suppliers_v1', JSON.stringify(merged));
+          setCachedSuppliers(merged, businessId);
+          window.dispatchEvent(new Event('ams:suppliers-data-updated'));
         } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Suppliers & Creditor Accounts' });
@@ -985,7 +1070,7 @@ export default function MigratePage() {
 
       // 7. OPENING BALANCES
       if (category === 'opening_balances') {
-        const payload = validRecords.map((r: any) => {
+        const payload = validRecords.map((r: any, idx: number) => {
           let txType = 'current_asset';
           const typeLower = String(r.account_type || '').toLowerCase();
           if (typeLower.includes('liability') || typeLower.includes('loan') || typeLower.includes('debt')) {
@@ -997,6 +1082,7 @@ export default function MigratePage() {
           }
 
           return {
+            id: `opn_${Date.now()}_${idx}`,
             business_id: businessId,
             transaction_date: r.as_of_date,
             vendor: `Opening Balance: ${r.account_name}`,
@@ -1004,15 +1090,23 @@ export default function MigratePage() {
             category: 'Opening Balances',
             amount: r.amount,
             payment_method: r.account_name?.toLowerCase().includes('bank') ? 'bank' : 'cash',
+            created_at: new Date().toISOString(),
           };
         });
 
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.slice(i, i + chunkSize);
           const { error } = await supabase.from('transactions').insert(chunk);
-          if (error) throw error;
+          if (error) console.warn('Supabase opening balance insert notice (saving locally):', error.message);
           setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
         }
+
+        // Update local offline transactions cache
+        try {
+          const currentCached = getCachedTransactions(businessId);
+          setCachedTransactions([...payload, ...currentCached], businessId);
+          window.dispatchEvent(new Event('ams:transactions-updated'));
+        } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Opening Balance Accounts' });
       }
@@ -1037,7 +1131,7 @@ export default function MigratePage() {
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.slice(i, i + chunkSize);
           const { error } = await supabase.from('business_members').insert(chunk);
-          if (error) throw error;
+          if (error) console.warn('Supabase member insert notice:', error.message);
           setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
         }
 

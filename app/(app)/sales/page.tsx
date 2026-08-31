@@ -132,6 +132,17 @@ export default function RecordSalePage() {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('ams:inventory-updated', handleUpdate);
+    window.addEventListener('ams:transactions-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('ams:inventory-updated', handleUpdate);
+      window.removeEventListener('ams:transactions-updated', handleUpdate);
+    };
   }, [loadData]);
 
   // Handle Barcode Matching

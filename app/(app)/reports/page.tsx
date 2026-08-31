@@ -330,6 +330,24 @@ export default function ReportsPage() {
 
   useEffect(() => {
     loadReports();
+
+    const handleUpdate = () => {
+      loadReports();
+    };
+
+    window.addEventListener('ams:inventory-updated', handleUpdate);
+    window.addEventListener('ams:transactions-updated', handleUpdate);
+    window.addEventListener('ams:invoices-updated', handleUpdate);
+    window.addEventListener('ams:customers-updated', handleUpdate);
+    window.addEventListener('ams:suppliers-data-updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('ams:inventory-updated', handleUpdate);
+      window.removeEventListener('ams:transactions-updated', handleUpdate);
+      window.removeEventListener('ams:invoices-updated', handleUpdate);
+      window.removeEventListener('ams:customers-updated', handleUpdate);
+      window.removeEventListener('ams:suppliers-data-updated', handleUpdate);
+    };
   }, [loadReports]);
 
   // Consolidated Financial Brief Export

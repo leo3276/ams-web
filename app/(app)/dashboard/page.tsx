@@ -302,6 +302,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboard();
+
+    const handleDataUpdate = () => {
+      loadDashboard();
+    };
+
+    window.addEventListener('ams:inventory-updated', handleDataUpdate);
+    window.addEventListener('ams:transactions-updated', handleDataUpdate);
+    window.addEventListener('ams:invoices-updated', handleDataUpdate);
+    window.addEventListener('ams:customers-updated', handleDataUpdate);
+    window.addEventListener('ams:suppliers-data-updated', handleDataUpdate);
+
+    return () => {
+      window.removeEventListener('ams:inventory-updated', handleDataUpdate);
+      window.removeEventListener('ams:transactions-updated', handleDataUpdate);
+      window.removeEventListener('ams:invoices-updated', handleDataUpdate);
+      window.removeEventListener('ams:customers-updated', handleDataUpdate);
+      window.removeEventListener('ams:suppliers-data-updated', handleDataUpdate);
+    };
   }, [loadDashboard]);
 
   // Safe-to-Spend Calculation

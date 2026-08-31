@@ -125,6 +125,17 @@ export default function CustomersPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('ams:customers-updated', handleUpdate);
+    window.addEventListener('ams:invoices-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('ams:customers-updated', handleUpdate);
+      window.removeEventListener('ams:invoices-updated', handleUpdate);
+    };
   }, [loadData]);
 
   // Merge student roster with live invoice financial numbers

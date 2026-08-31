@@ -143,6 +143,17 @@ function InvoicesPageContent() {
     const iso = d.toISOString().slice(0, 10);
     setDueDate(iso);
     setBulkDueDate(iso);
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('ams:invoices-updated', handleUpdate);
+    window.addEventListener('ams:inventory-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('ams:invoices-updated', handleUpdate);
+      window.removeEventListener('ams:inventory-updated', handleUpdate);
+    };
   }, [loadData]);
 
   // Line items helpers

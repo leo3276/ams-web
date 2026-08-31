@@ -105,6 +105,15 @@ export default function BookkeepingPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('ams:transactions-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('ams:transactions-updated', handleUpdate);
+    };
   }, [loadData]);
 
   const updateRow = (localId: string, patch: Partial<Row>) => {

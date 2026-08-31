@@ -142,6 +142,15 @@ export default function InventoryPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('ams:inventory-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('ams:inventory-updated', handleUpdate);
+    };
   }, [loadData]);
 
   // Global listener for USB/Bluetooth handheld barcode laser scanners

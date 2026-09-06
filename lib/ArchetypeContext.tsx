@@ -157,16 +157,8 @@ export function ArchetypeProvider({ children }: { children: React.ReactNode }) {
 
     const cachedBiz = getCachedBusiness();
     if (cachedBiz?.id) {
-      const updated = { ...cachedBiz, business_type: newId };
+      const updated = { ...cachedBiz, business_type: 'sole_proprietorship' };
       setCachedBusiness(updated as any);
-
-      // Best effort update in Supabase
-      try {
-        await supabase
-          .from('businesses')
-          .update({ business_type: newId })
-          .eq('id', cachedBiz.id);
-      } catch (_e) {}
     }
   }, []);
 

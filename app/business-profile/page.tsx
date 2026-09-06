@@ -120,7 +120,7 @@ export default function BusinessProfilePage() {
                 .from('businesses')
                 .update({
                   name: cleanName,
-                  business_type: selectedArchetype,
+                  business_type: 'sole_proprietorship',
                   industry: industryLabel,
                   currency,
                   fiscal_year_start: fiscalStart,
@@ -133,7 +133,7 @@ export default function BusinessProfilePage() {
                   id: savedBizId,
                   user_id: userId,
                   name: cleanName,
-                  business_type: selectedArchetype,
+                  business_type: 'sole_proprietorship',
                   industry: industryLabel,
                   currency,
                   fiscal_year_start: fiscalStart,

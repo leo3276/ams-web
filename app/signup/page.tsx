@@ -43,13 +43,13 @@ export default function SignUpPage() {
     let targetBiz = await resolveActiveBusiness(userId);
     if (!targetBiz || targetBiz.id === 'default_biz') {
       const defaultBizName = userName ? `${userName}'s Enterprise` : 'My Enterprise';
-      const { data: newBiz } = await supabase
+      const { data: newBiz, error: newBizErr } = await supabase
         .from('businesses')
         .insert({
           user_id: userId,
           name: defaultBizName,
           currency: 'GHS',
-          business_type: 'retail_wholesale',
+          business_type: 'sole_proprietorship',
           industry: 'Commercial Retail & Wholesale',
           fiscal_year_start: 'January',
         })
@@ -59,9 +59,23 @@ export default function SignUpPage() {
       if (newBiz) {
         targetBiz = newBiz;
         setCachedBusiness(newBiz as any);
+      } else {
+        if (newBizErr) console.warn('Supabase business insert notice:', newBizErr.message);
+        const fallback = {
+          id: `biz_${userId}_${Date.now()}`,
+          name: defaultBizName,
+          currency: 'GHS',
+          user_id: userId,
+          business_type: 'sole_proprietorship',
+          industry: 'Commercial Retail & Wholesale',
+          fiscal_year_start: 'January',
+        };
+        targetBiz = fallback as any;
+        setCachedBusiness(fallback as any);
       }
     }
 
+    localStorage.setItem('ams:active_archetype_v1', 'retail_wholesale');
     router.push('/dashboard');
   };
 

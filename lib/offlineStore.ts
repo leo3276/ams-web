@@ -253,7 +253,7 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
           user_id: activeUserId,
           name: defaultName,
           currency: 'GHS',
-          business_type: 'retail_wholesale',
+          business_type: 'sole_proprietorship',
           industry: 'Commercial Retail & Wholesale',
           fiscal_year_start: 'January',
         })

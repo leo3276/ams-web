@@ -13,7 +13,8 @@ import {
   addImportedBankFeeds,
   matchBankFeedTransaction,
 } from '@/lib/bankSyncStore';
-import { getCachedBusiness, getCachedTransactions, setCachedTransactions, getCachedInvoices } from '@/lib/offlineStore';
+import { getCachedBusiness, getCachedTransactions, setCachedTransactions, getCachedInvoices, generateUUID, isUUID, resolveActiveBusiness } from '@/lib/offlineStore';
+import { supabase } from '@/lib/supabase';
 import { Transaction, Invoice } from '@/lib/types';
 import { useUserRole } from '@/lib/RoleContext';
 import { logAuditEvent } from '@/lib/auditLogger';
@@ -207,7 +208,7 @@ export default function BankingSyncPage() {
     const txVendor = feed.narrative || (isCredit ? 'Bank Deposit / MoMo Inflow' : 'Bank Debit / MoMo Outflow');
 
     const newLedgerTx = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: generateUUID(),
       business_id: businessId,
       transaction_date: today,
       vendor: txVendor,
@@ -222,6 +223,12 @@ export default function BankingSyncPage() {
     setCachedTransactions([newLedgerTx, ...currentTxs], businessId);
 
     matchBankFeedTransaction(feedId, businessId, newLedgerTx.id);
+
+    if (businessId && isUUID(businessId)) {
+      try {
+        supabase.from('transactions').insert(newLedgerTx).then(() => {});
+      } catch (_e) {}
+    }
 
     // Immutable Audit Trail
     logAuditEvent({

@@ -20,6 +20,8 @@ import {
   setCachedTransactions,
   isOnline,
   resolveActiveBusiness,
+  generateUUID,
+  isUUID,
 } from '@/lib/offlineStore';
 import {
   getPurchaseOrders,
@@ -214,7 +216,7 @@ export default function SuppliersPage() {
               merged[existingIdx].balance_owed = Number(tx.amount || 0);
             } else {
               merged.push({
-                id: tx.id || `sup_${Date.now()}`,
+                id: isUUID(tx.id) ? tx.id : generateUUID(),
                 business_id: bid,
                 name: rawVendor,
                 phone: null,
@@ -449,8 +451,9 @@ export default function SuppliersPage() {
       }
     }
 
+    const newSupId = generateUUID();
     const newSup: Supplier = {
-      id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      id: newSupId,
       business_id: bid,
       name: formName.trim(),
       phone: formPhone.trim() || null,
@@ -465,18 +468,18 @@ export default function SuppliersPage() {
     addCachedSupplier(newSup, bid);
 
     // Also record supplier starting debt bill to Supabase transactions so it syncs across all pages
-    if (startingDebt > 0 && bid !== 'default_biz') {
+    if (startingDebt > 0 && bid && isUUID(bid)) {
       supabase
         .from('transactions')
         .insert({
-          id: newSup.id,
+          id: newSupId,
           business_id: bid,
           transaction_date: new Date().toISOString().slice(0, 10),
           vendor: `Supplier: ${newSup.name}`,
           type: formDebtType === 'fixed_asset' || formDebtType === 'long_term_loan' ? 'long_term_liability' : 'short_term_liability',
           category: 'Accounts Payable',
           amount: startingDebt,
-          payment_method: formLoanChannel || 'credit',
+          payment_method: formLoanChannel === 'cash' ? 'cash' : 'bank',
         })
         .then(() => {});
     }
@@ -538,13 +541,12 @@ export default function SuppliersPage() {
       );
       setCachedTransactions(filteredTxs, bid);
 
-      if (bid !== 'default_biz') {
-        supabase
-          .from('transactions')
-          .delete()
-          .eq('business_id', bid)
-          .or(`id.eq.${id},vendor.eq.Supplier: ${name},vendor.eq.${name}`)
-          .then(() => {});
+      if (bid && isUUID(bid)) {
+        if (isUUID(id)) {
+          supabase.from('transactions').delete().eq('business_id', bid).eq('id', id).then(() => {});
+        }
+        supabase.from('transactions').delete().eq('business_id', bid).eq('vendor', `Supplier: ${name}`).then(() => {});
+        supabase.from('transactions').delete().eq('business_id', bid).eq('vendor', name).then(() => {});
       }
     } catch (_e) {}
 

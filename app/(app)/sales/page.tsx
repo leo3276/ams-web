@@ -24,6 +24,8 @@ import {
   setCachedTransactions,
   saveOfflineTransaction,
   resolveActiveBusiness,
+  generateUUID,
+  isUUID,
 } from '@/lib/offlineStore';
 import { logAuditEvent } from '@/lib/auditLogger';
 
@@ -241,10 +243,13 @@ export default function RecordSalePage() {
       setItems(updatedItems);
       setCachedInventory(updatedItems, activeBid);
 
+      const saleTxId = generateUUID();
+
       try {
         const { data: insertedTx, error: txError } = await supabase
           .from('transactions')
           .insert({
+            id: saleTxId,
             business_id: activeBid,
             transaction_date: today,
             vendor: vendorDesc,
@@ -273,7 +278,7 @@ export default function RecordSalePage() {
           .eq('id', selectedItem.id);
 
         const saleTx = insertedTx || {
-          id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          id: saleTxId,
           business_id: activeBid,
           transaction_date: today,
           vendor: vendorDesc,
@@ -348,8 +353,11 @@ export default function RecordSalePage() {
 
       setSubmitting(true);
 
+      const customTxId = generateUUID();
+
       try {
         const { error: txError } = await supabase.from('transactions').insert({
+          id: customTxId,
           business_id: activeBid,
           transaction_date: today,
           vendor: cleanDesc,
@@ -362,7 +370,7 @@ export default function RecordSalePage() {
         if (txError) throw txError;
 
         const customTx = {
-          id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          id: customTxId,
           business_id: activeBid,
           transaction_date: today,
           vendor: cleanDesc,

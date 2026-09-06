@@ -1,6 +1,6 @@
 'use client';
 
-import { getCachedBusiness, getCachedInventory, setCachedInventory, addCachedSupplier, getCachedSuppliers, setCachedSuppliers, updateCachedSupplierBalance, getCachedTransactions, setCachedTransactions } from './offlineStore';
+import { getCachedBusiness, getCachedInventory, setCachedInventory, addCachedSupplier, getCachedSuppliers, setCachedSuppliers, updateCachedSupplierBalance, getCachedTransactions, setCachedTransactions, generateUUID, isUUID } from './offlineStore';
 import { supabase } from './supabase';
 import { InventoryItem } from './types';
 
@@ -369,7 +369,7 @@ export function recordSupplierPayout(
   // 3. Record in Local & Cloud Database Transaction Ledger
   const paymentChannel = (data.paymentMethod === 'bank' || data.paymentMethod === 'momo') ? 'bank' : 'cash';
   const payoutTx = {
-    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    id: generateUUID(),
     business_id: bid,
     transaction_date: newVoucher.paymentDate,
     vendor: `Supplier Settlement: ${newVoucher.supplierName}`,
@@ -387,17 +387,20 @@ export function recordSupplierPayout(
   broadcastUpdate('ams:suppliers-data-updated');
   broadcastUpdate('ams:suppliers-updated');
 
-  try {
-    supabase.from('transactions').insert({
-      business_id: bid,
-      transaction_date: newVoucher.paymentDate,
-      vendor: `Supplier Settlement: ${newVoucher.supplierName}`,
-      type: 'operating_expense',
-      category: `Accounts Payable Settlement | ${newVoucher.paymentMethod.toUpperCase()} | Ref: ${newVoucher.paymentReference || newVoucher.voucherNumber}`,
-      amount: newVoucher.netAmountDisbursed,
-      payment_method: paymentChannel,
-    }).then(() => {});
-  } catch (_e) {}
+  if (bid && isUUID(bid)) {
+    try {
+      supabase.from('transactions').insert({
+        id: payoutTx.id,
+        business_id: bid,
+        transaction_date: newVoucher.paymentDate,
+        vendor: `Supplier Settlement: ${newVoucher.supplierName}`,
+        type: 'operating_expense',
+        category: `Accounts Payable Settlement | ${newVoucher.paymentMethod.toUpperCase()} | Ref: ${newVoucher.paymentReference || newVoucher.voucherNumber}`,
+        amount: newVoucher.netAmountDisbursed,
+        payment_method: paymentChannel,
+      }).then(() => {});
+    } catch (_e) {}
+  }
 
   return { success: true, voucher: newVoucher };
 }

@@ -6,6 +6,8 @@ import {
   setCachedInventory,
   getCachedTransactions,
   setCachedTransactions,
+  generateUUID,
+  isUUID,
 } from './offlineStore';
 import { supabase } from './supabase';
 import { InventoryItem } from './types';
@@ -249,7 +251,7 @@ export function recordCustomerStockBuyBack(
     };
   } else {
     const newItem: InventoryItem = {
-      id: 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      id: generateUUID(),
       name: fullItemName,
       barcode: 'BUY-' + Math.random().toString(36).slice(2, 7).toUpperCase(),
       quantity: data.quantityPurchased,
@@ -265,7 +267,7 @@ export function recordCustomerStockBuyBack(
   // 2. Record Stock Purchase in Local & Cloud Ledger
   const paymentChannel = data.payoutMethod === 'momo' ? 'bank' : 'cash';
   const buyBackTx = {
-    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    id: generateUUID(),
     business_id: bid,
     transaction_date: newBuyBack.purchaseDate,
     vendor: `Customer Buy-Back: ${newBuyBack.customerName}`,
@@ -281,7 +283,7 @@ export function recordCustomerStockBuyBack(
     setCachedTransactions([buyBackTx, ...existingTxs], bid);
     broadcastUpdate('ams:transactions-updated');
 
-    if (bid && bid !== 'default_biz') {
+    if (bid && isUUID(bid)) {
       supabase.from('transactions').insert(buyBackTx).then(() => {});
     }
   } catch (_e) {}

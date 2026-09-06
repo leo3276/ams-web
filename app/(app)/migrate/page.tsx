@@ -19,6 +19,8 @@ import {
   getCachedSuppliers,
   setCachedSuppliers,
   resolveActiveBusiness,
+  generateUUID,
+  isUUID,
 } from '@/lib/offlineStore';
 import { logAuditEvent } from '@/lib/auditLogger';
 
@@ -797,9 +799,9 @@ export default function MigratePage() {
   // Execute Batch Ingestion into Supabase
   const handleExecuteImport = async () => {
     let activeBid = currentBusinessId;
-    if (!activeBid) {
+    if (!activeBid || !isUUID(activeBid)) {
       const resolved = await resolveActiveBusiness();
-      activeBid = resolved?.id || getCachedBusiness()?.id || null;
+      activeBid = (resolved?.id && isUUID(resolved.id)) ? resolved.id : (getCachedBusiness()?.id && isUUID(getCachedBusiness()?.id) ? getCachedBusiness()!.id : generateUUID());
       if (activeBid) {
         setCurrentBusinessId(activeBid);
       }
@@ -828,12 +830,13 @@ export default function MigratePage() {
       // 1. INVENTORY
       if (category === 'inventory') {
         const payload = validRecords.map((r: any) => ({
+          id: generateUUID(),
           business_id: businessId,
           name: r.name,
-          barcode: r.barcode,
-          quantity: r.quantity,
-          unit_cost: r.unit_cost,
-          unit_price: r.unit_price,
+          barcode: r.barcode || '',
+          quantity: Number(r.quantity || 0),
+          unit_cost: Number(r.unit_cost || 0),
+          unit_price: Number(r.unit_price || 0),
         }));
 
         let insertedData: any[] = [];
@@ -851,8 +854,8 @@ export default function MigratePage() {
         // Update local offline inventory cache so POS, Inventory, and Record Sale see it immediately!
         try {
           const currentCached = getCachedInventory(businessId);
-          const newItems = (insertedData.length > 0 ? insertedData : payload).map((item: any, idx: number) => ({
-            id: item.id || `inv_${Date.now()}_${idx}`,
+          const newItems = (insertedData.length > 0 ? insertedData : payload).map((item: any) => ({
+            id: isUUID(item.id) ? item.id : generateUUID(),
             business_id: businessId,
             name: item.name,
             barcode: item.barcode || '',
@@ -874,7 +877,7 @@ export default function MigratePage() {
 
         if (totalOpeningStockCost > 0) {
           const opnStockTx = {
-            id: `opn_stock_${Date.now()}`,
+            id: generateUUID(),
             business_id: businessId,
             transaction_date: new Date().toISOString().split('T')[0],
             vendor: `Opening Stock: Imported Inventory (${validRecords.length} Items)`,
@@ -912,13 +915,13 @@ export default function MigratePage() {
       // 2. INVOICES
       if (category === 'invoices') {
         const payload = validRecords.map((r: any, idx: number) => ({
-          id: `inv_${Date.now()}_${idx}`,
+          id: generateUUID(),
           business_id: businessId,
           invoice_number: r.invoice_number || `INV-${1000 + idx}`,
-          customer_name: r.customer_name,
+          customer_name: r.customer_name || 'Customer',
           customer_email: r.customer_email || null,
-          amount: r.amount,
-          due_date: r.due_date,
+          amount: Number(r.amount || 0),
+          due_date: r.due_date || new Date().toISOString().split('T')[0],
           status: r.status || 'sent',
           description: r.description || (r.customer_phone ? `Phone: ${r.customer_phone}` : null),
           paid_at: r.status === 'paid' ? new Date().toISOString() : null,
@@ -944,16 +947,16 @@ export default function MigratePage() {
 
       // 3. FIXED ASSETS
       if (category === 'assets') {
-        const payload = validRecords.map((r: any, idx: number) => ({
-          id: `ast_${Date.now()}_${idx}`,
+        const payload = validRecords.map((r: any) => ({
+          id: generateUUID(),
           business_id: businessId,
-          transaction_date: r.acquisition_date,
+          transaction_date: r.acquisition_date || new Date().toISOString().split('T')[0],
           vendor: `Fixed Asset: ${r.name} (${r.category})`,
           type: 'fixed_asset',
           category: `Fixed Assets - ${r.category}`,
-          amount: r.cost,
+          amount: Number(r.cost || 0),
           payment_method: 'bank',
-          depreciation_rate: r.depreciation_rate,
+          depreciation_rate: r.depreciation_rate || null,
           created_at: new Date().toISOString(),
         }));
 
@@ -989,15 +992,15 @@ export default function MigratePage() {
 
         // If customers have outstanding debt, insert receivable entries
         const debtPayload = validRecords
-          .filter((r: any) => r.balance > 0)
-          .map((r: any, idx: number) => ({
-            id: `rec_${Date.now()}_${idx}`,
+          .filter((r: any) => Number(r.balance || 0) > 0)
+          .map((r: any) => ({
+            id: generateUUID(),
             business_id: businessId,
             transaction_date: new Date().toISOString().split('T')[0],
             vendor: `Customer Debtor: ${r.name}`,
             type: 'current_asset',
             category: `Debtors (Accounts Receivable) | Customer: ${r.name} | phone:${r.phone || ''} | email:${r.email || ''}`,
-            amount: r.balance,
+            amount: Number(r.balance || 0),
             payment_method: 'cash',
             created_at: new Date().toISOString(),
           }));
@@ -1028,14 +1031,14 @@ export default function MigratePage() {
 
       // 5. TRANSACTIONS (GENERAL LEDGER)
       if (category === 'transactions') {
-        const payload = validRecords.map((r: any, idx: number) => ({
-          id: `tx_${Date.now()}_${idx}`,
+        const payload = validRecords.map((r: any) => ({
+          id: generateUUID(),
           business_id: businessId,
-          transaction_date: r.transaction_date,
-          vendor: r.vendor,
+          transaction_date: r.transaction_date || new Date().toISOString().split('T')[0],
+          vendor: r.vendor || 'Transaction',
           type: r.type === 'revenue' ? 'revenue' : 'operating_expense',
-          category: r.category,
-          amount: r.amount,
+          category: r.category || 'General Operations',
+          amount: Number(r.amount || 0),
           payment_method: 'cash',
           created_at: new Date().toISOString(),
         }));
@@ -1059,8 +1062,8 @@ export default function MigratePage() {
 
       // 6. SUPPLIERS & VENDOR PAYABLES (CREDITORS) + INVENTORY GOODS
       if (category === 'suppliers') {
-        const supplierList = validRecords.map((r: any, idx: number) => ({
-          id: 'sup_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 6),
+        const supplierList = validRecords.map((r: any) => ({
+          id: generateUUID(),
           business_id: businessId,
           name: r.name,
           phone: r.phone || null,
@@ -1078,7 +1081,7 @@ export default function MigratePage() {
 
         // A. PUSH SUPPLIER INVENTORY GOODS INTO INVENTORY CATALOG
         const goodsItems: any[] = [];
-        validRecords.forEach((r: any, idx: number) => {
+        validRecords.forEach((r: any) => {
           const hasExplicitGoods = Boolean(r.item_name || Number(r.quantity || 0) > 0);
           const isInventoryCategory = Boolean(
             (r.category && /inventory|stock|goods|material|produce|merchandise|retail|wholesale/i.test(r.category)) ||
@@ -1100,10 +1103,8 @@ export default function MigratePage() {
               ? String(r.item_name).trim()
               : (r.category && !/general/i.test(r.category) ? `${r.name} - ${r.category}` : `${r.name} Stock Items`);
 
-            // Generate UUID for Supabase inventory_items table
-            const itemId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
-              ? crypto.randomUUID() 
-              : `inv_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
+            // Generate RFC4122 v4 UUID for Supabase inventory_items table
+            const itemId = generateUUID();
 
             goodsItems.push({
               id: itemId,
@@ -1141,14 +1142,14 @@ export default function MigratePage() {
           .map((r: any, idx: number) => {
             const sup = supplierList[idx];
             return {
-              id: sup?.id || `pay_${Date.now()}_${idx}`,
+              id: sup?.id || generateUUID(),
               business_id: businessId,
               transaction_date: todayIso, // Current ledger date so liability is immediately recognized on Balance Sheet
               vendor: `Supplier: ${r.name}`,
               type: 'short_term_liability',
               category: 'Accounts Payable',
               amount: Number(r.balance_owed || 0),
-              payment_method: 'credit',
+              payment_method: 'bank',
               created_at: new Date().toISOString(),
             };
           });
@@ -1194,7 +1195,7 @@ export default function MigratePage() {
 
       // 7. OPENING BALANCES
       if (category === 'opening_balances') {
-        const payload = validRecords.map((r: any, idx: number) => {
+        const payload = validRecords.map((r: any) => {
           let txType: any = 'current_asset';
           const typeLower = String(r.account_type || '').toLowerCase();
           const nameLower = String(r.account_name || '').toLowerCase();
@@ -1218,13 +1219,13 @@ export default function MigratePage() {
           else if (isDebtor) category = 'Debtors (Accounts Receivable)';
 
           return {
-            id: `opn_${Date.now()}_${idx}`,
+            id: generateUUID(),
             business_id: businessId,
-            transaction_date: r.as_of_date,
+            transaction_date: r.as_of_date || new Date().toISOString().split('T')[0],
             vendor: `Opening Balance: ${r.account_name}`,
             type: txType,
             category: category,
-            amount: r.amount,
+            amount: Number(r.amount || 0),
             payment_method: isBank ? 'bank' : 'cash',
             created_at: new Date().toISOString(),
           };
@@ -1254,7 +1255,7 @@ export default function MigratePage() {
           const cleanEmail = r.email ? String(r.email).trim() : `${normalizeStr(cleanName) || 'staff'}_${Date.now().toString(36)}@company.local`;
 
           return {
-            id: `staff_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            id: generateUUID(),
             business_id: businessId,
             name: cleanName,
             role: r.role ? r.role.toLowerCase() : 'employee',
@@ -1287,8 +1288,8 @@ export default function MigratePage() {
 
       // 9. HISTORICAL TRANSACTIONS & EXPENSES
       if (category === 'transactions') {
-        const payload = validRecords.map((r: any, idx: number) => ({
-          id: `tx_mig_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+        const payload = validRecords.map((r: any) => ({
+          id: generateUUID(),
           business_id: businessId,
           transaction_date: r.transaction_date || new Date().toISOString().slice(0, 10),
           vendor: r.vendor || 'Imported Transaction',

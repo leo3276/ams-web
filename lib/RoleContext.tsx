@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import { getCachedBusiness, getCachedTransactions, setCachedTransactions, resolveActiveBusiness } from './offlineStore';
+import { getCachedBusiness, getCachedTransactions, setCachedTransactions, resolveActiveBusiness, generateUUID, isUUID } from './offlineStore';
 import { logAuditEvent } from './auditLogger';
 
 export type UserRole = 'owner' | 'employee' | 'accountant';
@@ -182,8 +182,9 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       const businessId = activeBiz?.id;
       if (!businessId || businessId === 'default_biz') return { success: false, error: 'No business found' };
 
+      const memberId = generateUUID();
       const newMember: StaffMember = {
-        id: `staff_${Date.now()}`,
+        id: memberId,
         name: name.trim(),
         email: email.trim().toLowerCase(),
         role: memberRole,
@@ -194,6 +195,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       };
 
       const { data: insertedData, error } = await supabase.from('business_members').insert({
+        id: memberId,
         business_id: businessId,
         name: newMember.name,
         email: newMember.email,
@@ -250,9 +252,12 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
       let activeBid = businessId;
 
-      if (businessId && businessId !== 'default_biz') {
+      const salaryTxId = generateUUID();
+
+      if (businessId && isUUID(businessId)) {
         try {
           await supabase.from('transactions').insert({
+            id: salaryTxId,
             business_id: businessId,
             transaction_date: today,
             vendor: vendorName,
@@ -266,7 +271,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
       // Record local transaction for Live Ledger, P&L OPEX, and Cash/Bank Outflow
       const salaryTx = {
-        id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        id: salaryTxId,
         business_id: activeBid,
         transaction_date: today,
         vendor: vendorName,

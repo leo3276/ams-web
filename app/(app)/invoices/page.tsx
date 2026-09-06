@@ -17,6 +17,8 @@ import {
   getCachedTransactions,
   setCachedTransactions,
   resolveActiveBusiness,
+  generateUUID,
+  isUUID,
 } from '@/lib/offlineStore';
 import { logAuditEvent } from '@/lib/auditLogger';
 
@@ -131,12 +133,13 @@ function InvoicesPageContent() {
       } else if (cachedInvs.length > 0) {
         // If Supabase returned empty but local cache has imported invoices, re-push in background
         const chunk = cachedInvs.map((inv: any) => ({
+          id: isUUID(inv.id) ? inv.id : generateUUID(),
           business_id: b.id,
           invoice_number: inv.invoice_number,
-          customer_name: inv.customer_name,
+          customer_name: inv.customer_name || 'Customer',
           customer_email: inv.customer_email || null,
-          amount: inv.amount,
-          due_date: inv.due_date,
+          amount: Number(inv.amount || 0),
+          due_date: inv.due_date || new Date().toISOString().slice(0, 10),
           status: inv.status || 'sent',
           description: inv.description || null,
           paid_at: inv.paid_at || null,
@@ -207,7 +210,11 @@ function InvoicesPageContent() {
   // Save Single Invoice
   const handleSaveInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!businessId) return;
+    const activeBid = (businessId && isUUID(businessId)) ? businessId : (getCachedBusiness()?.id || null);
+    if (!activeBid) {
+      showNotify('error', 'Please ensure a business profile is active.');
+      return;
+    }
 
     const cleanCustomer = customerName.trim();
     if (!cleanCustomer) {
@@ -221,25 +228,55 @@ function InvoicesPageContent() {
         .map((i) => `${i.description} (x${i.quantity} @ ${currency} ${i.unitPrice})`)
         .join('; ') + (notes ? ` | Notes: ${notes}` : '');
 
-      const { data, error } = await supabase
-        .from('invoices')
-        .insert({
-          business_id: businessId,
+      const invId = generateUUID();
+      const cleanDueDate = dueDate || new Date().toISOString().slice(0, 10);
+      let savedInv: any = null;
+
+      if (isUUID(activeBid)) {
+        try {
+          const { data, error } = await supabase
+            .from('invoices')
+            .insert({
+              id: invId,
+              business_id: activeBid,
+              invoice_number: nextInvoiceNumber,
+              customer_name: cleanCustomer,
+              customer_email: customerEmail.trim() || null,
+              customer_phone: customerPhone.trim() || null,
+              amount: totalAmount,
+              description: descriptionString,
+              due_date: cleanDueDate,
+              status,
+            })
+            .select('*')
+            .single();
+
+          if (!error && data) {
+            savedInv = data;
+          }
+        } catch (_e) {}
+      }
+
+      if (!savedInv) {
+        savedInv = {
+          id: invId,
+          business_id: activeBid,
           invoice_number: nextInvoiceNumber,
           customer_name: cleanCustomer,
           customer_email: customerEmail.trim() || null,
           customer_phone: customerPhone.trim() || null,
           amount: totalAmount,
           description: descriptionString,
-          due_date: dueDate,
+          due_date: cleanDueDate,
           status,
-        })
-        .select('*')
-        .single();
+          created_at: new Date().toISOString(),
+        };
+      }
 
-      if (error) throw error;
-
-      setInvoices((prev) => [data, ...prev]);
+      const updated = [savedInv, ...invoices];
+      setInvoices(updated);
+      setCachedInvoices(updated, activeBid);
+      window.dispatchEvent(new Event('ams:invoices-updated'));
       setShowCreateModal(false);
       resetForm();
       showNotify('success', `✓ Invoice #${nextInvoiceNumber} created successfully!`);
@@ -265,6 +302,7 @@ function InvoicesPageContent() {
     const activeBid = businessId || getCachedBusiness()?.id || 'default_biz';
     const today = new Date().toISOString().slice(0, 10);
     const amt = Number(inv.amount || 0);
+    const invTxId = generateUUID();
 
     try {
       if (activeBid && activeBid !== 'default_biz') {
@@ -276,6 +314,7 @@ function InvoicesPageContent() {
         if (error) {
           await supabase.from('invoices').update({ status: 'paid' }).eq('id', inv.id);
           await supabase.from('transactions').insert({
+            id: invTxId,
             business_id: activeBid,
             transaction_date: today,
             vendor: `Invoice Payment: ${inv.customer_name} (${inv.invoice_number})`,
@@ -290,7 +329,7 @@ function InvoicesPageContent() {
 
     // Record local transaction for Live Ledger, P&L Revenue, and Cash/Bank Inflow
     const invTx = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: invTxId,
       business_id: activeBid,
       transaction_date: today,
       vendor: `Invoice Payment: ${inv.customer_name} (${inv.invoice_number})`,

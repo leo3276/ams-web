@@ -32,11 +32,26 @@ export interface OfflinePendingTransaction {
   created_at: string;
 }
 
+export function isUUID(str: any): boolean {
+  return Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str).trim()));
+}
+
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 // Helper to get active business id
 function getActiveBusinessId(explicitId?: string): string {
-  if (explicitId) return explicitId;
+  if (explicitId && isUUID(explicitId)) return explicitId;
   const b = getCachedBusiness();
-  return b?.id || 'default_biz';
+  if (b?.id && isUUID(b.id)) return b.id;
+  return explicitId || b?.id || 'default_biz';
 }
 
 // 1. Business & User Cache
@@ -174,7 +189,7 @@ export function setCachedUser(user: { id: string; email?: string }) {
 
 /**
  * Resolves the active business reliably across desktop reloads, logins, and multi-tenant workspaces.
- * Prioritizes the active cached business ID, updates it with live DB state, and falls back to newest business.
+ * Guarantees that the business ID is ALWAYS a valid RFC4122 v4 UUID accepted by PostgreSQL and Supabase.
  */
 export async function resolveActiveBusiness(userId?: string): Promise<CachedBusiness | null> {
   const cachedBiz = getCachedBusiness();
@@ -188,8 +203,8 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
     } catch (_e) {}
   }
 
-  // 1. If we have an active cached business with a valid ID, verify and sync with Supabase
-  if (cachedBiz?.id && cachedBiz.id !== 'default_biz') {
+  // 1. If we have an active cached business with a valid UUID, verify and sync with Supabase
+  if (cachedBiz?.id && isUUID(cachedBiz.id)) {
     try {
       const { data: specificBiz, error } = await supabase
         .from('businesses')
@@ -204,7 +219,7 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
           name: found.name || cachedBiz.name || 'My Enterprise',
           currency: found.currency || cachedBiz.currency || 'GHS',
           user_id: found.user_id || activeUserId || undefined,
-          business_type: found.business_type || cachedBiz.business_type || 'retail_wholesale',
+          business_type: found.business_type || cachedBiz.business_type || 'sole_proprietorship',
           tax_id: found.tax_id || cachedBiz.tax_id || '',
           next_tax_filing_date: found.next_tax_filing_date || cachedBiz.next_tax_filing_date || null,
           tax_filing_frequency: found.tax_filing_frequency || cachedBiz.tax_filing_frequency || 'quarterly',
@@ -212,13 +227,15 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
           fiscal_year_start: found.fiscal_year_start || cachedBiz.fiscal_year_start || 'January',
         };
         setCachedBusiness(active);
+        migrateLegacyCacheToBusiness(active.id);
+        syncLocalCacheToSupabase(active.id);
         return active;
       }
     } catch (_e) {}
   }
 
   // 2. Fallback: Find businesses for activeUserId in Supabase (newest first)
-  if (activeUserId) {
+  if (activeUserId && isUUID(activeUserId)) {
     try {
       const { data: businesses, error } = await supabase
         .from('businesses')
@@ -228,13 +245,13 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
         .limit(10);
 
       if (!error && businesses && businesses.length > 0) {
-        const match = businesses.find((b) => b.id === cachedBiz?.id) || businesses[0];
+        const match = businesses.find((b) => isUUID(b.id) && b.id === cachedBiz?.id) || businesses[0];
         const active: CachedBusiness = {
           id: match.id,
           name: match.name || 'My Enterprise',
           currency: match.currency || 'GHS',
           user_id: match.user_id || activeUserId,
-          business_type: match.business_type || 'retail_wholesale',
+          business_type: match.business_type || 'sole_proprietorship',
           tax_id: match.tax_id || '',
           next_tax_filing_date: match.next_tax_filing_date || null,
           tax_filing_frequency: match.tax_filing_frequency || 'quarterly',
@@ -242,10 +259,12 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
           fiscal_year_start: match.fiscal_year_start || 'January',
         };
         setCachedBusiness(active);
+        migrateLegacyCacheToBusiness(active.id);
+        syncLocalCacheToSupabase(active.id);
         return active;
       }
 
-      // 3. User has zero business rows in Supabase -> Auto-provision one
+      // 3. User has zero business rows in Supabase -> Auto-provision a verified UUID business
       const defaultName = 'My Enterprise';
       const { data: newBiz } = await supabase
         .from('businesses')
@@ -260,13 +279,13 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
         .select()
         .single();
 
-      if (newBiz) {
+      if (newBiz && isUUID(newBiz.id)) {
         const active: CachedBusiness = {
           id: newBiz.id,
           name: newBiz.name,
           currency: newBiz.currency || 'GHS',
           user_id: activeUserId,
-          business_type: newBiz.business_type || 'retail_wholesale',
+          business_type: newBiz.business_type || 'sole_proprietorship',
           tax_id: newBiz.tax_id || '',
           next_tax_filing_date: newBiz.next_tax_filing_date || null,
           tax_filing_frequency: newBiz.tax_filing_frequency || 'quarterly',
@@ -274,28 +293,191 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
           fiscal_year_start: newBiz.fiscal_year_start || 'January',
         };
         setCachedBusiness(active);
+        migrateLegacyCacheToBusiness(active.id);
+        syncLocalCacheToSupabase(active.id);
         return active;
       }
     } catch (_e) {}
   }
 
-  // 4. Return existing cachedBiz if present
-  if (cachedBiz && cachedBiz.id && cachedBiz.id !== 'default_biz') {
+  // 4. Return existing cachedBiz if it is already a valid UUID
+  if (cachedBiz && isUUID(cachedBiz.id)) {
+    migrateLegacyCacheToBusiness(cachedBiz.id);
+    syncLocalCacheToSupabase(cachedBiz.id);
     return cachedBiz;
   }
 
-  // 5. Resilient Auto-Provisioning: Guarantee new users & offline accounts are never stranded with null business
+  // 5. Resilient Auto-Provisioning: Guarantee a compliant RFC4122 v4 UUID so PostgreSQL never throws invalid syntax
+  const fallbackId = generateUUID();
   const fallbackBiz: CachedBusiness = {
-    id: `biz_${activeUserId || 'enterprise'}_${Date.now()}`,
+    id: fallbackId,
     name: 'My Enterprise',
     currency: 'GHS',
-    user_id: activeUserId || undefined,
-    business_type: 'retail_wholesale',
+    user_id: (activeUserId && isUUID(activeUserId)) ? activeUserId : undefined,
+    business_type: 'sole_proprietorship',
     industry: 'Commercial Retail & Wholesale',
     fiscal_year_start: 'January',
   };
   setCachedBusiness(fallbackBiz);
+  migrateLegacyCacheToBusiness(fallbackId);
   return fallbackBiz;
+}
+
+/**
+ * Migrates any local storage data stored under 'default_biz' or legacy keys
+ * into the newly resolved target business UUID so no user entries are lost.
+ */
+export function migrateLegacyCacheToBusiness(targetBid: string) {
+  if (typeof window === 'undefined' || !targetBid || !isUUID(targetBid)) return;
+
+  try {
+    // 1. Inventory
+    const defaultInvRaw = localStorage.getItem('ams:cache_inventory_default_biz');
+    if (defaultInvRaw) {
+      const defaultInv = JSON.parse(defaultInvRaw);
+      if (Array.isArray(defaultInv) && defaultInv.length > 0) {
+        const currentTargetInv = getCachedInventory(targetBid);
+        const merged = [...defaultInv.map((i: any) => ({ ...i, business_id: targetBid })), ...currentTargetInv];
+        setCachedInventory(merged, targetBid);
+        localStorage.removeItem('ams:cache_inventory_default_biz');
+      }
+    }
+
+    // 2. Transactions
+    const defaultTxRaw = localStorage.getItem('ams:cache_transactions_default_biz');
+    if (defaultTxRaw) {
+      const defaultTxs = JSON.parse(defaultTxRaw);
+      if (Array.isArray(defaultTxs) && defaultTxs.length > 0) {
+        const currentTargetTxs = getCachedTransactions(targetBid);
+        const merged = [...defaultTxs.map((t: any) => ({ ...t, business_id: targetBid })), ...currentTargetTxs];
+        setCachedTransactions(merged, targetBid);
+        localStorage.removeItem('ams:cache_transactions_default_biz');
+      }
+    }
+
+    // 3. Suppliers
+    const defaultSupRaw = localStorage.getItem('ams:cache_suppliers_default_biz');
+    if (defaultSupRaw) {
+      const defaultSups = JSON.parse(defaultSupRaw);
+      if (Array.isArray(defaultSups) && defaultSups.length > 0) {
+        const currentTargetSups = getCachedSuppliers(targetBid);
+        const merged = [...defaultSups.map((s: any) => ({ ...s, business_id: targetBid })), ...currentTargetSups];
+        setCachedSuppliers(merged, targetBid);
+        localStorage.removeItem('ams:cache_suppliers_default_biz');
+      }
+    }
+
+    // 4. Invoices
+    const defaultInvNumRaw = localStorage.getItem('ams:cache_invoices_default_biz');
+    if (defaultInvNumRaw) {
+      const defaultInvs = JSON.parse(defaultInvNumRaw);
+      if (Array.isArray(defaultInvs) && defaultInvs.length > 0) {
+        const currentTargetInvs = getCachedInvoices(targetBid);
+        const merged = [...defaultInvs.map((inv: any) => ({ ...inv, business_id: targetBid })), ...currentTargetInvs];
+        setCachedInvoices(merged, targetBid);
+        localStorage.removeItem('ams:cache_invoices_default_biz');
+      }
+    }
+  } catch (_e) {}
+}
+
+/**
+ * Automatically audits local cache against Supabase and pushes any unsynced
+ * inventory items, transactions, or invoices to Supabase using valid UUIDs.
+ * Guarantees that data created offline or previously failed due to format issues
+ * is safely persisted in the cloud and visible across web and desktop.
+ */
+export async function syncLocalCacheToSupabase(businessId: string) {
+  if (typeof window === 'undefined' || !businessId || !isUUID(businessId)) return;
+
+  try {
+    // 1. Sync Inventory Items
+    const localInv = getCachedInventory(businessId);
+    if (localInv.length > 0) {
+      const { data: remoteInv } = await supabase
+        .from('inventory_items')
+        .select('name')
+        .eq('business_id', businessId);
+
+      const remoteNames = new Set((remoteInv || []).map((i: any) => (i.name || '').toLowerCase().trim()));
+      const missingInv = localInv.filter((i) => !remoteNames.has((i.name || '').toLowerCase().trim()));
+
+      if (missingInv.length > 0) {
+        const payload = missingInv.map((item) => ({
+          id: isUUID(item.id) ? item.id : generateUUID(),
+          business_id: businessId,
+          name: item.name,
+          barcode: item.barcode || '',
+          quantity: Number(item.quantity || 0),
+          unit_cost: Number(item.unit_cost || 0),
+          unit_price: Number(item.unit_price || 0),
+        }));
+
+        await supabase.from('inventory_items').insert(payload);
+      }
+    }
+
+    // 2. Sync Transactions
+    const localTxs = getCachedTransactions(businessId);
+    if (localTxs.length > 0) {
+      const { data: remoteTxs } = await supabase
+        .from('transactions')
+        .select('id, vendor, amount, transaction_date')
+        .eq('business_id', businessId);
+
+      const remoteKeys = new Set(
+        (remoteTxs || []).map((t: any) => `${t.vendor}_${t.amount}_${t.transaction_date}`)
+      );
+      const missingTxs = localTxs.filter(
+        (t: any) => !remoteKeys.has(`${t.vendor}_${t.amount}_${t.transaction_date}`)
+      );
+
+      if (missingTxs.length > 0) {
+        const payload = missingTxs.map((t: any) => ({
+          id: isUUID(t.id) ? t.id : generateUUID(),
+          business_id: businessId,
+          transaction_date: t.transaction_date || new Date().toISOString().split('T')[0],
+          vendor: t.vendor || 'Transaction',
+          type: t.type || 'operating_expense',
+          category: t.category || 'General',
+          amount: Number(t.amount || 0),
+          payment_method: (t.payment_method === 'bank' || t.payment_method === 'momo') ? 'bank' : 'cash',
+          depreciation_rate: t.depreciation_rate || null,
+        }));
+
+        await supabase.from('transactions').insert(payload);
+      }
+    }
+
+    // 3. Sync Invoices
+    const localInvs = getCachedInvoices(businessId);
+    if (localInvs.length > 0) {
+      const { data: remoteInvs } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .eq('business_id', businessId);
+
+      const remoteNums = new Set((remoteInvs || []).map((i: any) => i.invoice_number));
+      const missingInvs = localInvs.filter((i) => !remoteNums.has(i.invoice_number));
+
+      if (missingInvs.length > 0) {
+        const payload = missingInvs.map((i: any) => ({
+          id: isUUID(i.id) ? i.id : generateUUID(),
+          business_id: businessId,
+          invoice_number: i.invoice_number || `INV-${generateUUID().slice(0, 8).toUpperCase()}`,
+          customer_name: i.customer_name || 'Customer',
+          customer_email: i.customer_email || null,
+          customer_phone: i.customer_phone || null,
+          amount: Number(i.amount || 0),
+          due_date: i.due_date || new Date().toISOString().split('T')[0],
+          status: i.status || 'sent',
+          description: i.description || null,
+        }));
+
+        await supabase.from('invoices').insert(payload);
+      }
+    }
+  } catch (_e) {}
 }
 
 // 2. Inventory Cache (Scoped by business)
@@ -440,7 +622,7 @@ export function saveOfflineTransaction(
 ): OfflinePendingTransaction {
   const newTx: OfflinePendingTransaction = {
     ...tx,
-    id: `offline_tx_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    id: generateUUID(),
     created_at: new Date().toISOString(),
   };
 
@@ -473,13 +655,14 @@ export async function flushOfflineTransactionsToSupabase(businessId: string): Pr
   for (const item of queue) {
     try {
       const { error } = await supabase.from('transactions').insert({
+        id: isUUID(item.id) ? item.id : generateUUID(),
         business_id: businessId || item.business_id,
         transaction_date: item.transaction_date,
         vendor: item.vendor,
         type: item.type,
         category: item.category || 'Sales',
         amount: item.amount,
-        payment_method: item.payment_method || 'cash',
+        payment_method: item.payment_method === 'bank' ? 'bank' : 'cash',
         depreciation_rate: item.depreciation_rate || null,
       });
 

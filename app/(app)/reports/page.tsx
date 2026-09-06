@@ -7,8 +7,19 @@ import {
   printBalanceSheetPDF,
   printCashFlowPDF,
   printTrialBalancePDF,
+  printAccountantAuditPackPDF,
 } from '@/lib/pdfGenerator';
-import { getCachedSuppliers } from '@/lib/offlineStore';
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedSuppliers,
+  getCachedTransactions,
+  setCachedTransactions,
+  getCachedInventory,
+  getCachedInvoices,
+  setCachedInvoices,
+  resolveActiveBusiness,
+} from '@/lib/offlineStore';
 import { useArchetype } from '@/lib/ArchetypeContext';
 
 type ReportTab = 'all' | 'pnl' | 'balance_sheet' | 'cash_flow' | 'trial_balance';
@@ -19,12 +30,28 @@ interface PnL {
   cost_of_goods: number;
   operating_expenses: number;
   net_profit: number;
+  // Detailed step-by-step P&L schedule fields:
+  gross_sales: number;
+  returns_inwards: number;
+  net_sales: number;
+  opening_stock: number;
+  cash_bank_purchases: number;
+  returns_outwards: number;
+  cogas: number;
+  closing_stock: number;
+  cost_of_sales: number;
+  other_revenue: number;
+  gross_profit: number;
 }
 
 interface BalanceSheet {
   cash: number;
   bank: number;
-  current_assets_other: number;
+  debtors: number;
+  prepaids: number;
+  other_current_assets: number;
+  custom_current_liabilities: Record<string, number>;
+  current_assets_other: number; // Inventory
   total_current_assets: number;
   fixed_assets_cost: number;
   accumulated_depreciation: number;
@@ -121,21 +148,7 @@ export default function ReportsPage() {
     setErrorMsg(null);
 
     const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
-    }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, name, currency')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const b = businesses?.[0];
+    const b = await resolveActiveBusiness();
     if (!b) {
       setErrorMsg('No business found for this account yet.');
       setLoading(false);
@@ -143,25 +156,58 @@ export default function ReportsPage() {
     }
 
     setBusinessId(b.id);
-    setBusinessName(b.name);
+    setBusinessName(b.name || 'My Business');
     setCurrency(b.currency || 'GHS');
 
     const { start, end, label } = getPeriodDates(periodPreset);
     setPeriodLabel(label);
 
-    const [pnlRes, bsRes, cfRes, tbRes, txRes, staffRes] = await Promise.all([
+    const [pnlRes, bsRes, cfRes, tbRes, txRes, staffRes, invRes, invsRes] = await Promise.all([
       supabase.rpc('get_pnl_report', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
       supabase.rpc('get_balance_sheet', { p_business_id: b.id, p_as_of_date: end }),
       supabase.rpc('get_cash_flow_statement', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
       supabase.rpc('get_trial_balance', { p_business_id: b.id, p_start_date: start, p_end_date: end }),
       supabase.from('transactions').select('*').eq('business_id', b.id).lte('transaction_date', end),
       supabase.from('business_members').select('*').eq('business_id', b.id),
+      supabase.from('inventory_items').select('*').eq('business_id', b.id),
+      supabase.from('invoices').select('*').eq('business_id', b.id),
     ]);
 
-    // 1. Calculate live Balance Sheet and P&L directly from ledger and creditor registries
-    const allTxs = txRes.data ?? [];
+    const remoteTxs = txRes.data ?? [];
+    const localTxs = getCachedTransactions(b.id);
+    const mergedMap = new Map();
+    localTxs.forEach((t: any) => mergedMap.set(t.id, t));
+    remoteTxs.forEach((t: any) => mergedMap.set(t.id, t));
+    const allTxs = Array.from(mergedMap.values());
+    setCachedTransactions(allTxs, b.id);
+
+    // Customer Owings / Unpaid Invoices (Debtors)
+    const remoteInvs = invsRes.data ?? [];
+    const localInvs = getCachedInvoices(b.id);
+    const invsMap = new Map();
+    localInvs.forEach((i: any) => invsMap.set(i.id || i.invoice_number, i));
+    remoteInvs.forEach((i: any) => invsMap.set(i.id || i.invoice_number, i));
+    const allInvoices = Array.from(invsMap.values());
+    setCachedInvoices(allInvoices as any, b.id);
+    const invoiceDebtorsTotal = allInvoices
+      .filter((inv: any) => inv.status !== 'paid' && inv.status !== 'cancelled')
+      .reduce((sum: number, inv: any) => sum + Number(inv.amount || 0), 0);
+
+    // Current Inventory Valuation (Closing Stock)
+    const remoteInv = invRes.data ?? [];
+    const localInv = getCachedInventory(b.id);
+    const invMap = new Map();
+    localInv.forEach((i: any) => invMap.set(i.id, i));
+    remoteInv.forEach((i: any) => invMap.set(i.id, i));
+    const allInv = Array.from(invMap.values());
+    const closingStockValuation = allInv.reduce((sum: number, item: any) => sum + (Number(item.quantity || 0) * Number(item.unit_cost || 0)), 0);
+
     let periodRev = 0;
-    let periodCogs = 0;
+    let periodStockPurchases = 0;
+    let periodCarriageInwards = 0;
+    let periodOpeningStock = 0;
+    let periodReturns = 0;
+    let periodOtherRev = 0;
     let periodOpex = 0;
 
     let cashIn = 0;
@@ -170,28 +216,130 @@ export default function ReportsPage() {
     let bankOut = 0;
 
     let fixedAssetsPurchased = 0;
-    let currentAssetsPurchased = 0;
     let drawingsTotal = 0;
 
     let longTermLoansFromTxs = 0;
     let shortTermTxsPayable = 0;
+    let openingCapitalInjected = 0;
+    let debtorsTotal = 0;
+    let prepaidsTotal = 0;
+    let otherCurrentAssetsTotal = 0;
+
+    const customCurrentLiabMap: Record<string, number> = {};
 
     allTxs.forEach((t: any) => {
       const amt = Number(t.amount || 0);
       const isBank = t.payment_method === 'bank';
       const inPeriod = t.transaction_date >= start && t.transaction_date <= end;
+      const isOpeningBalance =
+        t.category === 'Opening Balances' ||
+        t.category === 'Opening Stock' ||
+        (t.vendor && t.vendor.startsWith('Opening Balance:')) ||
+        (t.vendor && t.vendor.startsWith('Opening Stock:'));
       const isSupplierBill =
         t.type === 'short_term_liability' ||
         t.type === 'long_term_liability' ||
         (t.category && t.category.includes('Accounts Payable')) ||
         (t.vendor && t.vendor.startsWith('Supplier:'));
 
+      const catLower = (t.category || '').toLowerCase().trim();
+      const venLower = (t.vendor || '').toLowerCase().trim();
+
+      // Check for user-typed Current Asset entries: Cash, Bank, Debtors, Prepaids, Opening Stock, or Other Assets
+      if (t.type === 'current_asset') {
+        const isStockCategory = catLower.includes('stock') || catLower.includes('inventory') || venLower.includes('stock') || venLower.includes('inventory');
+        const isDebtorCategory = catLower.includes('debtor') || catLower.includes('receivable') || venLower.includes('debtor');
+        const isPrepaidCategory = catLower.includes('prepaid') || venLower.includes('prepaid');
+        const isOtherAssetCategory = catLower.includes('other') || venLower.includes('other');
+        const isBankCategory = !isStockCategory && !isDebtorCategory && !isPrepaidCategory && !isOtherAssetCategory && (isBank || catLower.includes('bank') || catLower.includes('momo') || venLower.includes('bank') || venLower.includes('momo'));
+        const isCashCategory = !isStockCategory && !isDebtorCategory && !isPrepaidCategory && !isOtherAssetCategory && !isBankCategory;
+
+        if (isOpeningBalance || isStockCategory) {
+          openingCapitalInjected += amt;
+          if (isStockCategory) {
+            periodOpeningStock += amt;
+          } else if (isDebtorCategory) {
+            debtorsTotal += amt;
+          } else if (isPrepaidCategory) {
+            prepaidsTotal += amt;
+          } else if (isBankCategory) {
+            bankIn += amt;
+          } else if (isCashCategory) {
+            cashIn += amt;
+          } else {
+            otherCurrentAssetsTotal += amt;
+          }
+          return;
+        }
+
+        // Live Current Asset Deposit / Entry (positive inflow into designated asset)
+        if (isDebtorCategory) {
+          debtorsTotal += amt;
+        } else if (isPrepaidCategory) {
+          prepaidsTotal += amt;
+        } else if (isBankCategory) {
+          bankIn += amt; // Bank / MoMo deposit increases bank balance
+        } else if (isCashCategory) {
+          cashIn += amt; // Cash deposit increases cash balance
+        } else {
+          otherCurrentAssetsTotal += amt;
+        }
+        return;
+      }
+
+      if (t.type === 'short_term_liability') {
+        if (isOpeningBalance) {
+          openingCapitalInjected += amt;
+        }
+        if (!isSupplierBill) {
+          shortTermTxsPayable += amt;
+          const label = t.category || t.vendor || 'Other Current Liability';
+          customCurrentLiabMap[label] = (customCurrentLiabMap[label] || 0) + amt;
+          if (isBank) bankIn += amt;
+          else cashIn += amt;
+        }
+        return;
+      }
+
+      if (isOpeningBalance) {
+        openingCapitalInjected += amt;
+        if (t.type === 'fixed_asset') {
+          fixedAssetsPurchased += amt;
+        } else {
+          if (isBank) bankIn += amt;
+          else cashIn += amt;
+        }
+        return;
+      }
+
       if (t.type === 'revenue') {
-        if (inPeriod) periodRev += amt;
+        if (inPeriod) {
+          if (t.category === 'Other Income' || t.category === 'External Revenue') {
+            periodOtherRev += amt;
+          } else {
+            periodRev += amt;
+          }
+        }
         if (isBank) bankIn += amt;
         else cashIn += amt;
+      } else if (t.type === 'deposit') {
+        // Owner Capital Injection / Cash Deposit into Business
+        openingCapitalInjected += amt;
+        if (isBank) bankIn += amt;
+        else cashIn += amt;
+      } else if (t.type === 'return' || (t.category && t.category.toLowerCase().includes('customer sales return')) || (t.vendor && t.vendor.toLowerCase().startsWith('customer refund:'))) {
+        // Customer Sales Return: Subtracted from Gross Sales in P&L for Net Sales
+        if (inPeriod) periodReturns += amt;
+        if (isBank) bankOut += amt;
+        else cashOut += amt;
       } else if (t.type === 'cost_of_goods') {
-        if (inPeriod) periodCogs += amt;
+        if (inPeriod) {
+          if (t.category?.toLowerCase().includes('carriage') || t.vendor?.toLowerCase().includes('carriage')) {
+            periodCarriageInwards += amt;
+          } else {
+            periodStockPurchases += amt;
+          }
+        }
         if (isBank) bankOut += amt;
         else cashOut += amt;
       } else if (t.type === 'operating_expense') {
@@ -206,42 +354,45 @@ export default function ReportsPage() {
         fixedAssetsPurchased += amt;
         if (isBank) bankOut += amt;
         else cashOut += amt;
-      } else if (t.type === 'current_asset') {
-        currentAssetsPurchased += amt;
-        if (isBank) bankOut += amt;
-        else cashOut += amt;
       } else if (t.type === 'long_term_liability' && !isSupplierBill) {
         longTermLoansFromTxs += amt;
-        if (isBank) bankIn += amt;
-        else cashIn += amt;
-      } else if (t.type === 'short_term_liability' && !isSupplierBill) {
-        shortTermTxsPayable += amt;
         if (isBank) bankIn += amt;
         else cashIn += amt;
       }
     });
 
     const cachedSups = getCachedSuppliers(b.id);
-    let tradePayablesInventory = 0;
-    let tradePayablesCashLoan = 0;
+    let tradePayablesCurrentLiabilities = 0;
     let tradePayablesFixedAsset = 0;
-    let tradePayablesService = 0;
+    let tradePayablesLongTermLoan = 0;
+    let tradePayablesLoanCashInflow = 0;
+    let tradePayablesLoanBankInflow = 0;
 
     cachedSups.forEach((s) => {
       const bal = Number(s.balance_owed || 0);
       if (bal <= 0) return;
-      if (s.debt_type === 'cash_loan') {
-        tradePayablesCashLoan += bal;
-      } else if (s.debt_type === 'fixed_asset') {
+      const isBankChannel = s.loan_channel === 'bank';
+
+      if (s.debt_type === 'fixed_asset') {
+        // Fixed asset equipment financing -> Long Term Liability
         tradePayablesFixedAsset += bal;
-      } else if (s.debt_type === 'service_expense') {
-        tradePayablesService += bal;
+      } else if (s.debt_type === 'long_term_loan') {
+        // Long-term bank/institutional loan -> Long Term Liability
+        tradePayablesLongTermLoan += bal;
+        if (isBankChannel) tradePayablesLoanBankInflow += bal;
+        else tradePayablesLoanCashInflow += bal;
+      } else if (s.debt_type === 'cash_loan') {
+        // Short-term loan / working capital borrowing -> Current Liability
+        tradePayablesCurrentLiabilities += bal;
+        if (isBankChannel) tradePayablesLoanBankInflow += bal;
+        else tradePayablesLoanCashInflow += bal;
       } else {
-        tradePayablesInventory += bal;
+        // inventory, raw_materials, packaging, logistics_freight, service_expense -> Current Liability
+        tradePayablesCurrentLiabilities += bal;
       }
     });
 
-    // Staff Salaries (Monthly payroll from staff roster + recorded salary transactions)
+    // Staff Salaries
     const staffList = staffRes.data ?? [];
     const monthlyRosterPayroll = staffList.reduce((sum: number, m: any) => sum + Number(m.salary || 0), 0);
     const recordedSalaryTxs = allTxs
@@ -249,44 +400,137 @@ export default function ReportsPage() {
       .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
     const accruedPayroll = Math.max(0, monthlyRosterPayroll - recordedSalaryTxs);
 
-    const netCash = cashIn - cashOut + tradePayablesCashLoan;
-    const netBank = bankIn - bankOut;
+    // Exact chronological running Cash & Bank synchronization (matching Dashboard)
+    let runningC = 0;
+    let runningB = 0;
 
-    // 2. Accurate Live P&L Statement
-    const finalRev = periodRev;
-    const finalCogs = periodCogs;
-    const finalOpex = periodOpex + tradePayablesService + accruedPayroll;
-    const finalNetProfit = finalRev - finalCogs - finalOpex;
+    const sortedAllTxs = [...allTxs].sort((a: any, b: any) => {
+      const timeA = new Date(a.transaction_date || a.created_at || 0).getTime();
+      const timeB = new Date(b.transaction_date || b.created_at || 0).getTime();
+      return timeA - timeB;
+    });
+
+    sortedAllTxs.forEach((t: any) => {
+      const amt = Number(t.amount || 0);
+      const isBank = t.payment_method === 'bank';
+      const isOpeningBalance =
+        t.category === 'Opening Balances' ||
+        t.category === 'Opening Stock' ||
+        (t.vendor && t.vendor.startsWith('Opening Balance:')) ||
+        (t.vendor && t.vendor.startsWith('Opening Stock:'));
+      const isSupplierBill =
+        t.type === 'short_term_liability' ||
+        t.type === 'long_term_liability' ||
+        (t.category && t.category.includes('Accounts Payable')) ||
+        (t.vendor && t.vendor.startsWith('Supplier:'));
+
+      if (isOpeningBalance) {
+        if (t.type === 'current_asset' && (t.vendor?.toLowerCase().includes('inventory') || t.vendor?.toLowerCase().includes('stock') || t.category?.toLowerCase().includes('stock') || t.category?.toLowerCase().includes('inventory'))) {
+          // Inventory stock opening balance (non-cash)
+        } else if (t.type === 'fixed_asset') {
+          // Fixed asset opening balance (non-cash)
+        } else {
+          if (isBank) runningB += amt;
+          else runningC += amt;
+        }
+      } else if (t.type === 'revenue' || t.type === 'deposit') {
+        if (isBank) runningB += amt;
+        else runningC += amt;
+      } else if (t.type === 'cost_of_goods' || t.type === 'operating_expense' || t.type === 'return' || ['drawings', 'fixed_asset'].includes(t.type)) {
+        if (isBank) runningB = Math.max(0, runningB - amt);
+        else runningC = Math.max(0, runningC - amt);
+      } else if (t.type === 'current_asset') {
+        const catLower = (t.category || '').toLowerCase().trim();
+        const venLower = (t.vendor || '').toLowerCase().trim();
+        const isStockCategory = catLower.includes('stock') || catLower.includes('inventory') || venLower.includes('stock') || venLower.includes('inventory');
+        const isDebtorCategory = catLower.includes('debtor') || catLower.includes('receivable') || venLower.includes('debtor');
+        const isBankCategory = !isStockCategory && !isDebtorCategory && (isBank || catLower.includes('bank') || catLower.includes('momo') || venLower.includes('bank') || venLower.includes('momo'));
+        const isCashCategory = !isStockCategory && !isDebtorCategory && !isBankCategory;
+
+        if (isStockCategory || isDebtorCategory) {
+          // Stock and Debtors are non-cash asset line items on Balance Sheet
+        } else if (isBankCategory) {
+          runningB += amt;
+        } else if (isCashCategory) {
+          runningC += amt;
+        }
+      } else if ((t.type === 'short_term_liability' || t.type === 'long_term_liability') && !isSupplierBill) {
+        if (isBank) runningB += amt;
+        else runningC += amt;
+      }
+    });
+
+    const netCash = runningC + tradePayablesLoanCashInflow;
+    const netBank = runningB + tradePayablesLoanBankInflow;
+
+    // 2. Accurate Comprehensive P&L Statement (Exact Format)
+    const grossSales = periodRev;
+    const returnsInwards = periodReturns;
+    const netSales = grossSales - returnsInwards;
+
+    // Direct Cost of Sales: Actual purchases & carriage disbursed this period + Opening Stock - Closing Stock
+    const cashBankPurchases = periodStockPurchases + periodCarriageInwards;
+    const cogas = periodOpeningStock + cashBankPurchases;
+    const costOfSales = (periodOpeningStock > 0 || closingStockValuation > 0)
+      ? Math.max(0, cogas - closingStockValuation)
+      : cashBankPurchases;
+
+    // Net Sales - Cost of Sales + Other Revenue = Gross Profit
+    const otherRev = periodOtherRev;
+    const grossProfit = (netSales - costOfSales) + otherRev;
+
+    // 5. Gross Profit - Operating Expenses = Net Profit
+    const totalOpex = periodOpex + accruedPayroll;
+    const finalNetProfit = grossProfit - totalOpex;
 
     setPnl({
-      revenue: finalRev,
-      cost_of_goods: finalCogs,
-      operating_expenses: finalOpex,
+      revenue: netSales + otherRev,
+      cost_of_goods: costOfSales,
+      operating_expenses: totalOpex,
       net_profit: finalNetProfit,
+      gross_sales: grossSales,
+      returns_inwards: returnsInwards,
+      net_sales: netSales,
+      opening_stock: periodOpeningStock,
+      cash_bank_purchases: cashBankPurchases,
+      returns_outwards: 0,
+      cogas: cogas,
+      closing_stock: closingStockValuation,
+      cost_of_sales: costOfSales,
+      other_revenue: otherRev,
+      gross_profit: grossProfit,
     });
 
     // 3. Balance Sheet
     const rawBs = bsRes.data?.[0] || {};
-    const finalCurrentOther = currentAssetsPurchased + tradePayablesInventory;
-    const finalCurrentAssets = netCash + netBank + finalCurrentOther;
+    const finalInventoryAsset = closingStockValuation;
+    const finalDebtors = debtorsTotal + invoiceDebtorsTotal;
+    const finalPrepaids = prepaidsTotal;
+    const finalOtherCurrentAssets = otherCurrentAssetsTotal;
+    const finalCurrentAssets = netCash + netBank + finalDebtors + finalPrepaids + finalOtherCurrentAssets + finalInventoryAsset;
 
     const finalFixedCost = fixedAssetsPurchased + tradePayablesFixedAsset;
     const accumulatedDeprec = Number(rawBs.accumulated_depreciation || 0);
     const finalFixedNbv = Math.max(0, finalFixedCost - accumulatedDeprec);
     const finalTotalAssets = finalCurrentAssets + finalFixedNbv;
 
-    const finalShortTerm = tradePayablesInventory + tradePayablesCashLoan + tradePayablesService + shortTermTxsPayable;
-    const finalLongTerm = tradePayablesFixedAsset + longTermLoansFromTxs;
+    const finalShortTerm = tradePayablesCurrentLiabilities + shortTermTxsPayable;
+    const finalLongTerm = tradePayablesFixedAsset + tradePayablesLongTermLoan + longTermLoansFromTxs;
     const finalTotalLiab = finalShortTerm + finalLongTerm;
 
-    const ownersEquity = Number(rawBs.owners_equity || 0);
+    const calculatedBaseEquity = finalTotalAssets - finalTotalLiab - (finalNetProfit - drawingsTotal);
+    const ownersEquity = Math.max(openingCapitalInjected, Number(rawBs.owners_equity || 0), calculatedBaseEquity > 0 ? calculatedBaseEquity : 0);
     const netProfitToDate = finalNetProfit || Number(rawBs.net_profit_to_date || 0);
     const drawingsToDate = Math.max(drawingsTotal, Number(rawBs.drawings_to_date || 0));
 
     setBalanceSheet({
       cash: netCash,
       bank: netBank,
-      current_assets_other: finalCurrentOther,
+      debtors: finalDebtors,
+      prepaids: finalPrepaids,
+      other_current_assets: finalOtherCurrentAssets,
+      custom_current_liabilities: customCurrentLiabMap,
+      current_assets_other: finalInventoryAsset,
       total_current_assets: finalCurrentAssets,
       fixed_assets_cost: finalFixedCost,
       accumulated_depreciation: accumulatedDeprec,
@@ -340,6 +584,7 @@ export default function ReportsPage() {
     window.addEventListener('ams:invoices-updated', handleUpdate);
     window.addEventListener('ams:customers-updated', handleUpdate);
     window.addEventListener('ams:suppliers-data-updated', handleUpdate);
+    window.addEventListener('ams:business-updated', handleUpdate);
 
     return () => {
       window.removeEventListener('ams:inventory-updated', handleUpdate);
@@ -347,6 +592,7 @@ export default function ReportsPage() {
       window.removeEventListener('ams:invoices-updated', handleUpdate);
       window.removeEventListener('ams:customers-updated', handleUpdate);
       window.removeEventListener('ams:suppliers-data-updated', handleUpdate);
+      window.removeEventListener('ams:business-updated', handleUpdate);
     };
   }, [loadReports]);
 
@@ -411,7 +657,35 @@ export default function ReportsPage() {
 
   const handleExportStylishPDF = (target?: 'pnl' | 'balance_sheet' | 'cash_flow' | 'trial_balance') => {
     const which = target || tab;
-    if ((which === 'balance_sheet' || which === 'all') && balanceSheet) {
+    if (which === 'all') {
+      printAccountantAuditPackPDF(
+        {
+          periodLabel,
+          pnl: pnl
+            ? {
+                revenue: pnl.revenue,
+                cost_of_goods: pnl.cost_of_goods,
+                operating_expenses: pnl.operating_expenses,
+                net_profit: pnl.net_profit,
+              }
+            : null,
+          balanceSheet: balanceSheet
+            ? {
+                total_assets: balanceSheet.total_assets,
+                total_current_assets: balanceSheet.total_current_assets,
+                total_liabilities: balanceSheet.total_liabilities,
+                owners_equity: balanceSheet.owners_equity,
+                net_profit_to_date: balanceSheet.net_profit_to_date,
+                drawings_to_date: balanceSheet.drawings_to_date,
+              }
+            : null,
+          trialBalance,
+          totalDebits,
+          totalCredits,
+        },
+        { name: businessName, currency }
+      );
+    } else if (which === 'balance_sheet' && balanceSheet) {
       printBalanceSheetPDF(balanceSheet, periodLabel, { name: businessName, currency });
     } else if (which === 'pnl' && pnl) {
       printProfitLossPDF(
@@ -420,6 +694,17 @@ export default function ReportsPage() {
           costOfGoods: pnl.cost_of_goods,
           operatingExpenses: pnl.operating_expenses,
           netProfit: pnl.net_profit,
+          gross_sales: pnl.gross_sales,
+          returns_inwards: pnl.returns_inwards,
+          net_sales: pnl.net_sales,
+          opening_stock: pnl.opening_stock,
+          cash_bank_purchases: pnl.cash_bank_purchases,
+          returns_outwards: pnl.returns_outwards,
+          cogas: pnl.cogas,
+          closing_stock: pnl.closing_stock,
+          cost_of_sales: pnl.cost_of_sales,
+          other_revenue: pnl.other_revenue,
+          gross_profit: pnl.gross_profit,
         },
         periodLabel,
         { name: businessName, currency }
@@ -547,18 +832,49 @@ export default function ReportsPage() {
           {/* ======================================================== */}
           {(tab === 'all' || tab === 'pnl') && pnl && (
             <ReportCard
-              title={`Profit & Loss Statement · ${periodLabel}`}
+              title={`Statement of Profit or Loss (Trading & Income Statement) · ${periodLabel}`}
               icon="📈"
               onExport={() => handleExportStylishPDF('pnl')}
             >
-              <ReportRow label="Revenue" value={Number(pnl.revenue)} currency={currency} />
-              <ReportRow label="Cost of Goods Sold (COGS)" value={-Number(pnl.cost_of_goods)} currency={currency} />
+              <p className="text-xs uppercase font-bold text-textMuted mb-2">1. Sales &amp; Net Revenue</p>
+              <ReportRow label="Gross Sales / Turnover" value={Number(pnl.gross_sales ?? pnl.revenue)} currency={currency} />
+              {Number(pnl.returns_inwards || 0) > 0 && (
+                <ReportRow label="Less: Returns from Customers (Returns Inwards)" value={-Number(pnl.returns_inwards)} currency={currency} />
+              )}
               <SubtotalRow
-                label="Gross Profit"
-                value={Number(pnl.revenue) - Number(pnl.cost_of_goods)}
+                label="Net Sales"
+                value={Number(pnl.net_sales ?? pnl.revenue)}
                 currency={currency}
               />
-              <ReportRow label="Operating Expenses (OpEx)" value={-Number(pnl.operating_expenses)} currency={currency} />
+
+              <p className="text-xs uppercase font-bold text-textMuted mb-2 mt-4">2. Cost of Sales (COGS)</p>
+              <ReportRow label="Opening Stock" value={Number(pnl.opening_stock || 0)} currency={currency} />
+              <ReportRow label="Add: Purchases (Cash/Bank Stock Purchased)" value={Number(pnl.cash_bank_purchases || 0)} currency={currency} />
+              {Number(pnl.returns_outwards || 0) > 0 && (
+                <ReportRow label="Less: Returns Outwards (Supplier Returns)" value={-Number(pnl.returns_outwards)} currency={currency} />
+              )}
+              <SubtotalRow
+                label="Cost of Goods Available for Sale (COGAS)"
+                value={Number(pnl.cogas ?? 0)}
+                currency={currency}
+              />
+              <ReportRow label="Less: Closing Stock (Inventory on Hand)" value={-Number(pnl.closing_stock ?? 0)} currency={currency} />
+              <SubtotalRow
+                label="Cost of Sales"
+                value={-Number(pnl.cost_of_sales ?? pnl.cost_of_goods)}
+                currency={currency}
+              />
+
+              <p className="text-xs uppercase font-bold text-textMuted mb-2 mt-4">3. Gross Profit &amp; Operating Results</p>
+              {Number(pnl.other_revenue || 0) > 0 && (
+                <ReportRow label="Add: Other Revenue / Non-Inventory Income" value={Number(pnl.other_revenue)} currency={currency} />
+              )}
+              <SubtotalRow
+                label="Gross Profit"
+                value={Number(pnl.gross_profit ?? (pnl.revenue - pnl.cost_of_goods))}
+                currency={currency}
+              />
+              <ReportRow label="Less: Operating Expenses (OpEx)" value={-Number(pnl.operating_expenses)} currency={currency} />
               <TotalRow
                 label="Net Profit / (Loss)"
                 value={Number(pnl.net_profit)}
@@ -580,7 +896,14 @@ export default function ReportsPage() {
               <p className="text-xs uppercase font-bold text-textMuted mb-2">Current Assets</p>
               <ReportRow label="Cash on Hand" value={Number(balanceSheet.cash)} currency={currency} />
               <ReportRow label="Bank / MoMo Balances" value={Number(balanceSheet.bank)} currency={currency} />
-              <ReportRow label="Other Current Assets (Inventory & Receivables)" value={Number(balanceSheet.current_assets_other)} currency={currency} />
+              <ReportRow label="Debtors (Accounts Receivable)" value={Number(balanceSheet.debtors || 0)} currency={currency} />
+              {Number(balanceSheet.prepaids || 0) > 0 && (
+                <ReportRow label="Prepaid Expenses" value={Number(balanceSheet.prepaids)} currency={currency} />
+              )}
+              {Number(balanceSheet.other_current_assets || 0) > 0 && (
+                <ReportRow label="Other Current Assets" value={Number(balanceSheet.other_current_assets)} currency={currency} />
+              )}
+              <ReportRow label="Current Stock / Inventory Valuation" value={Number(balanceSheet.current_assets_other)} currency={currency} />
               <SubtotalRow label="Total Current Assets" value={Number(balanceSheet.total_current_assets)} currency={currency} />
 
               <p className="text-xs uppercase font-bold text-textMuted mb-2 mt-4">Fixed Assets</p>
@@ -591,7 +914,10 @@ export default function ReportsPage() {
               <TotalRow label="TOTAL ASSETS" value={Number(balanceSheet.total_assets)} currency={currency} />
 
               <p className="text-xs uppercase font-bold text-textMuted mb-2 mt-6">Liabilities</p>
-              <ReportRow label="Short-Term Liabilities (Accounts Payable / Trade Creditors)" value={Number(balanceSheet.short_term_liabilities)} currency={currency} />
+              <ReportRow label="Trade Creditors / Accounts Payable" value={Number(balanceSheet.short_term_liabilities) - Object.values(balanceSheet.custom_current_liabilities || {}).reduce((s, v) => s + v, 0)} currency={currency} />
+              {Object.entries(balanceSheet.custom_current_liabilities || {}).map(([key, val]) => (
+                <ReportRow key={`cl_${key}`} label={key} value={Number(val)} currency={currency} />
+              ))}
               <ReportRow label="Long-term Liabilities (Loans)" value={Number(balanceSheet.long_term_liabilities)} currency={currency} />
               <SubtotalRow label="Total Liabilities" value={Number(balanceSheet.total_liabilities)} currency={currency} />
 

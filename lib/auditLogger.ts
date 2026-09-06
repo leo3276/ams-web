@@ -119,6 +119,9 @@ export async function logAuditEvent(params: {
     const existing = getCachedAuditLogs(businessId);
     const updated = [entry, ...existing];
     saveCachedAuditLogs(updated, businessId);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('ams:audit-logs-updated'));
+    }
   } catch (_e) {}
 
   // 2. Sync to Supabase in background

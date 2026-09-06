@@ -370,13 +370,42 @@ export function printInvoicePDF(
  * 2. Statement of Profit or Loss (Income Statement) PDF
  */
 export function printProfitLossPDF(
-  pnl: { revenue: number; costOfGoods: number; operatingExpenses: number; netProfit: number },
+  pnl: {
+    revenue: number;
+    costOfGoods: number;
+    operatingExpenses: number;
+    netProfit: number;
+    gross_sales?: number;
+    returns_inwards?: number;
+    net_sales?: number;
+    opening_stock?: number;
+    cash_bank_purchases?: number;
+    returns_outwards?: number;
+    cogas?: number;
+    closing_stock?: number;
+    cost_of_sales?: number;
+    other_revenue?: number;
+    gross_profit?: number;
+  },
   periodLabel: string,
   business: BusinessInfo
 ) {
-  const grossProfit = pnl.revenue - pnl.costOfGoods;
-  const grossMargin = pnl.revenue > 0 ? ((grossProfit / pnl.revenue) * 100).toFixed(1) : '0.0';
-  const netMargin = pnl.revenue > 0 ? ((pnl.netProfit / pnl.revenue) * 100).toFixed(1) : '0.0';
+  const grossSales = Number(pnl.gross_sales ?? pnl.revenue);
+  const returnsInwards = Number(pnl.returns_inwards || 0);
+  const netSales = Number(pnl.net_sales ?? (grossSales - returnsInwards));
+  const openingStock = Number(pnl.opening_stock || 0);
+  const purchases = Number(pnl.cash_bank_purchases || 0);
+  const returnsOutwards = Number(pnl.returns_outwards || 0);
+  const cogas = Number(pnl.cogas ?? (openingStock + purchases - returnsOutwards));
+  const closingStock = Number(pnl.closing_stock || 0);
+  const costOfSales = Number(pnl.cost_of_sales ?? pnl.costOfGoods);
+  const otherRev = Number(pnl.other_revenue || 0);
+  const grossProfit = Number(pnl.gross_profit ?? (netSales - costOfSales + otherRev));
+  const opex = Number(pnl.operatingExpenses || 0);
+  const netProfit = Number(pnl.netProfit || (grossProfit - opex));
+
+  const grossMargin = netSales > 0 ? ((grossProfit / netSales) * 100).toFixed(1) : '0.0';
+  const netMargin = netSales > 0 ? ((netProfit / netSales) * 100).toFixed(1) : '0.0';
   const cur = business.currency || 'GHS';
 
   const html = `
@@ -384,7 +413,7 @@ export function printProfitLossPDF(
     <html>
       <head>
         <meta charset="utf-8" />
-        <title>Profit & Loss - ${business.name}</title>
+        <title>Statement of Profit or Loss - ${business.name}</title>
         ${BASE_STYLES}
       </head>
       <body>
@@ -395,32 +424,45 @@ export function printProfitLossPDF(
           </div>
           <div>
             <div class="report-title">Statement of Profit or Loss</div>
-            <div class="report-period">For the period: ${periodLabel}</div>
+            <div class="report-period">Trading Account & Income Statement · ${periodLabel}</div>
           </div>
         </div>
 
         <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Gross Revenue</div><div class="kpi-value">${cur} ${pnl.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Net Sales Revenue</div><div class="kpi-value">${cur} ${netSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Cost of Sales</div><div class="kpi-value">${cur} ${costOfSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
           <div class="kpi-card"><div class="kpi-label">Gross Profit</div><div class="kpi-value ${grossProfit >= 0 ? 'green' : 'red'}">${cur} ${grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Net Profit</div><div class="kpi-value ${pnl.netProfit >= 0 ? 'green' : 'red'}">${cur} ${pnl.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Net Margin</div><div class="kpi-value font-mono">${netMargin}%</div></div>
+          <div class="kpi-card"><div class="kpi-label">Net Profit</div><div class="kpi-value ${netProfit >= 0 ? 'green' : 'red'}">${cur} ${netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
         </div>
 
         <table>
           <thead>
-            <tr><th>Account Description</th><th class="right">Amount (${cur})</th><th class="right">% of Sales</th></tr>
+            <tr><th>Account Schedule & Description</th><th class="right">Debit (${cur})</th><th class="right">Credit / Total (${cur})</th></tr>
           </thead>
           <tbody>
-            <tr><td><strong>Operating Sales & Revenue</strong></td><td class="right font-mono"><strong>${cur} ${pnl.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td><td class="right font-mono">100.0%</td></tr>
-            <tr class="striped"><td>Less: Cost of Goods Sold (COGS / Stock Sold)</td><td class="right font-mono">(${cur} ${pnl.costOfGoods.toLocaleString(undefined, { minimumFractionDigits: 2 })})</td><td class="right font-mono">${pnl.revenue > 0 ? ((pnl.costOfGoods / pnl.revenue) * 100).toFixed(1) : '0.0'}%</td></tr>
-            <tr class="subtotal-row"><td><strong>GROSS PROFIT</strong></td><td class="right font-mono"><strong>${cur} ${grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td><td class="right font-mono"><strong>${grossMargin}%</strong></td></tr>
-            <tr><td>Less: Operating Expenses (Rent, Logistics, Utilities, Staff)</td><td class="right font-mono">(${cur} ${pnl.operatingExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 })})</td><td class="right font-mono">${pnl.revenue > 0 ? ((pnl.operatingExpenses / pnl.revenue) * 100).toFixed(1) : '0.0'}%</td></tr>
-            <tr class="total-row"><td><strong>NET OPERATING PROFIT / (LOSS)</strong></td><td class="right font-mono"><strong>${cur} ${pnl.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td><td class="right font-mono"><strong>${netMargin}%</strong></td></tr>
+            <tr class="section-header"><td colspan="3">1. Sales & Revenue Schedule</td></tr>
+            <tr><td>Gross Sales / Turnover</td><td class="right font-mono"></td><td class="right font-mono">${cur} ${grossSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
+            ${returnsInwards > 0 ? `<tr><td>Less: Returns from Customers (Returns Inwards)</td><td class="right font-mono">(${cur} ${returnsInwards.toLocaleString(undefined, { minimumFractionDigits: 2 })})</td><td class="right font-mono"></td></tr>` : ''}
+            <tr class="subtotal-row"><td><strong>NET SALES</strong></td><td class="right font-mono"></td><td class="right font-mono"><strong>${cur} ${netSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td></tr>
+
+            <tr class="section-header"><td colspan="3">2. Cost of Sales (COGS) Schedule</td></tr>
+            <tr><td>Opening Stock</td><td class="right font-mono">${cur} ${openingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td><td class="right font-mono"></td></tr>
+            <tr><td>Add: Stock Purchases (Cash & Bank)</td><td class="right font-mono">${cur} ${purchases.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td><td class="right font-mono"></td></tr>
+            ${returnsOutwards > 0 ? `<tr><td>Less: Returns Outwards (Supplier Returns)</td><td class="right font-mono">(${cur} ${returnsOutwards.toLocaleString(undefined, { minimumFractionDigits: 2 })})</td><td class="right font-mono"></td></tr>` : ''}
+            <tr class="subtotal-row"><td>Cost of Goods Available for Sale (COGAS)</td><td class="right font-mono">${cur} ${cogas.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td><td class="right font-mono"></td></tr>
+            <tr><td>Less: Closing Stock (Inventory on Hand)</td><td class="right font-mono">(${cur} ${closingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })})</td><td class="right font-mono"></td></tr>
+            <tr class="subtotal-row"><td><strong>COST OF SALES</strong></td><td class="right font-mono"></td><td class="right font-mono"><strong>(${cur} ${costOfSales.toLocaleString(undefined, { minimumFractionDigits: 2 })})</strong></td></tr>
+
+            <tr class="section-header"><td colspan="3">3. Gross Profit & Operating Results</td></tr>
+            ${otherRev > 0 ? `<tr><td>Add: Other Revenue / Non-Inventory Income</td><td class="right font-mono"></td><td class="right font-mono">${cur} ${otherRev.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+            <tr class="subtotal-row"><td><strong>GROSS PROFIT</strong></td><td class="right font-mono"></td><td class="right font-mono"><strong>${cur} ${grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${grossMargin}%)</strong></td></tr>
+            <tr><td>Less: Operating Expenses (OpEx)</td><td class="right font-mono"></td><td class="right font-mono">(${cur} ${opex.toLocaleString(undefined, { minimumFractionDigits: 2 })})</td></tr>
+            <tr class="total-row"><td><strong>NET OPERATING PROFIT / (LOSS)</strong></td><td class="right font-mono"></td><td class="right font-mono"><strong>${cur} ${netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${netMargin}%)</strong></td></tr>
           </tbody>
         </table>
 
         <div class="footer">
-          <div class="footer-left">IFRS for SMEs Compliant · Generated by AMS Accounting Workstation</div>
+          <div class="footer-left">IFRS for SMEs / GAAP Compliant · Generated by AMS Accounting Workstation</div>
           <div>Report Date: ${new Date().toLocaleDateString()}</div>
         </div>
       </body>
@@ -437,6 +479,7 @@ export function printBalanceSheetPDF(
   bs: {
     cash: number;
     bank: number;
+    debtors?: number;
     current_assets_other: number;
     total_current_assets: number;
     fixed_assets_cost: number;
@@ -497,7 +540,8 @@ export function printBalanceSheetPDF(
             <tr class="section-header"><td colspan="2">2. CURRENT ASSETS</td></tr>
             <tr><td>Cash in Hand & Store Register</td><td class="right font-mono">${cur} ${bs.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
             <tr class="striped"><td>Bank Balances & Mobile Money Vault</td><td class="right font-mono">${cur} ${bs.bank.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
-            <tr><td>Trade Debtors & Accounts Receivable</td><td class="right font-mono">${cur} ${bs.current_assets_other.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
+            ${Number(bs.debtors || 0) > 0 ? `<tr><td>Trade Debtors & Accounts Receivable</td><td class="right font-mono">${cur} ${Number(bs.debtors).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+            <tr class="striped"><td>Closing Stock / Inventory in Trade</td><td class="right font-mono">${cur} ${bs.current_assets_other.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
             <tr class="subtotal-row"><td><strong>Total Current Assets</strong></td><td class="right font-mono"><strong>${cur} ${bs.total_current_assets.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td></tr>
 
             <tr class="total-row"><td><strong>TOTAL BUSINESS ASSETS</strong></td><td class="right font-mono"><strong>${cur} ${bs.total_assets.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td></tr>
@@ -1248,6 +1292,277 @@ export function printSupplierDebtBookPDF(
 
         <div class="footer">
           <div class="footer-left">Accounts Payable &amp; Creditors Debt Book · Generated by AMS Accounting Workstation</div>
+          <div>Date: ${new Date().toLocaleDateString()}</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  openAndPrintPDF(html);
+}
+
+/**
+ * 12. Customer Debt & Aged Receivables Schedule PDF
+ */
+export function printCustomerDebtSchedulePDF(
+  customers: Array<{
+    customer_name: string;
+    customer_phone?: string | null;
+    customer_email?: string | null;
+    total_invoiced: number;
+    total_outstanding: number;
+    invoice_count?: number;
+  }>,
+  business: BusinessInfo
+) {
+  const cur = business.currency || 'GHS';
+  const totalReceivables = customers.reduce((s, c) => s + Number(c.total_outstanding || 0), 0);
+  const totalInvoiced = customers.reduce((s, c) => s + Number(c.total_invoiced || 0), 0);
+  const owingCount = customers.filter((c) => Number(c.total_outstanding || 0) > 0).length;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Customer Debt Schedule - ${business.name}</title>
+        ${BASE_STYLES}
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="logo-box"><span class="badge-ams">AMS</span><span class="company-name">${business.name}</span></div>
+            ${business.taxId ? `<div style="font-size:11px;color:#64748B;margin-top:3px;">TIN / Tax ID: ${business.taxId}</div>` : ''}
+          </div>
+          <div>
+            <div class="report-title" style="color:#DC2626;">AGED DEBTORS &amp; RECEIVABLES</div>
+            <div class="report-period">As of: ${new Date().toLocaleDateString()}</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card" style="border-left:4px solid #DC2626;"><div class="kpi-label" style="color:#DC2626;">Total Outstanding Debt</div><div class="kpi-value font-mono" style="color:#DC2626;">${cur} ${totalReceivables.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Active Debtors</div><div class="kpi-value">${owingCount} <span style="font-size:11px;color:#64748B;">/ ${customers.length} Clients</span></div></div>
+          <div class="kpi-card"><div class="kpi-label">Historical Invoiced</div><div class="kpi-value font-mono">${cur} ${totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Collection Rate</div><div class="kpi-value font-mono green">${totalInvoiced > 0 ? ((1 - totalReceivables / totalInvoiced) * 100).toFixed(1) : '100'}%</div></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Client / Customer Name</th>
+              <th>Phone / Contact</th>
+              <th>Email</th>
+              <th class="right">Total Invoiced (${cur})</th>
+              <th class="right">Outstanding Debt (${cur})</th>
+              <th style="text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${customers.map((c, idx) => {
+              const isOwing = Number(c.total_outstanding || 0) > 0;
+              return `
+                <tr class="${idx % 2 === 1 ? 'striped' : ''}">
+                  <td><strong>${c.customer_name}</strong></td>
+                  <td class="font-mono">${c.customer_phone || '—'}</td>
+                  <td>${c.customer_email || '—'}</td>
+                  <td class="right font-mono">${cur} ${Number(c.total_invoiced || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td class="right font-mono" style="font-weight:800;${isOwing ? 'color:#DC2626;' : 'color:#059669;'}">
+                    ${Number(c.total_outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td style="text-align:center;">
+                    <span class="badge ${isOwing ? 'badge-cancelled' : 'badge-paid'}">${isOwing ? 'OWING' : 'CLEARED ✓'}</span>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+            <tr class="total-row">
+              <td colspan="4"><strong>TOTAL TRADE RECEIVABLES (DEBTORS)</strong></td>
+              <td class="right font-mono" style="color:#DC2626;"><strong>${cur} ${totalReceivables.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <div class="footer-left">Trade Debtors &amp; Receivables Schedule · Generated by AMS Accounting Workstation</div>
+          <div>Date: ${new Date().toLocaleDateString()}</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  openAndPrintPDF(html);
+}
+
+/**
+ * 13. Customer Returns & Stock Buy-Backs Register PDF
+ */
+export function printRefundsAndBuyBacksPDF(
+  refunds: any[],
+  buybacks: any[],
+  business: BusinessInfo
+) {
+  const cur = business.currency || 'GHS';
+  const totalRefunds = refunds.reduce((s, r) => s + Number(r.refundAmount || 0), 0);
+  const totalBuyBacks = buybacks.reduce((s, b) => s + Number(b.totalPayoutAmount || 0), 0);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Returns &amp; Buy-Backs Register - ${business.name}</title>
+        ${BASE_STYLES}
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="logo-box"><span class="badge-ams">AMS</span><span class="company-name">${business.name}</span></div>
+            ${business.taxId ? `<div style="font-size:11px;color:#64748B;margin-top:3px;">TIN / Tax ID: ${business.taxId}</div>` : ''}
+          </div>
+          <div>
+            <div class="report-title">CUSTOMER RETURNS &amp; PAYOUTS</div>
+            <div class="report-period">Statement Date: ${new Date().toLocaleDateString()}</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">Total Refunds Paid</div><div class="kpi-value font-mono red">${cur} ${totalRefunds.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Returns Receipts</div><div class="kpi-value">${refunds.length}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Stock Buy-Backs / Trade-Ins</div><div class="kpi-value font-mono">${cur} ${totalBuyBacks.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Trade-Ins Acquired</div><div class="kpi-value">${buybacks.length} Items</div></div>
+        </div>
+
+        <div style="font-size:13px;font-weight:900;color:#0F172A;text-transform:uppercase;margin-top:10px;margin-bottom:8px;border-bottom:1px solid #CBD5E1;padding-bottom:4px;">
+          1. Customer Return Receipts &amp; Restocked Items
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Receipt #</th>
+              <th>Customer</th>
+              <th>Reason</th>
+              <th>Method</th>
+              <th>Date</th>
+              <th class="right">Refund (${cur})</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${refunds.map((r, idx) => `
+              <tr class="${idx % 2 === 1 ? 'striped' : ''}">
+                <td class="font-mono"><strong>${r.receiptNumber}</strong></td>
+                <td>${r.customerName}</td>
+                <td>${r.reason}</td>
+                <td>${r.payoutMethod.toUpperCase()}</td>
+                <td class="font-mono">${r.refundDate}</td>
+                <td class="right font-mono" style="color:#DC2626;font-weight:700;">${cur} ${Number(r.refundAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join('')}
+            ${refunds.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:#64748B;padding:12px;">No customer returns recorded</td></tr>' : ''}
+          </tbody>
+        </table>
+
+        ${buybacks.length > 0 ? `
+          <div style="font-size:13px;font-weight:900;color:#0F172A;text-transform:uppercase;margin-top:20px;margin-bottom:8px;border-bottom:1px solid #CBD5E1;padding-bottom:4px;">
+            2. Customer Stock Buy-Backs &amp; Trade-In Acquisitions
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Voucher #</th>
+                <th>Item Acquired</th>
+                <th>Customer</th>
+                <th>Condition</th>
+                <th>Qty</th>
+                <th class="right">Payout (${cur})</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${buybacks.map((b, idx) => `
+                <tr class="${idx % 2 === 1 ? 'striped' : ''}">
+                  <td class="font-mono"><strong>${b.buybackNumber}</strong></td>
+                  <td><strong>${b.itemName}</strong></td>
+                  <td>${b.customerName} (${b.customerPhone || '—'})</td>
+                  <td>${b.condition}</td>
+                  <td class="center font-mono">${b.quantityPurchased}</td>
+                  <td class="right font-mono" style="color:#059669;font-weight:700;">${cur} ${Number(b.totalPayoutAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : ''}
+
+        <div class="footer">
+          <div class="footer-left">Customer Refunds &amp; Trade-In Register · Generated by AMS Accounting Workstation</div>
+          <div>Date: ${new Date().toLocaleDateString()}</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  openAndPrintPDF(html);
+}
+
+/**
+ * 14. Compliance Audit Trail Report PDF
+ */
+export function printAuditTrailReportPDF(
+  logs: any[],
+  business: BusinessInfo
+) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Compliance Audit Trail - ${business.name}</title>
+        ${BASE_STYLES}
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="logo-box"><span class="badge-ams">AMS</span><span class="company-name">${business.name}</span></div>
+            ${business.taxId ? `<div style="font-size:11px;color:#64748B;margin-top:3px;">TIN / Tax ID: ${business.taxId}</div>` : ''}
+          </div>
+          <div>
+            <div class="report-title">IMMUTABLE AUDIT TRAIL</div>
+            <div class="report-period">Generated: ${new Date().toLocaleString()}</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">Total Audit Events</div><div class="kpi-value font-mono">${logs.length}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Disbursements</div><div class="kpi-value font-mono">${logs.filter(l => l.action_type === 'DISBURSE_PAYOUT').length}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Deletions &amp; Voids</div><div class="kpi-value font-mono red">${logs.filter(l => l.action_type === 'DELETE' || l.action_type === 'VOID').length}</div></div>
+          <div class="kpi-card"><div class="kpi-label">Integrity Status</div><div class="kpi-value font-mono green">✓ Immutable</div></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Actor &amp; Role</th>
+              <th>Action</th>
+              <th>Entity</th>
+              <th>Details / Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${logs.map((l, idx) => `
+              <tr class="${idx % 2 === 1 ? 'striped' : ''}">
+                <td class="font-mono" style="font-size:10px;">${l.created_at ? new Date(l.created_at).toLocaleString() : '—'}</td>
+                <td><strong>${l.actor_email || 'system'}</strong> <span style="font-size:10px;color:#64748B;">(${l.actor_role})</span></td>
+                <td><span class="badge ${l.action_type === 'DELETE' ? 'badge-cancelled' : l.action_type === 'CREATE' ? 'badge-paid' : 'badge-sent'}">${l.action_type}</span></td>
+                <td><strong>${l.entity_type}</strong></td>
+                <td>${l.description}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <div class="footer-left">Immutable Compliance Audit Log · Generated by AMS Accounting Workstation</div>
           <div>Date: ${new Date().toLocaleDateString()}</div>
         </div>
       </body>

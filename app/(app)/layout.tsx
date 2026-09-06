@@ -54,11 +54,20 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       } catch (_e) {}
     }
 
+    const handleBusinessUpdate = () => {
+      const b = getCachedBusiness();
+      if (b?.name) {
+        setBusinessName(b.name);
+      }
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('ams:business-updated', handleBusinessUpdate);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('ams:business-updated', handleBusinessUpdate);
     };
   }, []);
 
@@ -116,7 +125,6 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     { label: 'Customer Returns & Payouts', href: '/refunds', icon: '💵', roles: ['owner', 'employee', 'accountant'] },
     { label: 'Inventory & Stock', href: '/inventory', icon: '📦', roles: ['owner', 'employee', 'accountant'] },
     { label: 'Daily Bookkeeping', href: '/bookkeeping', icon: '📋', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Mobile Money (MoMo) Sync', href: '/banking', icon: '📱', roles: ['owner', 'accountant'] },
     { label: 'Suppliers & Debt', href: '/suppliers', icon: '🏭', roles: ['owner', 'accountant'] },
     { label: 'Data Migration', href: '/migrate', icon: '⚡', roles: ['owner', 'accountant'] },
     { label: 'Team & Staff', href: '/team', icon: '🧑‍🤝‍🧑', roles: ['owner'] },
@@ -124,17 +132,15 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     { label: 'Audit Trail', href: '/audit-logs', icon: '🛡️', roles: ['owner', 'accountant'] },
     { label: 'Accountant Portal', href: '/accountant', icon: '💼', roles: ['owner', 'accountant'] },
     { label: 'Tax Preparation', href: '/tax', icon: '🏛️', roles: ['owner', 'accountant'] },
-    { label: 'Settings & Profile', href: '/settings', icon: '⚙️', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Pricing & Plans', href: '/pricing', icon: '✨', roles: ['owner'] },
   ];
 
   const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#F9FAFB] text-slate-900">
+    <div className="h-screen w-screen overflow-hidden flex flex-col md:flex-row bg-[#F9FAFB] text-slate-900">
       
       {/* Desktop Clean Minimalist Sidebar */}
-      <aside className="hidden md:flex w-60 border-r border-slate-200 p-4 flex-col shrink-0 bg-white">
+      <aside className="hidden md:flex w-60 h-screen border-r border-slate-200 p-4 flex-col shrink-0 bg-white select-none overflow-hidden">
         
         {/* Brand Header */}
         <div className="flex items-center justify-between mb-3 px-1">
@@ -237,10 +243,15 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-0.5">
           <Link
             href="/settings"
-            className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition font-medium"
+            className="flex items-center justify-between px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition font-medium"
           >
-            <span>⚙️</span>
-            <span>Profile &amp; Settings</span>
+            <div className="flex items-center gap-2">
+              <span>⚙️</span>
+              <span>Settings</span>
+            </div>
+            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200/60">
+              v1.0.9
+            </span>
           </Link>
           <button
             onClick={handleSignOut}

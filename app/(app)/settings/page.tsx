@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useUserRole } from '@/lib/RoleContext';
-import { getCachedBusiness, setCachedBusiness } from '@/lib/offlineStore';
+import { getCachedBusiness, setCachedBusiness, resolveActiveBusiness } from '@/lib/offlineStore';
+import { logAuditEvent } from '@/lib/auditLogger';
 import Link from 'next/link';
 
 interface FAQItem {
@@ -97,39 +98,86 @@ export default function SettingsPage() {
   const [tin, setTin] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [reportFrequency, setReportFrequency] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
+  const [executiveEmail, setExecutiveEmail] = useState('');
+  const [executiveWhatsApp, setExecutiveWhatsApp] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
 
   useEffect(() => {
-    const biz = getCachedBusiness();
-    if (biz) {
-      setBusinessName(biz.name || '');
-      setCurrency(biz.currency || 'GHS');
+    async function loadRemoteSettings() {
+      const b = await resolveActiveBusiness();
+      if (b) {
+        setBusinessName(b.name || '');
+        setCurrency(b.currency || 'GHS');
+      }
     }
+    loadRemoteSettings();
+
     if (typeof window !== 'undefined') {
       const savedTin = localStorage.getItem('ams:web_tin_v1');
       const savedAddr = localStorage.getItem('ams:web_address_v1');
       const savedPhone = localStorage.getItem('ams:web_phone_v1');
+      const savedFreq = localStorage.getItem('ams:report_frequency_v1') as any;
+      const savedEmail = localStorage.getItem('ams:executive_email_v1');
+      const savedWA = localStorage.getItem('ams:executive_wa_v1');
       if (savedTin) setTin(savedTin);
       if (savedAddr) setAddress(savedAddr);
       if (savedPhone) setPhone(savedPhone);
+      if (savedFreq) setReportFrequency(savedFreq);
+      if (savedEmail) setExecutiveEmail(savedEmail);
+      if (savedWA) setExecutiveWhatsApp(savedWA);
     }
   }, []);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== 'undefined') {
       localStorage.setItem('ams:web_tin_v1', tin);
       localStorage.setItem('ams:web_address_v1', address);
       localStorage.setItem('ams:web_phone_v1', phone);
+      localStorage.setItem('ams:report_frequency_v1', reportFrequency);
+      localStorage.setItem('ams:executive_email_v1', executiveEmail);
+      localStorage.setItem('ams:executive_wa_v1', executiveWhatsApp);
+
       const b = getCachedBusiness();
-      if (b) {
-        setCachedBusiness({ ...b, name: businessName, currency });
-      }
+      const updatedBiz = {
+        id: b?.id || 'default_biz',
+        name: businessName.trim() || 'My Business',
+        currency: currency || 'GHS',
+        taxId: tin,
+        phone: phone,
+        address: address,
+      };
+      setCachedBusiness(updatedBiz as any);
+      window.dispatchEvent(new Event('ams:business-updated'));
+
+      logAuditEvent({
+        businessId: b?.id || 'default_biz',
+        actionType: 'UPDATE',
+        entityType: 'business_profile',
+        entityId: b?.id || 'default_biz',
+        entityName: businessName.trim() || 'My Business',
+        description: `Updated workstation profile and receipt parameters for "${businessName.trim() || 'My Business'}" (TIN: ${tin || 'N/A'}, Currency: ${currency})`,
+        newValue: updatedBiz,
+      });
+
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user?.id && b?.id && b.id !== 'default_biz') {
+          await supabase
+            .from('businesses')
+            .update({
+              name: businessName.trim() || 'My Business',
+              currency: currency || 'GHS',
+            })
+            .eq('id', b.id);
+        }
+      } catch (_e) {}
     }
     setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 3000);
+    setTimeout(() => setSavedMsg(false), 3500);
   };
 
   const searchResults = useMemo(() => {
@@ -333,6 +381,67 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* 📊 AUTOMATED EXECUTIVE ASSESSMENT & PERIODIC REPORT DISPATCH */}
+        <div className="pt-4 border-t border-slate-100 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📢</span>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Automated Owner Assessment &amp; Reporting Schedule
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                AMS compiles your complete trading activity, rolls over Opening Stock, and prepares an executive summary for your assessment.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Assessment Frequency</label>
+              <select
+                value={reportFrequency}
+                onChange={(e) => setReportFrequency(e.target.value as any)}
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white"
+              >
+                <option value="monthly">🗓️ Every Month (End of Month Summary)</option>
+                <option value="quarterly">📊 Every Quarter (3 Months Evaluation)</option>
+                <option value="yearly">🏆 Every Year (Annual Business Audit)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Owner Email for Executive PDF</label>
+              <input
+                type="email"
+                placeholder="owner@mybusiness.com"
+                value={executiveEmail}
+                onChange={(e) => setExecutiveEmail(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">WhatsApp for Instant Text Brief</label>
+              <input
+                type="tel"
+                placeholder="+233 24 123 4567"
+                value={executiveWhatsApp}
+                onChange={(e) => setExecutiveWhatsApp(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white"
+              />
+            </div>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1 text-slate-600">
+            <p className="font-bold text-slate-900 flex items-center gap-1.5">
+              <span>⚡</span> Automatic Period Roll-Over Guarantee:
+            </p>
+            <p>
+              When your {reportFrequency === 'yearly' ? 'Year' : reportFrequency === 'quarterly' ? 'Quarter' : 'Month'} closes, AMS evaluates your remaining shelf inventory as the period’s <strong>Closing Stock</strong>, and rolls that value automatically into the new period as your fresh <strong>Opening Stock</strong> without requiring manual recalculation.
+            </p>
+          </div>
+        </div>
+
         <div className="flex justify-end pt-2">
           <button
             type="submit"
@@ -342,6 +451,34 @@ export default function SettingsPage() {
           </button>
         </div>
       </form>
+
+      {/* Build & Workstation Information */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💻</span>
+            <h2 className="text-sm font-bold text-slate-900">Workstation &amp; App Version</h2>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+            v1.0.9 · Release
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+            <p className="text-slate-500 font-semibold mb-0.5">Desktop Core</p>
+            <p className="font-bold text-slate-800">AMS Accounting Desktop</p>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+            <p className="text-slate-500 font-semibold mb-0.5">Architecture</p>
+            <p className="font-bold text-slate-800">Offline-First Engine + Cloud Sync</p>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+            <p className="text-slate-500 font-semibold mb-0.5">System Status</p>
+            <p className="font-bold text-emerald-600">● 100% Operational</p>
+          </div>
+        </div>
+      </div>
 
     </div>
   );

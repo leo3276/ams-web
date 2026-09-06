@@ -7,7 +7,18 @@ import { supabase } from '@/lib/supabase';
 import { InventoryItem, Invoice, InvoiceStatus } from '@/lib/types';
 import { printInvoicePDF } from '@/lib/pdfGenerator';
 import { useArchetype } from '@/lib/ArchetypeContext';
-import { GHANAIAN_GRADE_LEVELS, DEFAULT_FEE_PRESETS, FeeItemPreset } from '@/lib/archetypes/config';
+import {
+  getCachedBusiness,
+  setCachedBusiness,
+  getCachedInvoices,
+  setCachedInvoices,
+  getCachedInventory,
+  setCachedInventory,
+  getCachedTransactions,
+  setCachedTransactions,
+  resolveActiveBusiness,
+} from '@/lib/offlineStore';
+import { logAuditEvent } from '@/lib/auditLogger';
 
 interface LineItem {
   id: string;
@@ -21,14 +32,7 @@ function InvoicesPageContent() {
   const searchParams = useSearchParams();
   const directInvoiceId = searchParams?.get('id') || searchParams?.get('invoiceId');
 
-  const {
-    archetype,
-    isEducation,
-    students,
-    schoolSettings,
-    getWhatsAppPaymentReceipt,
-    getWhatsAppArrearsReminder,
-  } = useArchetype();
+  const { archetype } = useArchetype();
 
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState('My Business');
@@ -36,103 +40,117 @@ function InvoicesPageContent() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const showNotify = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   // Filters & Search
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterClass, setFilterClass] = useState<string>('all');
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showBulkModal, setShowBulkModal] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
 
   // Create Form State
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [studentClass, setStudentClass] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<InvoiceStatus>('sent');
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { id: '1', description: 'Tuition Fee - ' + schoolSettings.currentTerm, quantity: 1, unitPrice: 600 },
+    { id: '1', description: '', quantity: 1, unitPrice: 0 },
   ]);
   const [saving, setSaving] = useState(false);
 
-  // Bulk Class Billing State
-  const [bulkClass, setBulkClass] = useState<string>('Basic 1 (Class 1)');
-  const [bulkDueDate, setBulkDueDate] = useState<string>('');
-  const [bulkAcademicYear, setBulkAcademicYear] = useState<string>(schoolSettings.academicYear || '2025/2026');
-  const [bulkTerm, setBulkTerm] = useState<string>(schoolSettings.currentTerm || 'Term 1');
-  const [bulkFeeItems, setBulkFeeItems] = useState<LineItem[]>([
-    { id: '1', description: 'Tuition Fee', quantity: 1, unitPrice: 600 },
-    { id: '2', description: 'Canteen & Feeding', quantity: 1, unitPrice: 300 },
-    { id: '3', description: 'PTA Development Levy', quantity: 1, unitPrice: 50 },
-  ]);
-  const [bulkProcessing, setBulkProcessing] = useState(false);
-
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
+    // 1. Immediately load local cached business and invoices
+    const cachedBiz = getCachedBusiness();
+    if (cachedBiz) {
+      setBusinessId(cachedBiz.id);
+      setBusinessName(cachedBiz.name);
+      setCurrency(cachedBiz.currency || 'GHS');
     }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, name, currency')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const b = businesses?.[0];
-    if (!b) {
-      setErrorMsg('No business found for this account.');
-      setLoading(false);
-      return;
-    }
-
-    setBusinessId(b.id);
-    setBusinessName(b.name);
-    setCurrency(b.currency || 'GHS');
-
-    const [invRes, itemsRes] = await Promise.all([
-      supabase
-        .from('invoices')
-        .select('*')
-        .eq('business_id', b.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('inventory_items')
-        .select('*')
-        .eq('business_id', b.id)
-        .order('name', { ascending: true }),
-    ]);
-
-    if (invRes.error) {
-      setErrorMsg(invRes.error.message);
-    } else {
-      const fetchedInvoices = invRes.data ?? [];
-      setInvoices(fetchedInvoices);
-      // If directInvoiceId passed in query string, auto open preview
+    const cachedInvs = getCachedInvoices(cachedBiz?.id);
+    if (cachedInvs.length > 0) {
+      setInvoices(cachedInvs);
       if (directInvoiceId) {
-        const found = fetchedInvoices.find((i) => i.id === directInvoiceId || i.invoice_number === directInvoiceId);
-        if (found) {
-          setPreviewInvoice(found);
-        }
+        const found = cachedInvs.find((i) => i.id === directInvoiceId || i.invoice_number === directInvoiceId);
+        if (found) setPreviewInvoice(found);
       }
     }
-
-    setInventory(itemsRes.data ?? []);
+    const cachedInv = getCachedInventory(cachedBiz?.id);
+    if (cachedInv.length > 0) {
+      setInventory(cachedInv);
+    }
     setLoading(false);
+
+    try {
+      const b = await resolveActiveBusiness();
+      if (!b) return;
+
+      setBusinessId(b.id);
+      setBusinessName(b.name);
+      setCurrency(b.currency || 'GHS');
+
+      const [invRes, itemsRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('*')
+          .eq('business_id', b.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('business_id', b.id)
+          .order('name', { ascending: true }),
+      ]);
+
+      if (invRes.data && invRes.data.length > 0) {
+        const remoteInvoices = invRes.data ?? [];
+        const localInvoices = getCachedInvoices(b.id);
+        const mergedMap = new Map();
+        localInvoices.forEach((inv: any) => mergedMap.set(inv.id || inv.invoice_number, inv));
+        remoteInvoices.forEach((inv: any) => mergedMap.set(inv.id || inv.invoice_number, inv));
+        const mergedInvoices = Array.from(mergedMap.values());
+
+        setInvoices(mergedInvoices);
+        setCachedInvoices(mergedInvoices, b.id);
+        if (directInvoiceId) {
+          const found = mergedInvoices.find((i) => i.id === directInvoiceId || i.invoice_number === directInvoiceId);
+          if (found) {
+            setPreviewInvoice(found);
+          }
+        }
+      } else if (cachedInvs.length > 0) {
+        // If Supabase returned empty but local cache has imported invoices, re-push in background
+        const chunk = cachedInvs.map((inv: any) => ({
+          business_id: b.id,
+          invoice_number: inv.invoice_number,
+          customer_name: inv.customer_name,
+          customer_email: inv.customer_email || null,
+          amount: inv.amount,
+          due_date: inv.due_date,
+          status: inv.status || 'sent',
+          description: inv.description || null,
+          paid_at: inv.paid_at || null,
+        }));
+        supabase.from('invoices').insert(chunk).then(() => {});
+      }
+
+      if (itemsRes.data && itemsRes.data.length > 0) {
+        setInventory(itemsRes.data);
+        setCachedInventory(itemsRes.data, b.id);
+      }
+    } catch (_err) {
+      // offline fallback operates smoothly on cache
+    }
   }, [directInvoiceId]);
 
   useEffect(() => {
@@ -142,7 +160,6 @@ function InvoicesPageContent() {
     d.setDate(d.getDate() + 30);
     const iso = d.toISOString().slice(0, 10);
     setDueDate(iso);
-    setBulkDueDate(iso);
 
     const handleUpdate = () => {
       loadData();
@@ -150,9 +167,11 @@ function InvoicesPageContent() {
 
     window.addEventListener('ams:invoices-updated', handleUpdate);
     window.addEventListener('ams:inventory-updated', handleUpdate);
+    window.addEventListener('ams:business-updated', handleUpdate);
     return () => {
       window.removeEventListener('ams:invoices-updated', handleUpdate);
       window.removeEventListener('ams:inventory-updated', handleUpdate);
+      window.removeEventListener('ams:business-updated', handleUpdate);
     };
   }, [loadData]);
 
@@ -179,27 +198,11 @@ function InvoicesPageContent() {
     return lineItems.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
   }, [lineItems]);
 
-  const bulkTotalPerStudent = useMemo(() => {
-    return bulkFeeItems.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
-  }, [bulkFeeItems]);
-
-  // Auto-pick student from roster
-  const handleSelectStudentFromRoster = (studentId: string) => {
-    const std = students.find((s) => s.id === studentId);
-    if (!std) return;
-    setCustomerName(std.name);
-    setCustomerPhone(std.guardianPhone);
-    setCustomerEmail(std.guardianEmail || '');
-    setStudentClass(std.classGrade);
-    setNotes(`Class: ${std.classGrade} · Parent: ${std.guardianName} · ${schoolSettings.currentTerm} (${schoolSettings.academicYear})`);
-  };
-
   // Generate Next Invoice Number
   const nextInvoiceNumber = useMemo(() => {
     const count = invoices.length + 1;
-    const prefix = isEducation ? 'FEE-' : 'INV-';
-    return `${prefix}${count.toString().padStart(4, '0')}`;
-  }, [invoices.length, isEducation]);
+    return `INV-${count.toString().padStart(4, '0')}`;
+  }, [invoices.length]);
 
   // Save Single Invoice
   const handleSaveInvoice = async (e: React.FormEvent) => {
@@ -208,7 +211,7 @@ function InvoicesPageContent() {
 
     const cleanCustomer = customerName.trim();
     if (!cleanCustomer) {
-      alert(isEducation ? 'Please specify the student name.' : 'Please specify customer name.');
+      showNotify('error', 'Please specify customer name.');
       return;
     }
 
@@ -239,67 +242,11 @@ function InvoicesPageContent() {
       setInvoices((prev) => [data, ...prev]);
       setShowCreateModal(false);
       resetForm();
+      showNotify('success', `✓ Invoice #${nextInvoiceNumber} created successfully!`);
     } catch (err: any) {
-      alert(err.message || 'Failed to save bill.');
+      showNotify('error', err.message || 'Failed to save bill.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  // Bulk Class Billing Handler
-  const handleRunBulkClassBilling = async () => {
-    if (!businessId) return;
-    const classStudents = students.filter((s) => s.classGrade === bulkClass);
-    if (classStudents.length === 0) {
-      alert(`No students currently enrolled in ${bulkClass}. Enroll students first in the Students & Classes tab.`);
-      return;
-    }
-
-    if (bulkTotalPerStudent <= 0) {
-      alert('Total term fee per student must be greater than 0.');
-      return;
-    }
-
-    if (!confirm(`Generate term fee bills of ${currency} ${bulkTotalPerStudent.toLocaleString()} for all ${classStudents.length} students in ${bulkClass}?`)) {
-      return;
-    }
-
-    setBulkProcessing(true);
-    try {
-      const feeDescription = bulkFeeItems
-        .map((i) => `${i.description} (${currency} ${i.unitPrice})`)
-        .join(' + ') + ` | ${bulkTerm} (${bulkAcademicYear}) - ${bulkClass}`;
-
-      const startIdx = invoices.length + 1;
-      const rowsToInsert = classStudents.map((std, idx) => ({
-        business_id: businessId,
-        invoice_number: `FEE-${(startIdx + idx).toString().padStart(4, '0')}`,
-        customer_name: std.name,
-        customer_phone: std.guardianPhone || null,
-        customer_email: std.guardianEmail || null,
-        amount: bulkTotalPerStudent,
-        description: `${feeDescription} · Guardian: ${std.guardianName}`,
-        due_date: bulkDueDate,
-        status: 'sent' as InvoiceStatus,
-      }));
-
-      const { data, error } = await supabase
-        .from('invoices')
-        .insert(rowsToInsert)
-        .select('*');
-
-      if (error) throw error;
-
-      if (data) {
-        setInvoices((prev) => [...data, ...prev]);
-      }
-
-      setShowBulkModal(false);
-      alert(`✓ Successfully generated ${classStudents.length} term fee bills for ${bulkClass}!`);
-    } catch (err: any) {
-      alert(err.message || 'Failed to run bulk class billing.');
-    } finally {
-      setBulkProcessing(false);
     }
   };
 
@@ -307,32 +254,138 @@ function InvoicesPageContent() {
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
-    setStudentClass('');
     setNotes('');
     setLineItems([
-      { id: '1', description: 'Tuition Fee - ' + schoolSettings.currentTerm, quantity: 1, unitPrice: 600 },
+      { id: '1', description: '', quantity: 1, unitPrice: 0 },
     ]);
   };
 
   // Mark as Paid
   const handleMarkPaid = async (inv: Invoice, paymentMethod: 'cash' | 'bank') => {
-    const { error } = await supabase.rpc('mark_invoice_paid', {
-      p_invoice_id: inv.id,
-      p_payment_method: paymentMethod,
+    const activeBid = businessId || getCachedBusiness()?.id || 'default_biz';
+    const today = new Date().toISOString().slice(0, 10);
+    const amt = Number(inv.amount || 0);
+
+    try {
+      if (activeBid && activeBid !== 'default_biz') {
+        const { error } = await supabase.rpc('mark_invoice_paid', {
+          p_invoice_id: inv.id,
+          p_payment_method: paymentMethod,
+        });
+
+        if (error) {
+          await supabase.from('invoices').update({ status: 'paid' }).eq('id', inv.id);
+          await supabase.from('transactions').insert({
+            business_id: activeBid,
+            transaction_date: today,
+            vendor: `Invoice Payment: ${inv.customer_name} (${inv.invoice_number})`,
+            type: 'revenue',
+            category: 'Sales',
+            amount: amt,
+            payment_method: paymentMethod,
+          });
+        }
+      }
+    } catch (_err) {}
+
+    // Record local transaction for Live Ledger, P&L Revenue, and Cash/Bank Inflow
+    const invTx = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      business_id: activeBid,
+      transaction_date: today,
+      vendor: `Invoice Payment: ${inv.customer_name} (${inv.invoice_number})`,
+      type: 'revenue' as const,
+      category: 'Sales',
+      amount: amt,
+      payment_method: paymentMethod,
+      created_at: new Date().toISOString(),
+    };
+
+    const existingTxs = getCachedTransactions(activeBid);
+    setCachedTransactions([invTx, ...existingTxs], activeBid);
+
+    const updatedInvs = invoices.map((i) => (i.id === inv.id ? { ...i, status: 'paid' as InvoiceStatus } : i));
+    setInvoices(updatedInvs);
+    setCachedInvoices(updatedInvs as any, activeBid);
+
+    logAuditEvent({
+      businessId: activeBid,
+      actionType: 'UPDATE',
+      entityType: 'invoice',
+      entityId: inv.id,
+      entityName: inv.invoice_number,
+      description: `Marked Invoice ${inv.invoice_number} (${inv.customer_name}) as PAID for ${currency} ${amt.toFixed(2)} via ${paymentMethod === 'cash' ? 'Cash Till' : 'Bank / MoMo'}`,
+      newValue: { status: 'paid', paymentMethod, amount: amt },
     });
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    setInvoices((prev) =>
-      prev.map((i) => (i.id === inv.id ? { ...i, status: 'paid' } : i))
-    );
     setPaymentModalInvoice(null);
     if (previewInvoice?.id === inv.id) {
       setPreviewInvoice((prev) => (prev ? { ...prev, status: 'paid' } : null));
     }
+
+    window.dispatchEvent(new Event('ams:invoices-updated'));
+    window.dispatchEvent(new Event('ams:transactions-updated'));
+    window.dispatchEvent(new Event('ams:customers-updated'));
+  };
+
+  const executeDeleteInvoice = async (inv: Invoice) => {
+    const activeBid = businessId || getCachedBusiness()?.id || 'default_biz';
+
+    try {
+      await supabase.from('invoices').delete().eq('id', inv.id);
+    } catch (_e) {}
+
+    // Log to audit trail
+    logAuditEvent({
+      businessId: activeBid,
+      actionType: 'DELETE',
+      entityType: 'invoice',
+      entityId: inv.id,
+      entityName: inv.invoice_number,
+      description: `Deleted invoice "${inv.invoice_number}" for ${inv.customer_name} (${currency} ${inv.amount})`,
+      oldValue: inv,
+    });
+
+    try {
+      const cached = getCachedInvoices(activeBid);
+      const filtered = cached.filter((i: any) => i.id !== inv.id);
+      setCachedInvoices(filtered, activeBid);
+    } catch (_e) {}
+
+    setInvoices((prev) => prev.filter((i) => i.id !== inv.id));
+    if (previewInvoice?.id === inv.id) setPreviewInvoice(null);
+  };
+
+  const deleteInvoice = async (inv: Invoice) => {
+    setInvoiceToDelete(inv);
+  };
+
+  const handleDeleteAllInvoices = async () => {
+    const activeBid = businessId || getCachedBusiness()?.id || 'default_biz';
+    if (invoices.length === 0) return;
+    const confirmPrompt = prompt(
+      `⚠️ CAUTION: Are you sure you want to delete ALL ${invoices.length} invoices?\n\nThis will clear the active invoices list but the records will be permanently preserved in the Audit Trail.\n\nType "DELETE ALL" to confirm:`
+    );
+    if (confirmPrompt !== 'DELETE ALL') return;
+
+    try {
+      await supabase.from('invoices').delete().eq('business_id', activeBid);
+    } catch (_e) {}
+
+    // Preserve all deleted invoices in Audit Trail
+    logAuditEvent({
+      businessId: activeBid,
+      actionType: 'DELETE',
+      entityType: 'invoice',
+      entityId: 'bulk_invoices_clear',
+      entityName: 'All Invoices',
+      description: `Bulk deleted all ${invoices.length} invoices from the billing system.`,
+      metadata: { deletedCount: invoices.length, deletedInvoices: invoices },
+    });
+
+    setCachedInvoices([], activeBid);
+    setInvoices([]);
+    showNotify('success', `Successfully deleted all invoices. The records are preserved in the Audit Trail.`);
   };
 
   // Filter Invoices
@@ -354,39 +407,51 @@ function InvoicesPageContent() {
   const totalPaid = useMemo(() => invoices.filter((i) => i.status === 'paid').reduce((acc, i) => acc + (Number(i.amount) || 0), 0), [invoices]);
   const totalUnpaid = Math.max(0, totalBilled - totalPaid);
 
-  if (loading) return <p className="text-sm text-textSecondary">Loading fee records…</p>;
+  if (loading) return <p className="text-sm text-textSecondary">Loading invoice records…</p>;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      
+      {/* Toast Notification */}
+      {notification && (
+        <div
+          className={`p-3.5 rounded-2xl text-xs font-bold flex items-center justify-between shadow-sm border ${
+            notification.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border-rose-200'
+          }`}
+        >
+          <span>{notification.message}</span>
+          <button
+            onClick={() => setNotification(null)}
+            className="ml-4 text-sm font-black opacity-60 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">{isEducation ? '🧾' : '📄'}</span>
+            <span className="text-2xl">📄</span>
             <h1 className="text-2xl font-bold text-textPrimary tracking-tight">
-              {archetype.vocabulary.invoicesTitle}
+              Invoices &amp; Billing
             </h1>
-            {isEducation && (
-              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
-                {schoolSettings.currentTerm}
-              </span>
-            )}
           </div>
           <p className="text-xs text-textSecondary">
-            {isEducation
-              ? 'Issue student term bills, generate bulk class fees, record payments, and dispatch WhatsApp receipts.'
-              : 'Issue branded invoices, track customer receivables, and send payment reminders.'}
+            Issue branded invoices, track customer receivables, and send payment reminders.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          {isEducation && (
+          {invoices.length > 0 && (
             <button
-              onClick={() => setShowBulkModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold transition shadow-md"
+              onClick={handleDeleteAllInvoices}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl border border-danger/30 text-danger bg-dangerBg/40 hover:bg-dangerBg text-xs font-extrabold transition shadow-sm"
+              title="Delete all invoices (Audit Log preserved)"
             >
-              <span>⚡ 1-Click Class Billing</span>
+              <span>🗑️</span> Delete All ({invoices.length})
             </button>
           )}
 
@@ -394,7 +459,7 @@ function InvoicesPageContent() {
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-textPrimary text-white hover:opacity-90 text-xs font-extrabold transition shadow-md"
           >
-            <span>+ {isEducation ? 'Single Student Bill' : 'New Invoice'}</span>
+            <span>+ New Invoice</span>
           </button>
         </div>
       </div>
@@ -403,29 +468,29 @@ function InvoicesPageContent() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div className="bg-surface1 p-4 rounded-2xl border border-border shadow-xs">
           <p className="text-[11px] font-bold text-textSecondary uppercase tracking-wider">
-            Total {isEducation ? 'Fees Billed' : 'Invoiced'}
+            Total Invoiced
           </p>
           <p className="text-2xl font-black text-textPrimary font-mono mt-1">
             {currency} {totalBilled.toLocaleString()}
           </p>
-          <p className="text-[11px] text-textMuted mt-0.5">{invoices.length} total bills issued</p>
+          <p className="text-[11px] text-textMuted mt-0.5">{invoices.length} total invoices issued</p>
         </div>
 
         <div className="bg-surface1 p-4 rounded-2xl border border-border shadow-xs">
           <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
-            Total {isEducation ? 'Fees Collected' : 'Paid'}
+            Total Paid
           </p>
           <p className="text-2xl font-black text-emerald-700 font-mono mt-1">
             {currency} {totalPaid.toLocaleString()}
           </p>
           <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">
-            {invoices.filter((i) => i.status === 'paid').length} cleared bills
+            {invoices.filter((i) => i.status === 'paid').length} cleared invoices
           </p>
         </div>
 
         <div className="bg-surface1 p-4 rounded-2xl border border-border shadow-xs">
           <p className="text-[11px] font-bold text-danger uppercase tracking-wider">
-            {isEducation ? 'Unpaid Parent Arrears' : 'Outstanding Receivables'}
+            Outstanding Receivables
           </p>
           <p className="text-2xl font-black text-danger font-mono mt-1">
             {currency} {totalUnpaid.toLocaleString()}
@@ -441,7 +506,7 @@ function InvoicesPageContent() {
         <div className="relative flex-1 max-w-md">
           <input
             type="text"
-            placeholder={isEducation ? 'Search student, bill number, or class...' : 'Search customer or invoice #...'}
+            placeholder="Search customer or invoice #..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary"
@@ -466,33 +531,23 @@ function InvoicesPageContent() {
         </div>
       </div>
 
-      {/* Invoice / Fee Bill Table */}
+      {/* Invoice Table */}
       <div className="bg-surface1 rounded-2xl border border-border overflow-hidden shadow-xs">
         {filteredInvoices.length === 0 ? (
           <div className="p-12 text-center">
-            <span className="text-4xl mb-2 inline-block">{isEducation ? '🎓' : '🧾'}</span>
-            <h3 className="text-base font-bold text-textPrimary mb-1">No Fee Bills Found</h3>
+            <span className="text-4xl mb-2 inline-block">🧾</span>
+            <h3 className="text-base font-bold text-textPrimary mb-1">No Invoices Found</h3>
             <p className="text-xs text-textSecondary mb-4 max-w-sm mx-auto">
-              {isEducation
-                ? 'Issue your first student term bill or click 1-Click Class Billing to bill an entire class.'
-                : 'Click New Invoice to create and send your first sales invoice.'}
+              Click New Invoice to create and send your first sales invoice.
             </p>
-            {isEducation && (
-              <button
-                onClick={() => setShowBulkModal(true)}
-                className="px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold shadow-sm"
-              >
-                ⚡ 1-Click Class Billing
-              </button>
-            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-surface2 border-b border-border text-textSecondary uppercase tracking-wider font-bold">
                 <tr>
-                  <th className="py-3 px-4">Bill #</th>
-                  <th className="py-3 px-4">{isEducation ? 'Student Name' : 'Customer'}</th>
+                  <th className="py-3 px-4">Invoice #</th>
+                  <th className="py-3 px-4">Customer Name</th>
                   <th className="py-3 px-4">Breakdown / Description</th>
                   <th className="py-3 px-4">Due Date</th>
                   <th className="py-3 px-4">Amount</th>
@@ -503,30 +558,11 @@ function InvoicesPageContent() {
               <tbody className="divide-y divide-border">
                 {filteredInvoices.map((inv) => {
                   const isPaid = inv.status === 'paid';
-                  const std = students.find(
-                    (s) => s.name?.trim().toLowerCase() === inv.customer_name?.trim().toLowerCase()
-                  );
-                  const classGrade = std?.classGrade || 'Class';
-
-                  const whatsappLink = isPaid
-                    ? getWhatsAppPaymentReceipt({
-                        studentName: inv.customer_name,
-                        classGrade,
-                        guardianPhone: inv.customer_phone || std?.guardianPhone || '',
-                        amountPaid: inv.amount,
-                        outstandingBalance: 0,
-                        businessName,
-                        currency,
-                      })
-                    : getWhatsAppArrearsReminder({
-                        studentName: inv.customer_name,
-                        classGrade,
-                        guardianPhone: inv.customer_phone || std?.guardianPhone || '',
-                        outstandingBalance: inv.amount,
-                        dueDate: inv.due_date,
-                        businessName,
-                        currency,
-                      });
+                  const cleanPhone = (inv.customer_phone || '').replace(/[^0-9]/g, '');
+                  const msg = isPaid
+                    ? `Hello ${inv.customer_name}, thank you for your payment of ${currency} ${Number(inv.amount || 0).toLocaleString()} for Invoice #${inv.invoice_number} from ${businessName}.`
+                    : `Hello ${inv.customer_name}, this is a friendly payment reminder for Invoice #${inv.invoice_number} from ${businessName}. Amount: ${currency} ${Number(inv.amount || 0).toLocaleString()} (Due: ${inv.due_date || 'immediate'}).`;
+                  const whatsappLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 
                   return (
                     <tr key={inv.id} className="hover:bg-surface2/50 transition">
@@ -542,7 +578,7 @@ function InvoicesPageContent() {
                       </td>
 
                       <td className="py-3.5 px-4 text-textSecondary max-w-xs truncate">
-                        {inv.description || 'Term Fee Statement'}
+                        {inv.description || 'Sales Invoice'}
                       </td>
 
                       <td className="py-3.5 px-4 font-mono text-textSecondary">
@@ -550,7 +586,7 @@ function InvoicesPageContent() {
                       </td>
 
                       <td className="py-3.5 px-4 font-mono font-bold text-textPrimary text-sm">
-                        {currency} {inv.amount.toLocaleString()}
+                        {currency} {Number(inv.amount || 0).toLocaleString()}
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -594,6 +630,14 @@ function InvoicesPageContent() {
                           >
                             📄 PDF
                           </button>
+
+                          <button
+                            onClick={() => deleteInvoice(inv)}
+                            className="text-textMuted hover:text-danger text-xs p-1"
+                            title="Delete invoice"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -605,178 +649,14 @@ function InvoicesPageContent() {
         )}
       </div>
 
-      {/* ======================================================== */}
-      {/* MODAL 1: 1-CLICK BULK CLASS BILLING                      */}
-      {/* ======================================================== */}
-      {showBulkModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-surface1 rounded-2xl max-w-xl w-full p-6 border border-border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⚡</span>
-                <div>
-                  <h3 className="text-base font-bold text-textPrimary">1-Click Bulk Class Billing</h3>
-                  <p className="text-[11px] text-textSecondary">Generate individualized fee bills for an entire class simultaneously.</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowBulkModal(false)}
-                className="text-textSecondary hover:text-textPrimary font-bold text-lg"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-textSecondary mb-1">
-                    Select Target Class *
-                  </label>
-                  <select
-                    value={bulkClass}
-                    onChange={(e) => setBulkClass(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary font-bold"
-                  >
-                    {GHANAIAN_GRADE_LEVELS.map((grade) => {
-                      const count = students.filter((s) => s.classGrade === grade).length;
-                      return (
-                        <option key={grade} value={grade}>
-                          {grade} ({count} pupils enrolled)
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-textSecondary mb-1">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={bulkDueDate}
-                    onChange={(e) => setBulkDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-surface2 text-textPrimary font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* Fee Breakdown Items */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-textPrimary uppercase tracking-wider">
-                    Term Fee Components Breakdown
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBulkFeeItems((prev) => [
-                        ...prev,
-                        { id: Date.now().toString(), description: 'Other Fee Item', quantity: 1, unitPrice: 50 },
-                      ]);
-                    }}
-                    className="text-xs font-bold text-purple-600 hover:underline"
-                  >
-                    + Add Fee Component
-                  </button>
-                </div>
-
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {bulkFeeItems.map((item, idx) => (
-                    <div key={item.id} className="flex items-center gap-2 bg-surface2 p-2 rounded-xl border border-border">
-                      <span className="text-xs font-bold text-textMuted w-5 text-center">#{idx + 1}</span>
-                      <input
-                        type="text"
-                        value={item.description}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setBulkFeeItems((prev) =>
-                            prev.map((it) => (it.id === item.id ? { ...it, description: val } : it))
-                          );
-                        }}
-                        className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-border bg-surface1 text-textPrimary font-medium"
-                        placeholder="e.g. Tuition Fee"
-                      />
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-bold text-textSecondary">{currency}</span>
-                        <input
-                          type="number"
-                          value={item.unitPrice}
-                          onChange={(e) => {
-                            const val = Number(e.target.value) || 0;
-                            setBulkFeeItems((prev) =>
-                              prev.map((it) => (it.id === item.id ? { ...it, unitPrice: val } : it))
-                            );
-                          }}
-                          className="w-24 px-2.5 py-1 text-xs rounded-lg border border-border bg-surface1 text-textPrimary font-mono font-bold text-right"
-                        />
-                      </div>
-                      {bulkFeeItems.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setBulkFeeItems((prev) => prev.filter((it) => it.id !== item.id))}
-                          className="text-danger hover:opacity-80 p-1 text-xs"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Total Summary */}
-              <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-purple-900">Total Fee Per Student</p>
-                  <p className="text-[11px] text-purple-700">
-                    {students.filter((s) => s.classGrade === bulkClass).length} students in {bulkClass}
-                  </p>
-                </div>
-                <p className="text-xl font-black text-purple-900 font-mono">
-                  {currency} {bulkTotalPerStudent.toLocaleString()}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkModal(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-border text-textSecondary hover:bg-surface2"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={bulkProcessing || students.filter((s) => s.classGrade === bulkClass).length === 0}
-                  onClick={handleRunBulkClassBilling}
-                  className="px-6 py-2.5 text-xs font-extrabold rounded-xl bg-purple-600 text-white hover:bg-purple-700 shadow-md disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {bulkProcessing ? (
-                    <span>Generating Bills…</span>
-                  ) : (
-                    <span>⚡ Confirm &amp; Generate Class Bills</span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL 2: CREATE SINGLE STUDENT BILL / INVOICE            */}
-      {/* ======================================================== */}
+      {/* CREATE INVOICE MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-surface1 rounded-2xl max-w-2xl w-full p-6 border border-border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <span className="text-xl">{isEducation ? '🎓' : '🧾'}</span>
-                <h3 className="text-base font-bold text-textPrimary">
-                  {isEducation ? 'Issue Student Term Fee Bill' : 'Create New Invoice'}
-                </h3>
+                <span className="text-xl">🧾</span>
+                <h3 className="text-base font-bold text-textPrimary">Create New Invoice</h3>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
@@ -787,36 +667,15 @@ function InvoicesPageContent() {
             </div>
 
             <form onSubmit={handleSaveInvoice} className="space-y-4">
-              {/* If Education Mode: Pick Student from Roster */}
-              {isEducation && students.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-textSecondary mb-1">
-                    Select Enrolled Pupil (Auto-Fills Parent Details)
-                  </label>
-                  <select
-                    onChange={(e) => handleSelectStudentFromRoster(e.target.value)}
-                    defaultValue=""
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-surface2 text-textPrimary font-bold focus:outline-none focus:border-accentText"
-                  >
-                    <option value="" disabled>-- Pick from Student Directory --</option>
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.classGrade}) · Parent: {s.guardianName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-textSecondary mb-1">
-                    {isEducation ? 'Student Full Name *' : 'Customer Name *'}
+                    Customer Name *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder={isEducation ? 'e.g. Kwame Mensah' : 'e.g. Kojo Antwi'}
+                    placeholder="e.g. Kwame Mensah / Acme Ltd"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-surface2 text-textPrimary font-medium focus:outline-none focus:border-accentText"
@@ -825,7 +684,7 @@ function InvoicesPageContent() {
 
                 <div>
                   <label className="block text-xs font-semibold text-textSecondary mb-1">
-                    {isEducation ? 'Parent WhatsApp Phone' : 'Customer Phone'}
+                    Customer Phone (WhatsApp)
                   </label>
                   <input
                     type="text"
@@ -837,7 +696,20 @@ function InvoicesPageContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-textSecondary mb-1">
+                    Customer Email (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="customer@example.com"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-surface2 text-textPrimary font-medium focus:outline-none focus:border-accentText"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-textSecondary mb-1">
                     Payment Due Date
@@ -868,7 +740,7 @@ function InvoicesPageContent() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-textPrimary uppercase tracking-wider">
-                    {isEducation ? 'Fee Component Items' : 'Invoice Line Items'}
+                    Invoice Line Items
                   </label>
                   <button
                     type="button"
@@ -889,7 +761,7 @@ function InvoicesPageContent() {
                         value={line.description}
                         onChange={(e) => updateLineItem(line.id, { description: e.target.value })}
                         className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-border bg-surface1 text-textPrimary font-medium"
-                        placeholder="Item / Fee description"
+                        placeholder="Item / service description"
                       />
                       <input
                         type="number"
@@ -943,7 +815,7 @@ function InvoicesPageContent() {
                   disabled={saving}
                   className="px-6 py-2.5 text-xs font-extrabold rounded-xl bg-textPrimary text-white hover:opacity-90 shadow-sm disabled:opacity-50"
                 >
-                  {saving ? 'Saving…' : (isEducation ? 'Issue Term Fee Bill' : 'Confirm and Issue Invoice')}
+                  {saving ? 'Saving…' : 'Confirm and Issue Invoice'}
                 </button>
               </div>
             </form>
@@ -951,14 +823,12 @@ function InvoicesPageContent() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* MODAL 3: RECORD PAYMENT MODAL                            */}
-      {/* ======================================================== */}
+      {/* RECORD PAYMENT MODAL */}
       {paymentModalInvoice && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-surface1 rounded-2xl max-w-md w-full p-6 border border-border shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-border">
-              <h3 className="text-base font-bold text-textPrimary">Record Fee Payment</h3>
+              <h3 className="text-base font-bold text-textPrimary">Record Payment</h3>
               <button
                 onClick={() => setPaymentModalInvoice(null)}
                 className="text-textSecondary hover:text-textPrimary font-bold text-lg"
@@ -968,15 +838,15 @@ function InvoicesPageContent() {
             </div>
 
             <div className="bg-surface2 p-4 rounded-xl border border-border space-y-1">
-              <p className="text-xs text-textSecondary">Student: <strong className="text-textPrimary">{paymentModalInvoice.customer_name}</strong></p>
-              <p className="text-xs text-textSecondary">Bill Number: <strong className="text-textPrimary font-mono">{paymentModalInvoice.invoice_number}</strong></p>
+              <p className="text-xs text-textSecondary">Customer: <strong className="text-textPrimary">{paymentModalInvoice.customer_name}</strong></p>
+              <p className="text-xs text-textSecondary">Invoice Number: <strong className="text-textPrimary font-mono">{paymentModalInvoice.invoice_number}</strong></p>
               <p className="text-base font-black text-emerald-700 font-mono pt-1">
                 Amount: {currency} {paymentModalInvoice.amount.toLocaleString()}
               </p>
             </div>
 
             <p className="text-xs text-textSecondary">
-              Select payment method to mark this bill as cleared and deposit funds into your ledger:
+              Select payment method to mark this invoice as paid and record funds in your ledger:
             </p>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
@@ -997,9 +867,7 @@ function InvoicesPageContent() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* MODAL 4: INTERACTIVE PREVIEW & PRINTABLE PDF             */}
-      {/* ======================================================== */}
+      {/* INTERACTIVE PREVIEW & PRINTABLE PDF */}
       {previewInvoice && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-surface1 rounded-2xl max-w-2xl w-full p-6 border border-border shadow-2xl my-8 space-y-4">
@@ -1024,10 +892,8 @@ function InvoicesPageContent() {
             <div className="p-6 bg-white text-gray-900 rounded-xl border border-gray-200">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-xl font-extrabold text-purple-950">{businessName}</h2>
-                  <p className="text-xs text-gray-500 font-medium">
-                    {isEducation ? 'Official Term Fee Bill & Statement' : 'Official Sales Invoice'}
-                  </p>
+                  <h2 className="text-xl font-extrabold text-gray-900">{businessName}</h2>
+                  <p className="text-xs text-gray-500 font-medium">Official Sales Invoice</p>
                 </div>
                 <div className="text-right">
                   <p className="text-base font-black text-gray-900 font-mono">{previewInvoice.invoice_number}</p>
@@ -1038,12 +904,10 @@ function InvoicesPageContent() {
 
               <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 mb-4 flex justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase text-gray-400">
-                    {isEducation ? 'Billed To (Pupil):' : 'Billed To:'}
-                  </p>
+                  <p className="text-[10px] font-bold uppercase text-gray-400">Billed To:</p>
                   <p className="text-sm font-bold text-gray-900">{previewInvoice.customer_name}</p>
                   {previewInvoice.customer_phone && (
-                    <p className="text-xs text-gray-600 font-mono">Parent Phone: {previewInvoice.customer_phone}</p>
+                    <p className="text-xs text-gray-600 font-mono">Phone: {previewInvoice.customer_phone}</p>
                   )}
                 </div>
                 <div className="text-right">
@@ -1068,7 +932,7 @@ function InvoicesPageContent() {
               <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
                 <span className="text-xs font-bold text-gray-500 uppercase">Total Balance Due</span>
                 <span className="text-xl font-black text-gray-900 font-mono">
-                  {currency} {previewInvoice.amount.toLocaleString()}
+                  {currency} {Number(previewInvoice.amount || 0).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -1076,6 +940,45 @@ function InvoicesPageContent() {
         </div>
       )}
 
+      {/* Invoice Delete Confirmation Modal */}
+      {invoiceToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-gray-200">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+                🗑️
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Delete Invoice</h3>
+                <p className="text-xs text-gray-500">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete invoice <span className="font-semibold text-gray-900">{invoiceToDelete.invoice_number}</span> for <span className="font-semibold text-gray-900">{invoiceToDelete.customer_name}</span> ({currency} {Number(invoiceToDelete.amount || 0).toLocaleString()})?
+            </p>
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setInvoiceToDelete(null)}
+                className="rounded-lg px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = invoiceToDelete;
+                  setInvoiceToDelete(null);
+                  executeDeleteInvoice(target);
+                }}
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

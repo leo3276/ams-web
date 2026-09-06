@@ -7,6 +7,7 @@ import { Supplier, DebtType, InventoryItem } from '@/lib/types';
 import { useUserRole } from '@/lib/RoleContext';
 import {
   getCachedBusiness,
+  setCachedBusiness,
   getCachedSuppliers,
   setCachedSuppliers,
   addCachedSupplier,
@@ -14,7 +15,11 @@ import {
   deleteCachedSupplier,
   updateCachedSupplierBalance,
   getCachedInventory,
+  setCachedInventory,
+  getCachedTransactions,
+  setCachedTransactions,
   isOnline,
+  resolveActiveBusiness,
 } from '@/lib/offlineStore';
 import {
   getPurchaseOrders,
@@ -39,22 +44,42 @@ const DEBT_TYPE_LABELS: Record<DebtType, { label: string; icon: string; desc: st
   inventory: {
     label: 'Inventory / Stock on Credit',
     icon: '📦',
-    desc: 'Increases Inventory Asset & Accounts Payable (No Cash change)',
-  },
-  cash_loan: {
-    label: 'Cash Loan / Borrowing',
-    icon: '💵',
-    desc: 'Increases Cash in Hand & Loan Liability',
+    desc: 'Increases Inventory Asset & Current Liabilities (Accounts Payable)',
   },
   fixed_asset: {
-    label: 'Equipment / Asset Financing',
+    label: 'Fixed Assets & Equipment Financing',
     icon: '🚜',
-    desc: 'Increases Fixed Assets & Long-Term Liability',
+    desc: 'Increases Fixed Assets & Long-Term Liabilities (Equipment Financing)',
+  },
+  cash_loan: {
+    label: 'Short-Term Loan / Working Capital Borrowing',
+    icon: '💵',
+    desc: 'Inflows Cash/Bank & increases Current Liabilities (Short-Term Loan)',
+  },
+  long_term_loan: {
+    label: 'Long-Term Facility / Capital Loan',
+    icon: '🏦',
+    desc: 'Inflows Cash/Bank & increases Long-Term Liabilities (Long-Term Debt)',
   },
   service_expense: {
     label: 'Service / Operating Expense on Credit',
     icon: '💡',
-    desc: 'Accrued Operating Expense (Rent, Utilities, Logistics)',
+    desc: 'Increases Current Liabilities (Rent, Utilities, Logistics Accruals)',
+  },
+  raw_materials: {
+    label: 'Raw Materials / Direct Supplies',
+    icon: '🧱',
+    desc: 'Increases Current Liabilities (Trade Creditors for Production Inputs)',
+  },
+  packaging: {
+    label: 'Packaging & Consumables on Credit',
+    icon: '🛍️',
+    desc: 'Increases Current Liabilities (Packaging Supplies & Consumables)',
+  },
+  logistics_freight: {
+    label: 'Freight, Logistics & Transport on Credit',
+    icon: '🚚',
+    desc: 'Increases Current Liabilities (Carriage & Delivery Services Owed)',
   },
 };
 
@@ -81,19 +106,44 @@ export default function SuppliersPage() {
   // =========================================================================
   // MODAL STATES
   // =========================================================================
-  // 1. Supplier Add / Edit Modal
+  // 1. Supplier Add Modal State
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
-  const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [addModalKey, setAddModalKey] = useState(0);
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formCategory, setFormCategory] = useState('General Goods');
   const [formDebtType, setFormDebtType] = useState<DebtType>('inventory');
+  const [formLoanChannel, setFormLoanChannel] = useState<'cash' | 'bank'>('cash');
   const [formStartingDebt, setFormStartingDebt] = useState('0');
+  const [formInventoryItems, setFormInventoryItems] = useState<{
+    productId?: string;
+    productName: string;
+    quantity: number;
+    unitCost: number;
+    sellingPrice?: number;
+    _rawQty?: string;
+    _rawCost?: string;
+    _rawPrice?: string;
+  }[]>([
+    { productName: '', quantity: 10, unitCost: 0, sellingPrice: 0, _rawQty: '10', _rawCost: '', _rawPrice: '' },
+  ]);
   const [formTerms, setFormTerms] = useState('Net 30');
   const [formMoMoNumber, setFormMoMoNumber] = useState('');
   const [formBankDetails, setFormBankDetails] = useState('');
+
+  // 1.1 Supplier Edit Modal State (Isolated)
+  const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [editFormName, setEditFormName] = useState('');
+  const [editFormPhone, setEditFormPhone] = useState('');
+  const [editFormCategory, setEditFormCategory] = useState('General Goods');
+  const [editFormDebtType, setEditFormDebtType] = useState<DebtType>('inventory');
+  const [editFormLoanChannel, setEditFormLoanChannel] = useState<'cash' | 'bank'>('cash');
+  const [editFormTerms, setEditFormTerms] = useState('Net 30');
+
+  // 1.2 Supplier Delete Confirmation Modal State (Non-blocking for Electron)
+  const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // 2. Create Stock Request (PO) Modal
   const [showCreatePOModal, setShowCreatePOModal] = useState(false);
@@ -131,16 +181,61 @@ export default function SuppliersPage() {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const loadAllData = useCallback(() => {
-    const b = getCachedBusiness();
-    const bid = b?.id || 'default_biz';
-    if (b) {
+  const loadAllData = useCallback(async () => {
+    let bid = 'default_biz';
+    const b = await resolveActiveBusiness();
+    if (b?.id) {
+      bid = b.id;
       setBusinessId(b.id);
       setBusinessName(b.name);
       setCurrency(b.currency || 'GHS');
     }
 
-    setSuppliers(getCachedSuppliers(bid));
+    // Load cached records (combining business-specific cache and general fallback)
+    let sups = getCachedSuppliers(bid);
+
+    // Only fallback to Supabase transactions if local suppliers list has never been initialized
+    const cacheKey = `ams_suppliers_initialized_${bid}`;
+    const hasInitialized = typeof window !== 'undefined' && localStorage.getItem(cacheKey);
+    if (!hasInitialized && sups.length === 0 && bid && bid !== 'default_biz') {
+      try {
+        const { data: txs } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('business_id', bid)
+          .eq('type', 'short_term_liability');
+
+        if (txs && txs.length > 0) {
+          const merged: Supplier[] = [];
+          txs.forEach((tx: any) => {
+            const rawVendor = tx.vendor ? tx.vendor.replace('Supplier:', '').trim() : 'Vendor';
+            const existingIdx = merged.findIndex((s) => s.name.toLowerCase() === rawVendor.toLowerCase());
+            if (existingIdx >= 0) {
+              merged[existingIdx].balance_owed = Number(tx.amount || 0);
+            } else {
+              merged.push({
+                id: tx.id || `sup_${Date.now()}`,
+                business_id: bid,
+                name: rawVendor,
+                phone: null,
+                category: 'General Goods',
+                debt_type: 'inventory',
+                payment_terms: 'Net 30',
+                balance_owed: Number(tx.amount || 0),
+                created_at: tx.created_at || new Date().toISOString(),
+              });
+            }
+          });
+          sups = merged;
+          setCachedSuppliers(merged, bid);
+        }
+        localStorage.setItem(cacheKey, 'true');
+      } catch (_e) {}
+    } else if (typeof window !== 'undefined' && !hasInitialized) {
+      localStorage.setItem(cacheKey, 'true');
+    }
+
+    setSuppliers(sups);
     setInventory(getCachedInventory(bid));
     setPurchaseOrders(getPurchaseOrders(bid));
     setGrnList(getGoodsReceivedNotes(bid));
@@ -168,16 +263,75 @@ export default function SuppliersPage() {
   // SUPPLIER CRUD HANDLERS
   // =========================================================================
   const handleOpenAddSupplier = () => {
+    setAddModalKey(Date.now());
     setFormName('');
     setFormPhone('');
     setFormEmail('');
     setFormCategory('General Goods');
     setFormDebtType('inventory');
+    setFormLoanChannel('cash');
     setFormStartingDebt('0');
+    setFormInventoryItems([
+      { productName: '', quantity: 10, unitCost: 0, sellingPrice: 0, _rawQty: '10', _rawCost: '', _rawPrice: '' },
+    ]);
     setFormTerms('Net 30');
     setFormMoMoNumber('');
     setFormBankDetails('');
     setShowAddSupplierModal(true);
+  };
+
+  const handleAddFormInventoryItem = () => {
+    setFormInventoryItems((prev) => [
+      ...prev,
+      { productName: '', quantity: 10, unitCost: 0, sellingPrice: 0, _rawQty: '10', _rawCost: '', _rawPrice: '' },
+    ]);
+  };
+
+  const handleRemoveFormInventoryItem = (idx: number) => {
+    setFormInventoryItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleFormInventoryItemChange = (idx: number, field: string, value: any) => {
+    setFormInventoryItems((prev) => {
+      const updated = [...prev];
+      const current = { ...updated[idx] };
+
+      if (field === 'productId') {
+        current.productId = value;
+        const match = inventory.find((inv) => inv.id === value);
+        if (match) {
+          current.productName = match.name;
+          current.unitCost = match.unit_cost;
+          current.sellingPrice = match.unit_price;
+          current._rawCost = String(match.unit_cost || '');
+          current._rawPrice = String(match.unit_price || '');
+        }
+      } else if (field === '_rawQty') {
+        current._rawQty = value;
+        current.quantity = parseFloat(value) || 0;
+      } else if (field === '_rawCost') {
+        current._rawCost = value;
+        current.unitCost = parseFloat(value) || 0;
+      } else if (field === '_rawPrice') {
+        current._rawPrice = value;
+        current.sellingPrice = parseFloat(value) || 0;
+      } else {
+        (current as any)[field] = value;
+      }
+
+      updated[idx] = current;
+
+      // Automatically recalculate starting debt if items are entered
+      const totalItemsValue = updated.reduce(
+        (sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitCost || 0)),
+        0
+      );
+      if (totalItemsValue > 0) {
+        setFormStartingDebt(String(totalItemsValue));
+      }
+
+      return updated;
+    });
   };
 
   const handleSaveSupplier = (e: React.FormEvent) => {
@@ -188,7 +342,112 @@ export default function SuppliersPage() {
     }
 
     const bid = businessId || 'default_biz';
-    const startingDebt = parseFloat(formStartingDebt) || 0;
+    let startingDebt = parseFloat(formStartingDebt) || 0;
+
+    // If inventory goods are recorded on credit, update inventory stock levels immediately
+    const isInventoryCategory = formDebtType === 'inventory' || formDebtType === 'raw_materials' || formDebtType === 'packaging';
+    let validItems = isInventoryCategory
+      ? formInventoryItems.filter((i) => i.productName.trim() && Number(i.quantity) > 0)
+      : [];
+
+    // If user selected Inventory Goods but only typed a lump-sum initial balance without line items, auto-generate the inventory record
+    if (isInventoryCategory && validItems.length === 0 && startingDebt > 0) {
+      validItems = [
+        {
+          productName: `${formName.trim()} Stock Delivery`,
+          quantity: 1,
+          unitCost: startingDebt,
+          sellingPrice: Math.round(startingDebt * 1.3 * 100) / 100,
+        },
+      ];
+    }
+
+    if (validItems.length > 0) {
+      const itemsTotal = validItems.reduce(
+        (sum, i) => sum + Number(i.quantity || 0) * Number(i.unitCost || 0),
+        0
+      );
+      if (itemsTotal > 0) {
+        startingDebt = itemsTotal;
+      }
+
+      // Restock inventory in cache and storage
+      const curInv = getCachedInventory(bid);
+      let updatedInv = [...curInv];
+
+      validItems.forEach((item) => {
+        const acceptedQty = Number(item.quantity || 0);
+        const uCost = Number(item.unitCost || 0);
+        const sPrice = Number(item.sellingPrice || (uCost * 1.3));
+
+        const existingIdx = updatedInv.findIndex(
+          (inv) => (item.productId && inv.id === item.productId) || inv.name.toLowerCase() === item.productName.toLowerCase()
+        );
+
+        if (existingIdx >= 0) {
+          const old = updatedInv[existingIdx];
+          const oldQty = Number(old.quantity || 0);
+          const oldCost = Number(old.unit_cost || 0);
+          const newQty = oldQty + acceptedQty;
+          const avgCost = newQty > 0 ? (oldQty * oldCost + acceptedQty * uCost) / newQty : uCost;
+
+          updatedInv[existingIdx] = {
+            ...old,
+            quantity: newQty,
+            unit_cost: Math.round(avgCost * 100) / 100,
+            unit_price: sPrice > 0 ? sPrice : old.unit_price,
+          };
+        } else {
+          const isUuid = item.productId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.productId);
+          const newItemId = isUuid ? item.productId! : crypto.randomUUID();
+          const newItem: InventoryItem = {
+            id: newItemId,
+            name: item.productName.trim(),
+            barcode: 'SKU-' + Math.random().toString(36).slice(2, 7).toUpperCase(),
+            quantity: acceptedQty,
+            unit_cost: uCost,
+            unit_price: sPrice,
+          };
+          updatedInv = [newItem, ...updatedInv];
+        }
+      });
+
+      setCachedInventory(updatedInv, bid);
+      setInventory(updatedInv);
+      window.dispatchEvent(new Event('ams:inventory-updated'));
+
+      // Persist restocked items to Supabase
+      if (bid && bid !== 'default_biz') {
+        const rowsToUpsert = updatedInv.map((inv) => ({
+          id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inv.id) ? inv.id : crypto.randomUUID(),
+          business_id: bid,
+          name: inv.name,
+          barcode: inv.barcode || '',
+          quantity: Number(inv.quantity || 0),
+          unit_cost: Number(inv.unit_cost || 0),
+          unit_price: Number(inv.unit_price || 0),
+        }));
+        
+        // Update local item IDs if any non-UUID were converted
+        rowsToUpsert.forEach((row, i) => {
+          updatedInv[i].id = row.id;
+        });
+        setCachedInventory(updatedInv, bid);
+        setInventory(updatedInv);
+
+        supabase
+          .from('inventory_items')
+          .upsert(rowsToUpsert, { onConflict: 'id' })
+          .then(({ error }) => {
+            if (error) {
+              // Retry inserting row-by-row if upsert conflicts
+              rowsToUpsert.forEach((row) => {
+                supabase.from('inventory_items').insert(row).then(() => {});
+              });
+            }
+          });
+      }
+    }
 
     const newSup: Supplier = {
       id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -197,61 +456,115 @@ export default function SuppliersPage() {
       phone: formPhone.trim() || null,
       category: formCategory.trim() || 'General Goods',
       debt_type: formDebtType,
+      loan_channel: formDebtType === 'cash_loan' || formDebtType === 'long_term_loan' ? formLoanChannel : undefined,
       payment_terms: formTerms.trim() || 'Net 30',
       balance_owed: startingDebt,
       created_at: new Date().toISOString(),
     };
 
     addCachedSupplier(newSup, bid);
+
+    // Also record supplier starting debt bill to Supabase transactions so it syncs across all pages
+    if (startingDebt > 0 && bid !== 'default_biz') {
+      supabase
+        .from('transactions')
+        .insert({
+          id: newSup.id,
+          business_id: bid,
+          transaction_date: new Date().toISOString().slice(0, 10),
+          vendor: `Supplier: ${newSup.name}`,
+          type: formDebtType === 'fixed_asset' || formDebtType === 'long_term_loan' ? 'long_term_liability' : 'short_term_liability',
+          category: 'Accounts Payable',
+          amount: startingDebt,
+          payment_method: formLoanChannel || 'credit',
+        })
+        .then(() => {});
+    }
+
     loadAllData();
     setShowAddSupplierModal(false);
-    showNotify('success', `✓ Added supplier "${newSup.name}"`);
+    showNotify(
+      'success',
+      validItems.length > 0
+        ? `✓ Added supplier "${newSup.name}" & restocked ${validItems.length} inventory item(s) into stock on credit!`
+        : `✓ Added supplier "${newSup.name}"`
+    );
   };
 
   const handleOpenEditSupplier = (sup: Supplier) => {
     setEditingSupplier(sup);
-    setFormName(sup.name);
-    setFormPhone(sup.phone || '');
-    setFormCategory(sup.category || 'General Goods');
-    setFormDebtType(sup.debt_type || 'inventory');
-    setFormTerms(sup.payment_terms || 'Net 30');
+    setEditFormName(sup.name);
+    setEditFormPhone(sup.phone || '');
+    setEditFormCategory(sup.category || 'General Goods');
+    setEditFormDebtType(sup.debt_type || 'inventory');
+    setEditFormLoanChannel(sup.loan_channel || 'cash');
+    setEditFormTerms(sup.payment_terms || 'Net 30');
     setShowEditSupplierModal(true);
   };
 
   const handleUpdateSupplier = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSupplier || !formName.trim()) return;
+    if (!editingSupplier || !editFormName.trim()) return;
 
     const bid = businessId || 'default_biz';
     const updated = updateCachedSupplier(
       {
         ...editingSupplier,
-        name: formName.trim(),
-        phone: formPhone.trim() || null,
-        category: formCategory.trim() || 'General Goods',
-        debt_type: formDebtType,
-        payment_terms: formTerms.trim() || 'Net 30',
+        name: editFormName.trim(),
+        phone: editFormPhone.trim() || null,
+        category: editFormCategory.trim() || 'General Goods',
+        debt_type: editFormDebtType,
+        loan_channel: editFormDebtType === 'cash_loan' || editFormDebtType === 'long_term_loan' ? editFormLoanChannel : undefined,
+        payment_terms: editFormTerms.trim() || 'Net 30',
       },
       bid
     );
 
     setSuppliers(updated);
     setShowEditSupplierModal(false);
-    showNotify('success', `✓ Updated supplier "${formName}"`);
+    showNotify('success', `✓ Updated supplier "${editFormName}"`);
   };
 
-  const handleDeleteSupplier = (id: string, name: string) => {
-    if (!confirm(`Delete supplier "${name}" from your records?`)) return;
+  const executeDeleteSupplier = (id: string, name: string) => {
     const bid = businessId || 'default_biz';
     const updated = deleteCachedSupplier(id, bid);
     setSuppliers(updated);
+
+    // Also delete any mirrored transactions or bills for this supplier in local cache & remote
+    try {
+      const allTxs = getCachedTransactions(bid);
+      const filteredTxs = allTxs.filter(
+        (t) => !(t.type === 'short_term_liability' && (t.vendor === `Supplier: ${name}` || t.vendor === name || t.id === id))
+      );
+      setCachedTransactions(filteredTxs, bid);
+
+      if (bid !== 'default_biz') {
+        supabase
+          .from('transactions')
+          .delete()
+          .eq('business_id', bid)
+          .or(`id.eq.${id},vendor.eq.Supplier: ${name},vendor.eq.${name}`)
+          .then(() => {});
+      }
+    } catch (_e) {}
+
+    window.dispatchEvent(new Event('ams:suppliers-data-updated'));
     showNotify('success', `✓ Deleted supplier "${name}"`);
+  };
+
+  const handleDeleteSupplier = (id: string, name: string) => {
+    setSupplierToDelete({ id, name });
   };
 
   // =========================================================================
   // PURCHASE ORDER (STOCK REQUEST) HANDLERS
   // =========================================================================
   const handleOpenCreatePO = (preselectedSupplierId?: string) => {
+    if (suppliers.length === 0) {
+      showNotify('error', 'Please register at least one supplier before creating a purchase order.');
+      handleOpenAddSupplier();
+      return;
+    }
     setPoSupplierId(preselectedSupplierId || (suppliers[0]?.id || ''));
     setPoItems([
       { productName: '', unit: 'pieces', quantityOrdered: 10, estimatedUnitCost: 0, totalCost: 0 },
@@ -297,7 +610,7 @@ export default function SuppliersPage() {
   const handlePopulateLowStockItems = () => {
     const lowStock = inventory.filter((inv) => inv.quantity <= 5);
     if (lowStock.length === 0) {
-      alert('No low-stock items detected in inventory!');
+      showNotify('error', 'No low-stock items (quantity <= 5) detected in store inventory!');
       return;
     }
 
@@ -319,13 +632,13 @@ export default function SuppliersPage() {
     e.preventDefault();
     const sup = suppliers.find((s) => s.id === poSupplierId);
     if (!sup) {
-      alert('Please select a supplier.');
+      showNotify('error', 'Please select a supplier.');
       return;
     }
 
     const validItems = poItems.filter((i) => i.productName.trim() && i.quantityOrdered > 0);
     if (validItems.length === 0) {
-      alert('Please add at least one valid stock item with quantity.');
+      showNotify('error', 'Please add at least one valid stock item with quantity.');
       return;
     }
 
@@ -353,6 +666,11 @@ export default function SuppliersPage() {
   // GOODS RECEIVED NOTE (GRN) DOCK HANDLERS
   // =========================================================================
   const handleOpenGRNDock = (po?: PurchaseOrder) => {
+    if (suppliers.length === 0) {
+      showNotify('error', 'Please register at least one supplier before receiving goods at the dock.');
+      handleOpenAddSupplier();
+      return;
+    }
     if (po) {
       setSelectedPOForGRN(po);
       setGrnSupplierId(po.supplierId);
@@ -382,13 +700,13 @@ export default function SuppliersPage() {
     e.preventDefault();
     const sup = suppliers.find((s) => s.id === grnSupplierId);
     if (!sup) {
-      alert('Please select a supplier for this delivery.');
+      showNotify('error', 'Please select a supplier for this delivery.');
       return;
     }
 
     const validItems = grnItems.filter((i) => i.productName.trim() && i.quantityReceived > 0);
     if (validItems.length === 0) {
-      alert('Please enter received items.');
+      showNotify('error', 'Please enter received items.');
       return;
     }
 
@@ -429,7 +747,8 @@ export default function SuppliersPage() {
   const handleOpenPayoutModal = (sup?: Supplier) => {
     const targetSup = sup || suppliers[0];
     if (!targetSup) {
-      alert('No suppliers registered yet.');
+      showNotify('error', 'No suppliers registered yet. Please register a supplier first.');
+      handleOpenAddSupplier();
       return;
     }
     setPayoutSupplierId(targetSup.id);
@@ -464,7 +783,7 @@ export default function SuppliersPage() {
     e.preventDefault();
     const settleAmt = parseFloat(payoutAmount);
     if (!payoutSupplierId || isNaN(settleAmt) || settleAmt <= 0) {
-      alert('Please enter a valid payout amount.');
+      showNotify('error', 'Please enter a valid payout amount.');
       return;
     }
 
@@ -505,7 +824,7 @@ export default function SuppliersPage() {
         `✓ Disbursed ${currency} ${res.voucher.netAmountDisbursed.toLocaleString()} to ${sup.name}! Voucher #${res.voucher.voucherNumber}`
       );
     } else {
-      alert(res.error || 'Failed to record payout.');
+      showNotify('error', res.error || 'Failed to record payout.');
     }
   };
 
@@ -558,6 +877,25 @@ export default function SuppliersPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={handleOpenAddSupplier}
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+          >
+            <span>+ Add Supplier</span>
+          </button>
+
+          <button
+            onClick={() =>
+              printSupplierDebtBookPDF(
+                { name: businessName, currency, taxId: null },
+                suppliers
+              )
+            }
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+          >
+            <span>📄 Export PDF</span>
+          </button>
+
+          <button
             onClick={() => handleOpenCreatePO()}
             className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
@@ -566,7 +904,7 @@ export default function SuppliersPage() {
 
           <button
             onClick={() => handleOpenPayoutModal()}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
             <span>💸 Pay Supplier Bill</span>
           </button>
@@ -1079,19 +1417,20 @@ export default function SuppliersPage() {
       {/* 5. MODAL 1: ADD / REGISTER SUPPLIER                                   */}
       {/* ===================================================================== */}
       {showAddSupplierModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+        <div key={`modal-add-supplier-${addModalKey}`} className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">Register Supply Partner</h3>
               <button onClick={() => setShowAddSupplierModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveSupplier} className="space-y-3.5">
+            <form key={`form-add-supplier-${addModalKey}`} onSubmit={handleSaveSupplier} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Supplier / Wholesaler Name *</label>
                 <input
                   type="text"
                   required
+                  autoFocus
                   placeholder="e.g. FanMilk Ghana Ltd / Nestlé Distributor"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
@@ -1125,29 +1464,190 @@ export default function SuppliersPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Payment Terms</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Debt / Supply Type *</label>
                   <select
-                    value={formTerms}
-                    onChange={(e) => setFormTerms(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                    value={formDebtType}
+                    onChange={(e) => setFormDebtType(e.target.value as DebtType)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-medium"
                   >
-                    <option value="Cash on Delivery">Cash on Delivery (COD)</option>
-                    <option value="Net 7">Net 7 Days</option>
-                    <option value="Net 15">Net 15 Days</option>
-                    <option value="Net 30">Net 30 Days</option>
+                    <option value="inventory">📦 Inventory / Stock on Credit</option>
+                    <option value="fixed_asset">🚜 Fixed Assets &amp; Equipment Financing</option>
+                    <option value="cash_loan">💵 Short-Term Loan / Float</option>
+                    <option value="long_term_loan">🏦 Long-Term Facility / Capital Loan</option>
+                    <option value="service_expense">💡 Utility &amp; Service Operating Expense</option>
+                    <option value="raw_materials">🧱 Raw Materials / Production Inputs</option>
+                    <option value="packaging">🛍️ Packaging Supplies &amp; Consumables</option>
+                    <option value="logistics_freight">🚚 Logistics, Freight &amp; Transport</option>
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Initial Balance Owed ({currency})</label>
-                  <input
-                    type="number"
-                    value={formStartingDebt}
-                    onChange={(e) => setFormStartingDebt(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-mono font-bold"
-                  />
-                </div>
+                {(formDebtType === 'cash_loan' || formDebtType === 'long_term_loan') ? (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Disbursed Into (Account)</label>
+                    <select
+                      value={formLoanChannel}
+                      onChange={(e) => setFormLoanChannel(e.target.value as 'cash' | 'bank')}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-bold bg-slate-50"
+                    >
+                      <option value="cash">💵 Cash on Hand (Till)</option>
+                      <option value="bank">🏦 Bank / MoMo Account</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Terms</label>
+                    <select
+                      value={formTerms}
+                      onChange={(e) => setFormTerms(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                    >
+                      <option value="Cash on Delivery">Cash on Delivery (COD)</option>
+                      <option value="Net 7">Net 7 Days</option>
+                      <option value="Net 15">Net 15 Days</option>
+                      <option value="Net 30">Net 30 Days</option>
+                    </select>
+                  </div>
+                )}
               </div>
+
+              {/* If Inventory / Raw Materials / Packaging is selected, show Inventory Goods Item Entry */}
+              {(formDebtType === 'inventory' || formDebtType === 'raw_materials' || formDebtType === 'packaging') ? (
+                <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-emerald-950 uppercase flex items-center gap-1.5">
+                        📦 Inventory Goods on Credit (Auto-Restocks Inventory)
+                      </span>
+                      <p className="text-[11px] text-emerald-800">
+                        Items added here automatically update your Stock Levels, Inventory Value, and Accounts Payable.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddFormInventoryItem}
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs"
+                    >
+                      + Add Item
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {formInventoryItems.map((item, idx) => (
+                      <div key={idx} className="flex flex-wrap items-center gap-2 p-2 bg-white rounded-lg border border-emerald-100 text-xs">
+                        <div className="flex-1 min-w-[130px]">
+                          {inventory.length > 0 && (
+                            <select
+                              value={item.productId || ''}
+                              onChange={(e) => handleFormInventoryItemChange(idx, 'productId', e.target.value)}
+                              className="w-full mb-1 px-2 py-1 text-[11px] rounded border border-slate-200 bg-slate-50 text-slate-700"
+                            >
+                              <option value="">-- Or Pick Existing Store Product --</option>
+                              {inventory.map((inv) => (
+                                <option key={inv.id} value={inv.id}>
+                                  {inv.name} (Cur Qty: {inv.quantity})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <input
+                            type="text"
+                            placeholder="Product Name / Description (Optional)"
+                            value={item.productName}
+                            onChange={(e) => handleFormInventoryItemChange(idx, 'productName', e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded border border-slate-200 text-slate-900 font-medium"
+                          />
+                        </div>
+
+                        <div className="w-16">
+                          <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Qty</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Qty"
+                            value={item._rawQty !== undefined ? item._rawQty : String(item.quantity || '')}
+                            onChange={(e) => handleFormInventoryItemChange(idx, '_rawQty', e.target.value)}
+                            className="w-full px-2 py-1.5 rounded border border-slate-200 text-slate-900 font-mono font-bold"
+                          />
+                        </div>
+
+                        <div className="w-20">
+                          <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Unit Cost</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Cost"
+                            value={item._rawCost !== undefined ? item._rawCost : (item.unitCost ? String(item.unitCost) : '')}
+                            onChange={(e) => handleFormInventoryItemChange(idx, '_rawCost', e.target.value)}
+                            className="w-full px-2 py-1.5 rounded border border-slate-200 text-slate-900 font-mono font-bold"
+                          />
+                        </div>
+
+                        <div className="w-20">
+                          <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Sell Price</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Sell Price"
+                            value={item._rawPrice !== undefined ? item._rawPrice : (item.sellingPrice ? String(item.sellingPrice) : '')}
+                            onChange={(e) => handleFormInventoryItemChange(idx, '_rawPrice', e.target.value)}
+                            className="w-full px-2 py-1.5 rounded border border-slate-200 text-slate-900 font-mono"
+                          />
+                        </div>
+
+                        <div className="w-20 text-right font-mono font-bold text-emerald-900 pt-3">
+                          {currency} {(Number(item.quantity || 0) * Number(item.unitCost || 0)).toLocaleString()}
+                        </div>
+
+                        {formInventoryItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFormInventoryItem(idx)}
+                            className="text-red-500 hover:text-red-700 font-bold p-1 pt-3"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-emerald-200/80 text-xs font-bold text-emerald-950">
+                    <span>Total Goods Credit Value:</span>
+                    <span className="font-mono text-sm">
+                      {currency} {formInventoryItems.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.unitCost || 0)), 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(formDebtType === 'cash_loan' || formDebtType === 'long_term_loan') && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Payment Terms</label>
+                      <select
+                        value={formTerms}
+                        onChange={(e) => setFormTerms(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                      >
+                        <option value="Cash on Delivery">Cash on Delivery (COD)</option>
+                        <option value="Net 7">Net 7 Days</option>
+                        <option value="Net 15">Net 15 Days</option>
+                        <option value="Net 30">Net 30 Days</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div className={(formDebtType === 'cash_loan' || formDebtType === 'long_term_loan') ? '' : 'sm:col-span-2'}>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Initial Balance Owed ({currency})</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={formStartingDebt}
+                      onChange={(e) => setFormStartingDebt(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-mono font-bold"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
@@ -1162,6 +1662,137 @@ export default function SuppliersPage() {
                   className="px-5 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-xs"
                 >
                   ✓ Save Supplier
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 5.1 MODAL: EDIT SUPPLY PARTNER                                        */}
+      {/* ===================================================================== */}
+      {showEditSupplierModal && editingSupplier && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">Edit Supply Partner</h3>
+              <button onClick={() => setShowEditSupplierModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateSupplier} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Supplier / Wholesaler Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editFormName}
+                  onChange={(e) => setEditFormName(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs rounded-lg border border-slate-200 text-slate-900 font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Phone / WhatsApp Number</label>
+                  <input
+                    type="text"
+                    value={editFormPhone}
+                    onChange={(e) => setEditFormPhone(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Supply Category</label>
+                  <input
+                    type="text"
+                    value={editFormCategory}
+                    onChange={(e) => setEditFormCategory(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Debt / Supply Type *</label>
+                  <select
+                    value={editFormDebtType}
+                    onChange={(e) => setEditFormDebtType(e.target.value as DebtType)}
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-medium"
+                  >
+                    <option value="inventory">📦 Inventory / Stock on Credit</option>
+                    <option value="fixed_asset">🚜 Fixed Assets &amp; Equipment Financing</option>
+                    <option value="cash_loan">💵 Short-Term Loan / Float</option>
+                    <option value="long_term_loan">🏦 Long-Term Facility / Capital Loan</option>
+                    <option value="service_expense">💡 Utility &amp; Service Operating Expense</option>
+                    <option value="raw_materials">🧱 Raw Materials / Production Inputs</option>
+                    <option value="packaging">🛍️ Packaging Supplies &amp; Consumables</option>
+                    <option value="logistics_freight">🚚 Logistics, Freight &amp; Transport</option>
+                  </select>
+                </div>
+
+                {(editFormDebtType === 'cash_loan' || editFormDebtType === 'long_term_loan') ? (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Disbursed Into (Account)</label>
+                    <select
+                      value={editFormLoanChannel}
+                      onChange={(e) => setEditFormLoanChannel(e.target.value as 'cash' | 'bank')}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-bold bg-slate-50"
+                    >
+                      <option value="cash">💵 Cash on Hand (Till)</option>
+                      <option value="bank">🏦 Bank / MoMo Account</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Terms</label>
+                    <select
+                      value={editFormTerms}
+                      onChange={(e) => setEditFormTerms(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                    >
+                      <option value="Cash on Delivery">Cash on Delivery (COD)</option>
+                      <option value="Net 7">Net 7 Days</option>
+                      <option value="Net 15">Net 15 Days</option>
+                      <option value="Net 30">Net 30 Days</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(editFormDebtType === 'cash_loan' || editFormDebtType === 'long_term_loan') && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Terms</label>
+                    <select
+                      value={editFormTerms}
+                      onChange={(e) => setEditFormTerms(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900"
+                    >
+                      <option value="Cash on Delivery">Cash on Delivery (COD)</option>
+                      <option value="Net 7">Net 7 Days</option>
+                      <option value="Net 15">Net 15 Days</option>
+                      <option value="Net 30">Net 30 Days</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditSupplierModal(false)}
+                  className="px-3.5 py-2 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 shadow-xs"
+                >
+                  ✓ Update Supplier
                 </button>
               </div>
             </form>
@@ -1624,6 +2255,46 @@ export default function SuppliersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Delete Confirmation Modal (Non-blocking Dialog for Desktop App) */}
+      {supplierToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                🗑️
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Supplier</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Are you sure you want to delete <span className="font-semibold text-slate-900 dark:text-white">{supplierToDelete.name}</span> and remove all associated balance records?
+            </p>
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSupplierToDelete(null)}
+                className="rounded-lg px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = supplierToDelete;
+                  setSupplierToDelete(null);
+                  executeDeleteSupplier(target.id, target.name);
+                }}
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 transition"
+              >
+                Delete Supplier
+              </button>
+            </div>
           </div>
         </div>
       )}

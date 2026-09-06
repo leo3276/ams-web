@@ -11,6 +11,12 @@ export interface CachedBusiness {
   name: string;
   currency: string;
   user_id?: string;
+  business_type?: string;
+  tax_id?: string;
+  next_tax_filing_date?: string | null;
+  tax_filing_frequency?: string;
+  industry?: string;
+  fiscal_year_start?: string;
 }
 
 export interface OfflinePendingTransaction {
@@ -166,13 +172,135 @@ export function setCachedUser(user: { id: string; email?: string }) {
   } catch (_e) {}
 }
 
+/**
+ * Resolves the active business reliably across desktop reloads, logins, and multi-tenant workspaces.
+ * Prioritizes the active cached business ID, updates it with live DB state, and falls back to newest business.
+ */
+export async function resolveActiveBusiness(userId?: string): Promise<CachedBusiness | null> {
+  const cachedBiz = getCachedBusiness();
+
+  let activeUserId = userId || getCachedUserId();
+  if (!activeUserId) {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      activeUserId = userData?.user?.id || null;
+      if (activeUserId) setCachedUser({ id: activeUserId, email: userData?.user?.email });
+    } catch (_e) {}
+  }
+
+  // 1. If we have an active cached business with a valid ID, verify and sync with Supabase
+  if (cachedBiz?.id && cachedBiz.id !== 'default_biz') {
+    try {
+      const { data: specificBiz, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', cachedBiz.id)
+        .limit(1);
+
+      if (!error && specificBiz && specificBiz.length > 0) {
+        const found = specificBiz[0];
+        const active: CachedBusiness = {
+          id: found.id,
+          name: found.name || cachedBiz.name || 'My Enterprise',
+          currency: found.currency || cachedBiz.currency || 'GHS',
+          user_id: found.user_id || activeUserId || undefined,
+          business_type: found.business_type || cachedBiz.business_type || 'retail_wholesale',
+          tax_id: found.tax_id || cachedBiz.tax_id || '',
+          next_tax_filing_date: found.next_tax_filing_date || cachedBiz.next_tax_filing_date || null,
+          tax_filing_frequency: found.tax_filing_frequency || cachedBiz.tax_filing_frequency || 'quarterly',
+          industry: found.industry || cachedBiz.industry || 'Commercial Enterprise',
+          fiscal_year_start: found.fiscal_year_start || cachedBiz.fiscal_year_start || 'January',
+        };
+        setCachedBusiness(active);
+        return active;
+      }
+    } catch (_e) {}
+  }
+
+  // 2. Fallback: Find businesses for activeUserId in Supabase (newest first)
+  if (activeUserId) {
+    try {
+      const { data: businesses, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('user_id', activeUserId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!error && businesses && businesses.length > 0) {
+        const match = businesses.find((b) => b.id === cachedBiz?.id) || businesses[0];
+        const active: CachedBusiness = {
+          id: match.id,
+          name: match.name || 'My Enterprise',
+          currency: match.currency || 'GHS',
+          user_id: match.user_id || activeUserId,
+          business_type: match.business_type || 'retail_wholesale',
+          tax_id: match.tax_id || '',
+          next_tax_filing_date: match.next_tax_filing_date || null,
+          tax_filing_frequency: match.tax_filing_frequency || 'quarterly',
+          industry: match.industry || 'Commercial Enterprise',
+          fiscal_year_start: match.fiscal_year_start || 'January',
+        };
+        setCachedBusiness(active);
+        return active;
+      }
+
+      // 3. User has zero business rows in Supabase -> Auto-provision one
+      const defaultName = 'My Enterprise';
+      const { data: newBiz } = await supabase
+        .from('businesses')
+        .insert({
+          user_id: activeUserId,
+          name: defaultName,
+          currency: 'GHS',
+          business_type: 'retail_wholesale',
+          industry: 'Commercial Retail & Wholesale',
+          fiscal_year_start: 'January',
+        })
+        .select()
+        .single();
+
+      if (newBiz) {
+        const active: CachedBusiness = {
+          id: newBiz.id,
+          name: newBiz.name,
+          currency: newBiz.currency || 'GHS',
+          user_id: activeUserId,
+          business_type: newBiz.business_type || 'retail_wholesale',
+          tax_id: newBiz.tax_id || '',
+          next_tax_filing_date: newBiz.next_tax_filing_date || null,
+          tax_filing_frequency: newBiz.tax_filing_frequency || 'quarterly',
+          industry: newBiz.industry || 'Commercial Retail & Wholesale',
+          fiscal_year_start: newBiz.fiscal_year_start || 'January',
+        };
+        setCachedBusiness(active);
+        return active;
+      }
+    } catch (_e) {}
+  }
+
+  // 4. Return existing cachedBiz if present
+  if (cachedBiz && cachedBiz.id && cachedBiz.id !== 'default_biz') {
+    return cachedBiz;
+  }
+
+  return null;
+}
+
 // 2. Inventory Cache (Scoped by business)
+// 2. Inventory Cache (Strictly scoped by active business ID)
 export function getCachedInventory(businessId?: string): InventoryItem[] {
   if (typeof window === 'undefined') return [];
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return [];
+
     const raw = localStorage.getItem(`ams:cache_inventory_${bid}`);
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      const parsed: InventoryItem[] = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    return [];
   } catch (_e) {
     return [];
   }
@@ -182,17 +310,23 @@ export function setCachedInventory(items: InventoryItem[], businessId?: string) 
   if (typeof window === 'undefined') return;
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return;
     localStorage.setItem(`ams:cache_inventory_${bid}`, JSON.stringify(items));
   } catch (_e) {}
 }
 
-// 3. Transactions Cache (Scoped by business)
+// 3. Transactions Cache (Strictly scoped by active business ID)
 export function getCachedTransactions(businessId?: string): any[] {
   if (typeof window === 'undefined') return [];
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return [];
     const raw = localStorage.getItem(`ams:cache_transactions_${bid}`);
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    return [];
   } catch (_e) {
     return [];
   }
@@ -202,17 +336,30 @@ export function setCachedTransactions(txs: any[], businessId?: string) {
   if (typeof window === 'undefined') return;
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return;
     localStorage.setItem(`ams:cache_transactions_${bid}`, JSON.stringify(txs));
   } catch (_e) {}
 }
 
-// 4. Invoices Cache (Scoped by business)
+// 4. Invoices Cache (Strictly scoped by active business ID)
 export function getCachedInvoices(businessId?: string): Invoice[] {
   if (typeof window === 'undefined') return [];
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return [];
     const raw = localStorage.getItem(`ams:cache_invoices_${bid}`);
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    if (bid === 'default_biz') {
+      const defaultRaw = localStorage.getItem('ams:cache_invoices_default_biz');
+      if (defaultRaw) {
+        const parsed = JSON.parse(defaultRaw);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    }
+    return [];
   } catch (_e) {
     return [];
   }
@@ -222,17 +369,33 @@ export function setCachedInvoices(invs: Invoice[], businessId?: string) {
   if (typeof window === 'undefined') return;
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return;
     localStorage.setItem(`ams:cache_invoices_${bid}`, JSON.stringify(invs));
+    if (bid === 'default_biz') {
+      localStorage.setItem('ams:cache_invoices_default_biz', JSON.stringify(invs));
+    }
   } catch (_e) {}
 }
 
-// 5. Customers Cache (Scoped by business)
+// 5. Customers Cache (Strictly scoped by active business ID)
 export function getCachedCustomers(businessId?: string): CustomerSummary[] {
   if (typeof window === 'undefined') return [];
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return [];
     const raw = localStorage.getItem(`ams:cache_customers_${bid}`);
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    if (bid === 'default_biz') {
+      const defaultRaw = localStorage.getItem('ams:cache_customers_default_biz');
+      if (defaultRaw) {
+        const parsed = JSON.parse(defaultRaw);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    }
+    return [];
   } catch (_e) {
     return [];
   }
@@ -242,7 +405,11 @@ export function setCachedCustomers(customers: CustomerSummary[], businessId?: st
   if (typeof window === 'undefined') return;
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return;
     localStorage.setItem(`ams:cache_customers_${bid}`, JSON.stringify(customers));
+    if (bid === 'default_biz') {
+      localStorage.setItem('ams:cache_customers_default_biz', JSON.stringify(customers));
+    }
   } catch (_e) {}
 }
 
@@ -322,15 +489,25 @@ export async function flushOfflineTransactionsToSupabase(businessId: string): Pr
   return { syncedCount, failedCount: remaining.length };
 }
 
-// 7. Suppliers & Creditor Debt Book Cache (Strictly scoped by businessId)
+// 7. Suppliers & Creditor Debt Book Cache (Strictly scoped by active business ID)
 export function getCachedSuppliers(businessId?: string): any[] {
   if (typeof window === 'undefined') return [];
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return [];
     const raw = localStorage.getItem(`ams:cache_suppliers_${bid}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((s: any) => !s.business_id || s.business_id === bid) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    if (bid === 'default_biz') {
+      const defaultRaw = localStorage.getItem('ams:cache_suppliers_default_biz');
+      if (defaultRaw) {
+        const parsed = JSON.parse(defaultRaw);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    }
+    return [];
   } catch (_e) {
     return [];
   }
@@ -340,7 +517,11 @@ export function setCachedSuppliers(items: any[], businessId?: string) {
   if (typeof window === 'undefined') return;
   try {
     const bid = getActiveBusinessId(businessId);
+    if (!bid) return;
     localStorage.setItem(`ams:cache_suppliers_${bid}`, JSON.stringify(items));
+    if (bid === 'default_biz') {
+      localStorage.setItem('ams:cache_suppliers_default_biz', JSON.stringify(items));
+    }
   } catch (_e) {}
 }
 
@@ -392,15 +573,36 @@ export function updateCachedSupplierBalance(supplierId: string, deltaAmount: num
 export function clearAllLocalBusinessData() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(KEY_BUSINESS);
-    localStorage.removeItem(KEY_USER);
-    localStorage.removeItem('ams:web_user_role_v1');
-    localStorage.removeItem('ams:web_primary_role_v1');
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('ams:') || k.startsWith('ams_'))) {
+        // Retain only walkthrough if needed, or clear all
+        if (!k.includes('walkthrough')) {
+          keysToRemove.push(k);
+        }
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
   } catch (_e) {}
 }
 
-// 8. Network Status Listener
+// 8. Network Status Listener & Auto-Reconnection Flusher
 export function isOnline(): boolean {
   if (typeof window === 'undefined') return true;
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', async () => {
+    try {
+      const activeBiz = getCachedBusiness();
+      if (activeBiz?.id) {
+        const res = await flushOfflineTransactionsToSupabase(activeBiz.id);
+        if (res.syncedCount > 0) {
+          window.dispatchEvent(new Event('ams:transactions-updated'));
+        }
+      }
+    } catch (_e) {}
+  });
 }

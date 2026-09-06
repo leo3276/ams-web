@@ -85,7 +85,7 @@ export default function TeamManagementPage() {
   const handleRecordSalary = async (member: StaffMember) => {
     const salaryAmt = Number(member.salary || 0);
     if (!salaryAmt || salaryAmt <= 0) {
-      alert(`Please configure a monthly salary for ${member.name} first.`);
+      setMsg({ type: 'error', text: `Please configure a monthly salary for ${member.name} first.` });
       return;
     }
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { clearAllLocalBusinessData, setCachedBusiness, setCachedUser, resolveActiveBusiness } from '@/lib/offlineStore';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -34,26 +35,40 @@ export default function SignUpPage() {
     setCheckingEnv(false);
   }, []);
 
-  const checkBusinessAndNavigate = async (userId: string) => {
+  const checkBusinessAndNavigate = async (userId: string, userName?: string) => {
     localStorage.setItem('ams:web_primary_role_v1', 'owner');
     localStorage.setItem('ams:web_user_role_v1', 'owner');
+    setCachedUser({ id: userId, email: email || undefined });
 
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1);
+    let targetBiz = await resolveActiveBusiness(userId);
+    if (!targetBiz || targetBiz.id === 'default_biz') {
+      const defaultBizName = userName ? `${userName}'s Enterprise` : 'My Enterprise';
+      const { data: newBiz } = await supabase
+        .from('businesses')
+        .insert({
+          user_id: userId,
+          name: defaultBizName,
+          currency: 'GHS',
+          business_type: 'retail_wholesale',
+          industry: 'Commercial Retail & Wholesale',
+          fiscal_year_start: 'January',
+        })
+        .select()
+        .single();
 
-    if (businesses && businesses.length > 0) {
-      router.push('/dashboard');
-    } else {
-      router.push('/business-profile');
+      if (newBiz) {
+        targetBiz = newBiz;
+        setCachedBusiness(newBiz as any);
+      }
     }
+
+    router.push('/dashboard');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    clearAllLocalBusinessData();
 
     const cleanName = name.trim();
     const cleanEmail = email.trim().toLowerCase();
@@ -125,7 +140,7 @@ export default function SignUpPage() {
 
     // If email confirmation is disabled or session exists, navigate immediately
     if (data.session && data.user) {
-      await checkBusinessAndNavigate(data.user.id);
+      await checkBusinessAndNavigate(data.user.id, cleanName);
       return;
     }
 
@@ -162,8 +177,10 @@ export default function SignUpPage() {
         token: cleanToken,
         type: 'email',
       });
-      data = fallback.data;
-      error = fallback.error;
+      if (!fallback.error && fallback.data) {
+        data = fallback.data;
+        error = null;
+      }
     }
 
     setVerifyingOtp(false);
@@ -178,7 +195,7 @@ export default function SignUpPage() {
       localStorage.setItem(`ams:owner_pin:${data.user.id}`, savedPin);
       localStorage.setItem(`ams:owner_pin:${cleanEmail}`, savedPin);
     }
-    await checkBusinessAndNavigate(data.user.id);
+    await checkBusinessAndNavigate(data.user.id, name || data.user.user_metadata?.full_name);
   };
 
   // Check if user confirmed via email link
@@ -212,7 +229,7 @@ export default function SignUpPage() {
         localStorage.setItem(`ams:owner_pin:${data.user.id}`, savedPin);
         localStorage.setItem(`ams:owner_pin:${cleanEmail}`, savedPin);
       }
-      await checkBusinessAndNavigate(data.user.id);
+      await checkBusinessAndNavigate(data.user.id, name || data.user.user_metadata?.full_name);
     }
   };
 

@@ -4,6 +4,7 @@ export type TransactionType =
   | 'operating_expense'
   | 'fixed_asset'
   | 'current_asset'
+  | 'deposit'
   | 'short_term_liability'
   | 'long_term_liability'
   | 'drawings';
@@ -26,6 +27,7 @@ export interface Transaction {
 
 export const TRANSACTION_TYPE_OPTIONS: { label: string; value: TransactionType }[] = [
   { label: 'Revenue', value: 'revenue' },
+  { label: 'Deposits / Capital Injected', value: 'deposit' },
   { label: 'Cost of goods', value: 'cost_of_goods' },
   { label: 'Operating expense', value: 'operating_expense' },
   { label: 'Fixed asset', value: 'fixed_asset' },
@@ -71,7 +73,15 @@ export interface CustomerSummary {
   last_invoice_date: string | null;
 }
 
-export type DebtType = 'inventory' | 'cash_loan' | 'fixed_asset' | 'service_expense';
+export type DebtType =
+  | 'inventory'
+  | 'fixed_asset'
+  | 'cash_loan'
+  | 'service_expense'
+  | 'logistics_freight'
+  | 'raw_materials'
+  | 'packaging'
+  | 'long_term_loan';
 
 export interface Supplier {
   id: string;
@@ -81,6 +91,7 @@ export interface Supplier {
   email?: string | null;
   category?: string | null;
   debt_type?: DebtType;
+  loan_channel?: 'cash' | 'bank'; // When debt_type is a loan (cash_loan or long_term_loan), specifies whether funds were received into Cash or Bank/MoMo
   balance_owed: number; // Liability
   payment_terms?: string | null;
   due_date?: string | null;

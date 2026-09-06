@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import { getCachedBusiness } from './offlineStore';
+import { getCachedBusiness, getCachedTransactions, setCachedTransactions, resolveActiveBusiness } from './offlineStore';
+import { logAuditEvent } from './auditLogger';
 
 export type UserRole = 'owner' | 'employee' | 'accountant';
 
@@ -56,32 +57,40 @@ const PRIMARY_ROLE_STORAGE_KEY = 'ams:web_primary_role_v1';
 
 function getStaffStorageKey(businessId?: string): string {
   const bid = businessId || getCachedBusiness()?.id || 'default_biz';
-  return `ams:web_staff_cache_${bid}`;
+  return `ams:staff_members_list_v1_${bid}`;
 }
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRoleState] = useState<UserRole>('owner');
   const [primaryRole, setPrimaryRoleState] = useState<UserRole>('owner');
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [role, setRoleState] = useState<UserRole>('owner');
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const cachedBiz = getCachedBusiness();
+      const key = getStaffStorageKey(cachedBiz?.id);
+      let raw = localStorage.getItem(key);
+      if (!raw) raw = localStorage.getItem('ams:staff_members_list_v1_default_biz');
+      if (!raw) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('ams:staff_members_list_v1_')) {
+            raw = localStorage.getItem(k);
+            if (raw) break;
+          }
+        }
+      }
+      return raw ? JSON.parse(raw) : [];
+    } catch (_e) {
+      return [];
+    }
+  });
   const [loadingStaff, setLoadingStaff] = useState(false);
 
   useEffect(() => {
-    const storedPrimary = localStorage.getItem(PRIMARY_ROLE_STORAGE_KEY);
-    if (storedPrimary === 'owner' || storedPrimary === 'employee' || storedPrimary === 'accountant') {
-      setPrimaryRoleState(storedPrimary);
-    }
-
-    const storedRole = localStorage.getItem(ROLE_STORAGE_KEY);
-    if (storedRole === 'owner' || storedRole === 'employee' || storedRole === 'accountant') {
-      setRoleState(storedRole);
-    }
-
-    const key = getStaffStorageKey();
-    const cached = localStorage.getItem(key);
-    if (cached) {
-      try {
-        setStaffMembers(JSON.parse(cached));
-      } catch (_e) {}
+    const savedPrimary = localStorage.getItem(PRIMARY_ROLE_STORAGE_KEY) as UserRole | null;
+    if (savedPrimary) {
+      setPrimaryRoleState(savedPrimary);
+      setRoleState(savedPrimary);
     }
   }, []);
 
@@ -100,50 +109,64 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
   const refreshStaff = useCallback(async () => {
     setLoadingStaff(true);
+    let businessId = 'default_biz';
+
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) return;
-
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-
-      const businessId = businesses?.[0]?.id;
-      if (!businessId) {
-        setStaffMembers([]);
-        return;
+      const activeBiz = await resolveActiveBusiness();
+      if (activeBiz?.id) {
+        businessId = activeBiz.id;
       }
 
-      // 1. Fetch remote members strictly for THIS business from Supabase
+      // Load cached staff first
+      const currentStorageKey = getStaffStorageKey(businessId);
+      let localStaff: StaffMember[] = [];
+      try {
+        const rawLocal = localStorage.getItem(currentStorageKey) || localStorage.getItem('ams:staff_members_list_v1_default_biz');
+        if (rawLocal) localStaff = JSON.parse(rawLocal);
+      } catch (_e) {}
+
+      // Fetch remote members from Supabase
       const { data: remoteMembers, error } = await supabase
         .from('business_members')
         .select('*')
         .eq('business_id', businessId)
         .order('created_at', { ascending: false });
 
-      if (!error && remoteMembers) {
-        setStaffMembers(remoteMembers);
-        localStorage.setItem(getStaffStorageKey(businessId), JSON.stringify(remoteMembers));
+      if (!error && remoteMembers && remoteMembers.length > 0) {
+        const mergedMap = new Map();
+        localStaff.forEach((m) => mergedMap.set(m.id || m.email, m));
+        remoteMembers.forEach((m) => mergedMap.set(m.id || m.email, m));
+        const merged = Array.from(mergedMap.values());
+
+        setStaffMembers(merged);
+        localStorage.setItem(currentStorageKey, JSON.stringify(merged));
+        localStorage.setItem('ams:staff_members_list_v1_default_biz', JSON.stringify(merged));
+      } else if (localStaff.length > 0) {
+        setStaffMembers(localStaff);
       }
     } catch (_e) {
       // offline fallback
-      const cached = localStorage.getItem(getStaffStorageKey());
-      if (cached) {
-        try {
-          setStaffMembers(JSON.parse(cached));
-        } catch (_e) {}
-      }
+      try {
+        const cached = localStorage.getItem(getStaffStorageKey(businessId));
+        if (cached) setStaffMembers(JSON.parse(cached));
+      } catch (_e) {}
     } finally {
       setLoadingStaff(false);
     }
   }, []);
 
-  // Sync on initial provider mount
+  // Sync on initial provider mount & listen for live staff roster update events
   useEffect(() => {
     refreshStaff();
+
+    const handleStaffUpdate = () => {
+      refreshStaff();
+    };
+
+    window.addEventListener('ams:staff-updated', handleStaffUpdate);
+    return () => {
+      window.removeEventListener('ams:staff-updated', handleStaffUpdate);
+    };
   }, [refreshStaff]);
 
   const addStaffMember = async (
@@ -155,18 +178,9 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     salary?: number
   ) => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) return { success: false, error: 'Not authenticated' };
-
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-
-      const businessId = businesses?.[0]?.id;
-      if (!businessId) return { success: false, error: 'No business found' };
+      const activeBiz = await resolveActiveBusiness();
+      const businessId = activeBiz?.id;
+      if (!businessId || businessId === 'default_biz') return { success: false, error: 'No business found' };
 
       const newMember: StaffMember = {
         id: `staff_${Date.now()}`,
@@ -226,35 +240,58 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Please set a valid salary amount for this staff member.' };
       }
 
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) return { success: false, error: 'Not authenticated' };
+      const activeBiz = await resolveActiveBusiness();
+      const businessId = activeBiz?.id;
+      if (!businessId || businessId === 'default_biz') return { success: false, error: 'No business found' };
 
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-
-      const businessId = businesses?.[0]?.id;
       const today = new Date().toISOString().slice(0, 10);
       const roleLabel = member.role === 'employee' ? 'Staff/Cashier' : 'CPA/Accountant';
       const vendorName = `Salary: ${member.name} (${roleLabel})`;
 
-      if (businessId) {
-        const { error } = await supabase.from('transactions').insert({
-          business_id: businessId,
-          transaction_date: today,
-          vendor: vendorName,
-          type: 'operating_expense',
-          category: 'Payroll & Salaries',
-          amount: salaryAmt,
-          payment_method: paymentMethod,
-        });
+      let activeBid = businessId;
 
-        if (error) {
-          return { success: false, error: error.message };
-        }
+      if (businessId && businessId !== 'default_biz') {
+        try {
+          await supabase.from('transactions').insert({
+            business_id: businessId,
+            transaction_date: today,
+            vendor: vendorName,
+            type: 'operating_expense',
+            category: 'Payroll & Salaries',
+            amount: salaryAmt,
+            payment_method: paymentMethod,
+          });
+        } catch (_supabaseErr) {}
+      }
+
+      // Record local transaction for Live Ledger, P&L OPEX, and Cash/Bank Outflow
+      const salaryTx = {
+        id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        business_id: activeBid,
+        transaction_date: today,
+        vendor: vendorName,
+        type: 'operating_expense' as const,
+        category: 'Payroll & Salaries',
+        amount: salaryAmt,
+        payment_method: paymentMethod,
+        created_at: new Date().toISOString(),
+      };
+
+      const existingTxs = getCachedTransactions(activeBid);
+      setCachedTransactions([salaryTx, ...existingTxs], activeBid);
+
+      logAuditEvent({
+        businessId: activeBid,
+        actionType: 'DISBURSE_PAYOUT',
+        entityType: 'transaction',
+        entityId: salaryTx.id,
+        entityName: member.name,
+        description: `Disbursed Monthly Salary: GHS ${salaryAmt.toLocaleString()} to ${member.name} (${roleLabel}) via ${paymentMethod === 'bank' ? 'Bank / MoMo' : 'Cash Drawer'}`,
+        newValue: salaryTx,
+      });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('ams:transactions-updated'));
       }
 
       return { success: true };

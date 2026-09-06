@@ -152,6 +152,12 @@ export default function AccessBranchOrBusinessPage() {
       await setArchetypeId(selectedEntity.business_type as BusinessArchetypeId);
     }
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('ams:business-updated'));
+      window.dispatchEvent(new Event('ams:transactions-updated'));
+      window.dispatchEvent(new Event('ams:inventory-updated'));
+    }
+
     setShowAuthModal(false);
     router.push('/accountant');
   };

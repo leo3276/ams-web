@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { estimateGhanaTax, BusinessType } from '@/lib/ghanaTax';
 import { printTaxSummaryPDF } from '@/lib/pdfGenerator';
+import { getCachedTransactions, getCachedBusiness, resolveActiveBusiness } from '@/lib/offlineStore';
 
 type PeriodPreset = 'month' | 'quarter' | 'year';
 
@@ -62,22 +63,7 @@ export default function TaxPage() {
     setLoading(true);
     setErrorMsg(null);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
-      setErrorMsg('Not logged in.');
-      setLoading(false);
-      return;
-    }
-
-    const { data: businesses } = await supabase
-      .from('businesses')
-      .select('id, name, currency, business_type, tax_id, next_tax_filing_date, tax_filing_frequency')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    const b = businesses?.[0];
+    const b = await resolveActiveBusiness();
     if (!b) {
       setErrorMsg('No business found for this account.');
       setLoading(false);
@@ -87,35 +73,78 @@ export default function TaxPage() {
     setBusinessId(b.id);
     setBusinessName(b.name);
     setCurrency(b.currency || 'GHS');
-    setBusinessType(b.business_type || 'sole_proprietorship');
+    setBusinessType((b.business_type as BusinessType) || 'sole_proprietorship');
     setTaxId(b.tax_id || '');
     setNextFilingDate(b.next_tax_filing_date || '');
-    setFilingFrequency(b.tax_filing_frequency || 'quarterly');
+    setFilingFrequency((b.tax_filing_frequency as any) || 'quarterly');
 
-    setDraftBusinessType(b.business_type || 'sole_proprietorship');
+    setDraftBusinessType((b.business_type as BusinessType) || 'sole_proprietorship');
     setDraftTaxId(b.tax_id || '');
     setDraftDate(b.next_tax_filing_date || '');
-    setDraftFrequency(b.tax_filing_frequency || 'quarterly');
+    setDraftFrequency((b.tax_filing_frequency as any) || 'quarterly');
 
     const { start, end, label } = getPeriodRange(preset);
     setPeriodLabel(label);
 
-    const { data: pnlRows } = await supabase.rpc('get_pnl_report', {
-      p_business_id: b.id,
-      p_start_date: start,
-      p_end_date: end,
-    });
+    // 1. Fetch remote cloud transactions for this business
+    let cloudTxs: any[] = [];
+    try {
+      const { data: txData } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('business_id', b.id);
+      if (txData) cloudTxs = txData;
+    } catch (_e) {}
 
-    const pnl = pnlRows?.[0];
-    setRevenue(Number(pnl?.revenue || 0));
-    setCogs(Number(pnl?.cost_of_goods || 0));
-    setOpex(Number(pnl?.operating_expenses || 0));
+    // 2. Fetch local cached transactions for this business
+    const localTxs = getCachedTransactions(b.id);
+
+    // 3. Merge seamlessly without duplicates
+    const mergedMap = new Map();
+    localTxs.forEach((t: any) => mergedMap.set(t.id, t));
+    cloudTxs.forEach((t: any) => mergedMap.set(t.id, t));
+    const allTxs: any[] = Array.from(mergedMap.values());
+
+    const inPeriodTxs = allTxs.filter((t) => t.transaction_date >= start && t.transaction_date <= end);
+
+    const rev = inPeriodTxs
+      .filter((t) => t.type === 'revenue')
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const returns = inPeriodTxs
+      .filter((t) => t.type === 'return' || t.vendor?.toLowerCase().startsWith('customer refund:'))
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const cogs = inPeriodTxs
+      .filter((t) => t.type === 'cost_of_goods')
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const opex = inPeriodTxs
+      .filter((t) => t.type === 'operating_expense')
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+
+    const fetchedRev = Math.max(0, rev - returns);
+    const fetchedCogs = cogs;
+    const fetchedOpex = opex;
+
+    setRevenue(fetchedRev);
+    setCogs(fetchedCogs);
+    setOpex(fetchedOpex);
 
     setLoading(false);
   }, [preset]);
 
   useEffect(() => {
     loadTaxData();
+
+    const handleUpdate = () => {
+      loadTaxData();
+    };
+
+    window.addEventListener('ams:transactions-updated', handleUpdate);
+    window.addEventListener('ams:business-updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('ams:transactions-updated', handleUpdate);
+      window.removeEventListener('ams:business-updated', handleUpdate);
+    };
   }, [loadTaxData]);
 
   // Tax Calculations
@@ -145,7 +174,7 @@ export default function TaxPage() {
     setSavingConfig(false);
 
     if (error) {
-      alert(error.message);
+      setErrorMsg(error.message);
       return;
     }
 
@@ -389,7 +418,7 @@ export default function TaxPage() {
                   </tr>
                 ))}
                 <tr className="border-t-2 border-border font-bold bg-surface1/60 text-textPrimary">
-                  <td className="py-2.5 font-sans uppercase">Total Tax Due</td>
+                  <td className="py-2.5 font-sans uppercase">Total Income Tax Due</td>
                   <td colSpan={2}></td>
                   <td className="py-2.5 text-right font-black text-warning">
                     {currency} {taxResult.estimatedTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -398,11 +427,24 @@ export default function TaxPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Indirect Taxes Reference (3% VAT Flat + 1% COVID-19 Levy) */}
+          <div className="mt-4 pt-3 border-t border-border/80">
+            <div className="flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-textPrimary">GRA 3% VAT Flat Rate + 1% COVID-19 Levy</span>
+                <p className="text-[10px] text-textMuted">Applied on gross taxable sales for retail/commercial businesses</p>
+              </div>
+              <span className="font-mono font-bold text-textPrimary">
+                {currency} {(revenue * 0.04).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
       <p className="text-xs text-textMuted leading-relaxed">
-        💡 <span className="font-semibold text-textSecondary">Disclaimer:</span> Tax calculations follow mid-2026 Ghana Revenue Authority (GRA) published statutory rate schedules. Actual tax liabilities may vary based on specific capital allowances, personal tax reliefs, and withheld taxes. Always verify with your licensed CPA before official filing.
+        💡 <span className="font-semibold text-textSecondary">Disclaimer:</span> Tax calculations follow mid-2026 Ghana Revenue Authority (GRA) published statutory rate schedules (Corporate 25% Flat or Progressive Individual Income Tax + 3% VAT Flat Scheme + 1% COVID-19 Health Recovery Levy). Actual tax liabilities may vary based on specific capital allowances, personal tax reliefs, and withheld taxes. Always verify with your licensed CPA before official filing.
       </p>
     </div>
   );

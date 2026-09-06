@@ -15,6 +15,7 @@ import {
   getCachedInvoices,
   setCachedInvoices,
   getCachedSuppliers,
+  resolveActiveBusiness,
 } from '@/lib/offlineStore';
 
 interface PnLSummary {
@@ -27,6 +28,7 @@ interface PnLSummary {
 interface BalanceSheetSummary {
   cash: number;
   bank: number;
+  debtors?: number;
   currentAssetsOther: number;
   totalCurrentAssets: number;
   totalLiabilities: number;
@@ -107,17 +109,67 @@ export default function DashboardPage() {
       setCurrency(cachedBiz.currency || 'GHS');
     }
 
-    const cachedTxs = getCachedTransactions(cachedBiz?.id);
+    const activeBid = cachedBiz?.id || 'default_biz';
+    const cachedTxs = getCachedTransactions(activeBid);
     if (cachedTxs.length > 0) {
-      const rev = cachedTxs.filter((t) => t.type === 'revenue').reduce((s, t) => s + (Number(t.amount) || 0), 0);
-      const exp = cachedTxs.filter((t) => t.type === 'operating_expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
-      const cogs = cachedTxs.filter((t) => t.type === 'cost_of_goods').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+      let initCash = 0;
+      let initBank = 0;
+      let rev = 0;
+      let exp = 0;
+      let cogs = 0;
+
+      // Chronological sort (oldest to newest)
+      const sortedCached = [...cachedTxs].sort((a: any, b: any) => {
+        const timeA = new Date(a.transaction_date || a.created_at || 0).getTime();
+        const timeB = new Date(b.transaction_date || b.created_at || 0).getTime();
+        return timeA - timeB;
+      });
+
+      const processedInit: LiveLedgerEntry[] = sortedCached.map((t: any) => {
+        const amt = Number(t.amount || 0);
+        const isBank = t.payment_method === 'bank';
+        let isInflow = false;
+
+        if (t.type === 'revenue' || t.type === 'deposit' || t.category === 'Opening Balances') {
+          isInflow = true;
+          if (isBank) initBank += amt;
+          else initCash += amt;
+        } else if (t.type === 'operating_expense' || t.type === 'cost_of_goods' || t.type === 'drawings' || t.type === 'return') {
+          isInflow = false;
+          if (isBank) initBank = Math.max(0, initBank - amt);
+          else initCash = Math.max(0, initCash - amt);
+        }
+
+        if (t.type === 'revenue') rev += amt;
+        if (t.type === 'operating_expense') exp += amt;
+        if (t.type === 'cost_of_goods') cogs += amt;
+
+        return {
+          ...t,
+          isInflow,
+          deltaAmount: isInflow ? amt : -amt,
+          runningCash: initCash,
+          runningBank: initBank,
+        };
+      });
+
       setPnl({
         revenue: rev,
         costOfGoods: cogs,
         operatingExpenses: exp,
         netProfit: rev - cogs - exp,
       });
+
+      setBalanceSheet({
+        cash: initCash,
+        bank: initBank,
+        currentAssetsOther: 0,
+        totalCurrentAssets: initCash + initBank,
+        totalLiabilities: 0,
+        totalEquity: initCash + initBank,
+      });
+
+      setLiveEntries([...processedInit].reverse());
     }
 
     const cachedInv = getCachedInventory(cachedBiz?.id);
@@ -129,24 +181,12 @@ export default function DashboardPage() {
     setLoading(false);
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData?.user?.id;
-      if (!userId) return;
-
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id, name, currency')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true })
-        .limit(1);
-
-      const business = businesses?.[0];
+      const business = await resolveActiveBusiness();
       if (!business) return;
 
       setBusinessId(business.id);
       setBusinessName(business.name);
       setCurrency(business.currency || 'GHS');
-      setCachedBusiness({ id: business.id, name: business.name, currency: business.currency || 'GHS' });
 
       const today = new Date().toISOString().slice(0, 10);
 
@@ -159,22 +199,58 @@ export default function DashboardPage() {
         supabase.from('business_members').select('*').eq('business_id', business.id),
       ]);
 
-      const allTxs = allTxRes.data ?? [];
+      const remoteTxs = allTxRes.data ?? [];
+      const localTxs = getCachedTransactions(business.id);
+      const mergedMap = new Map();
+      localTxs.forEach((t: any) => mergedMap.set(t.id, t));
+      remoteTxs.forEach((t: any) => mergedMap.set(t.id, t));
+      const allTxs = Array.from(mergedMap.values());
       setCachedTransactions(allTxs, business.id);
 
-      // Process Running Cash & Bank entries chronologically & calculate period P&L
+      // 1. Calculate live inventory valuation strictly for this business
+      const remoteInv = itemsRes.data ?? [];
+      const localInv = getCachedInventory(business.id);
+      const invMap = new Map();
+      localInv.forEach((i: any) => invMap.set(i.id, i));
+      remoteInv.forEach((i: any) => invMap.set(i.id, i));
+      const allInv = Array.from(invMap.values()).map((item: any) => ({
+        ...item,
+        unit_cost: Number(item.unit_cost ?? item.cost_price ?? 0),
+        unit_price: Number(item.unit_price ?? item.selling_price ?? 0),
+        quantity: Number(item.quantity ?? 0),
+      }));
+      setCachedInventory(allInv as any, business.id);
+      const totalInvVal = allInv.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unit_cost || 0)), 0);
+      setInventoryValue(totalInvVal);
+
+      // 2. Process Running Cash & Bank entries chronologically & calculate period P&L
       let runningC = 0;
       let runningB = 0;
-      let currentPurchased = 0;
 
       let periodRev = 0;
-      let periodCogs = 0;
+      let periodStockPurchases = 0;
+      let periodCarriageInwards = 0;
+      let periodOpeningStock = 0;
+      let periodReturns = 0;
+      let periodOtherRev = 0;
       let periodOpex = 0;
 
-      const processedEntries: LiveLedgerEntry[] = allTxs.map((t: any) => {
+      // Chronological sort (oldest to newest)
+      const sortedAllTxs = [...allTxs].sort((a: any, b: any) => {
+        const timeA = new Date(a.transaction_date || a.created_at || 0).getTime();
+        const timeB = new Date(b.transaction_date || b.created_at || 0).getTime();
+        return timeA - timeB;
+      });
+
+      const processedEntries: LiveLedgerEntry[] = sortedAllTxs.map((t: any) => {
         const amt = Number(t.amount || 0);
         const isBank = t.payment_method === 'bank';
         const inPeriod = t.transaction_date >= start && t.transaction_date <= end;
+        const isOpeningBalance =
+          t.category === 'Opening Balances' ||
+          t.category === 'Opening Stock' ||
+          (t.vendor && t.vendor.startsWith('Opening Balance:')) ||
+          (t.vendor && t.vendor.startsWith('Opening Stock:'));
         const isSupplierBill =
           t.type === 'short_term_liability' ||
           t.type === 'long_term_liability' ||
@@ -185,32 +261,85 @@ export default function DashboardPage() {
         let deltaBank = 0;
         let isInflow = false;
 
-        if (t.type === 'revenue') {
-          if (inPeriod) periodRev += amt;
+        if (isOpeningBalance) {
           isInflow = true;
-          if (isBank) deltaBank = amt; else deltaCash = amt;
+          if (t.type === 'current_asset' && (t.vendor?.toLowerCase().includes('inventory') || t.vendor?.toLowerCase().includes('stock') || t.category?.toLowerCase().includes('stock') || t.category?.toLowerCase().includes('inventory'))) {
+            periodOpeningStock += amt;
+            isInflow = false; // non-cash opening inventory asset
+          } else if (t.type === 'fixed_asset') {
+            // Fixed asset opening balance (non-cash)
+            isInflow = false;
+          } else {
+            // Cash / Bank Opening Balance
+            if (isBank) { deltaBank = amt; runningB += amt; }
+            else { deltaCash = amt; runningC += amt; }
+          }
+        } else if (t.type === 'revenue') {
+          if (inPeriod) {
+            if (t.category === 'Other Income' || t.category === 'External Revenue') periodOtherRev += amt;
+            else periodRev += amt;
+          }
+          isInflow = true;
+          if (isBank) { deltaBank = amt; runningB += amt; }
+          else { deltaCash = amt; runningC += amt; }
+        } else if (t.type === 'deposit') {
+          // Owner Capital Injection / Cash Deposit
+          isInflow = true;
+          if (isBank) { deltaBank = amt; runningB += amt; }
+          else { deltaCash = amt; runningC += amt; }
         } else if (t.type === 'cost_of_goods') {
-          if (inPeriod) periodCogs += amt;
+          if (inPeriod) {
+            if (t.category?.toLowerCase().includes('carriage') || t.vendor?.toLowerCase().includes('carriage')) {
+              periodCarriageInwards += amt;
+            } else {
+              periodStockPurchases += amt;
+            }
+          }
           isInflow = false;
-          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
+          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
+        } else if (t.type === 'return' || (t.category && t.category.toLowerCase().includes('customer sales return')) || (t.vendor && t.vendor.toLowerCase().startsWith('customer refund:'))) {
+          // Customer Sales Return: Subtracted from Gross Sales to arrive at Net Sales, reduces Cash/Bank
+          if (inPeriod) periodReturns += amt;
+          isInflow = false;
+          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
+          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
         } else if (t.type === 'operating_expense') {
           if (inPeriod) periodOpex += amt;
           isInflow = false;
-          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
+          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
         } else if (['drawings', 'fixed_asset'].includes(t.type)) {
           isInflow = false;
-          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
+          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
         } else if (t.type === 'current_asset') {
-          currentPurchased += amt;
-          isInflow = false;
-          if (isBank) deltaBank = -amt; else deltaCash = -amt;
+          const catLower = (t.category || '').toLowerCase().trim();
+          const venLower = (t.vendor || '').toLowerCase().trim();
+          const isStockCategory = catLower.includes('stock') || catLower.includes('inventory') || venLower.includes('stock') || venLower.includes('inventory');
+          const isDebtorCategory = catLower.includes('debtor') || catLower.includes('receivable') || venLower.includes('debtor');
+          const isBankCategory = !isStockCategory && !isDebtorCategory && (isBank || catLower.includes('bank') || catLower.includes('momo') || venLower.includes('bank') || venLower.includes('momo'));
+          const isCashCategory = !isStockCategory && !isDebtorCategory && !isBankCategory;
+
+          if (isStockCategory) {
+            periodOpeningStock += amt;
+            isInflow = false;
+          } else if (isDebtorCategory) {
+            isInflow = false; // Non-cash asset entry
+          } else if (isBankCategory) {
+            isInflow = true;
+            deltaBank = amt;
+            runningB += amt;
+          } else if (isCashCategory) {
+            isInflow = true;
+            deltaCash = amt;
+            runningC += amt;
+          }
         } else if ((t.type === 'short_term_liability' || t.type === 'long_term_liability') && !isSupplierBill) {
           isInflow = true;
-          if (isBank) deltaBank = amt; else deltaCash = amt;
+          if (isBank) { deltaBank = amt; runningB += amt; }
+          else { deltaCash = amt; runningC += amt; }
         }
-
-        runningC = Math.max(0, runningC + deltaCash);
-        runningB = Math.max(0, runningB + deltaBank);
 
         return {
           ...t,
@@ -224,22 +353,53 @@ export default function DashboardPage() {
       // Newest entries first for live feed
       setLiveEntries([...processedEntries].reverse());
 
+      // Invoices & Receivables (Debtors)
+      const remoteInvs = invRes.data ?? [];
+      const localInvs = getCachedInvoices(business.id);
+      const invoicesMap = new Map();
+      localInvs.forEach((i: any) => invoicesMap.set(i.id || i.invoice_number, i));
+      remoteInvs.forEach((i: any) => invoicesMap.set(i.id || i.invoice_number, i));
+      const allInvoices = Array.from(invoicesMap.values());
+      setCachedInvoices(allInvoices as any, business.id);
+
+      const invoiceDebtorsTotal = allInvoices
+        .filter((inv: any) => inv.status !== 'paid' && inv.status !== 'cancelled')
+        .reduce((sum: number, inv: any) => sum + Number(inv.amount || 0), 0);
+
+      const debtorTxsTotal = allTxs
+        .filter((t: any) => t.type === 'current_asset' && ((t.category || '').toLowerCase().includes('debtor') || (t.category || '').toLowerCase().includes('receivable') || (t.vendor || '').toLowerCase().includes('debtor')))
+        .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+
+      const finalDebtors = invoiceDebtorsTotal + debtorTxsTotal;
+
       const cachedSups = getCachedSuppliers(business.id);
-      let tradePayablesInventory = 0;
-      let tradePayablesCashLoan = 0;
+      let tradePayablesCurrentLiabilities = 0;
       let tradePayablesFixedAsset = 0;
-      let tradePayablesService = 0;
+      let tradePayablesLongTermLoan = 0;
+      let tradePayablesLoanCashInflow = 0;
+      let tradePayablesLoanBankInflow = 0;
 
       cachedSups.forEach((s) => {
         const b = Number(s.balance_owed || 0);
         if (b <= 0) return;
-        if (s.debt_type === 'cash_loan') tradePayablesCashLoan += b;
-        else if (s.debt_type === 'fixed_asset') tradePayablesFixedAsset += b;
-        else if (s.debt_type === 'service_expense') tradePayablesService += b;
-        else tradePayablesInventory += b;
+        const isBankChannel = s.loan_channel === 'bank';
+
+        if (s.debt_type === 'fixed_asset') {
+          tradePayablesFixedAsset += b;
+        } else if (s.debt_type === 'long_term_loan') {
+          tradePayablesLongTermLoan += b;
+          if (isBankChannel) tradePayablesLoanBankInflow += b;
+          else tradePayablesLoanCashInflow += b;
+        } else if (s.debt_type === 'cash_loan') {
+          tradePayablesCurrentLiabilities += b;
+          if (isBankChannel) tradePayablesLoanBankInflow += b;
+          else tradePayablesLoanCashInflow += b;
+        } else {
+          tradePayablesCurrentLiabilities += b;
+        }
       });
 
-      // Staff Salaries (Monthly payroll from staff roster + recorded salary transactions)
+      // Staff Salaries
       const staffList = staffRes.data ?? [];
       const monthlyRosterPayroll = staffList.reduce((sum: number, m: any) => sum + Number(m.salary || 0), 0);
       const recordedSalaryTxs = allTxs
@@ -247,54 +407,48 @@ export default function DashboardPage() {
         .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
       const accruedPayroll = Math.max(0, monthlyRosterPayroll - recordedSalaryTxs);
 
-      const netCash = runningC + tradePayablesCashLoan;
-      const netBank = runningB;
-      const finalCurrentOther = currentPurchased + tradePayablesInventory;
-      const finalCurrentAssets = netCash + netBank + finalCurrentOther;
-      const finalShortTerm = tradePayablesInventory + tradePayablesCashLoan + tradePayablesService;
-      const finalLongTerm = tradePayablesFixedAsset;
+      const netCash = runningC + tradePayablesLoanCashInflow;
+      const netBank = runningB + tradePayablesLoanBankInflow;
+      const finalInventoryValue = totalInvVal;
+      const finalCurrentAssets = netCash + netBank + finalDebtors + finalInventoryValue;
+      const finalShortTerm = tradePayablesCurrentLiabilities;
+      const finalLongTerm = tradePayablesFixedAsset + tradePayablesLongTermLoan;
 
-      const finalRev = periodRev;
-      const finalCogs = periodCogs;
-      const finalOpex = periodOpex + tradePayablesService + accruedPayroll;
+      // P&L Formula:
+      // COGS is calculated as Opening Stock + Added Purchases (Bookkeeping) - Closing Stock
+      const addedPurchases = periodStockPurchases + periodCarriageInwards;
+      const cogas = periodOpeningStock + addedPurchases;
+      const cogs = (periodOpeningStock > 0 || totalInvVal > 0)
+        ? Math.max(0, cogas - totalInvVal)
+        : addedPurchases;
+      const netSales = periodRev - periodReturns;
+      const grossProfit = (netSales - cogs) + periodOtherRev;
+      const finalOpex = periodOpex + accruedPayroll;
+      const finalNetProfit = grossProfit - finalOpex;
 
       setPnl({
-        revenue: finalRev,
-        costOfGoods: finalCogs,
+        revenue: netSales + periodOtherRev,
+        costOfGoods: cogs,
         operatingExpenses: finalOpex,
-        netProfit: finalRev - finalCogs - finalOpex,
+        netProfit: finalNetProfit,
       });
 
       setBalanceSheet({
         cash: netCash,
         bank: netBank,
-        currentAssetsOther: finalCurrentOther,
+        debtors: finalDebtors,
+        currentAssetsOther: finalInventoryValue,
         totalCurrentAssets: finalCurrentAssets,
         totalLiabilities: finalShortTerm + finalLongTerm,
         totalEquity: finalCurrentAssets - (finalShortTerm + finalLongTerm),
       });
 
-      if (invRes.data) {
-        const uncollected = invRes.data
-          .filter((inv) => inv.status !== 'paid')
-          .reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
-        setUncollectedInvoicesAmount(uncollected);
+      setUncollectedInvoicesAmount(invoiceDebtorsTotal);
 
-        const overdue = invRes.data.filter(
-          (inv) => inv.status !== 'paid' && inv.due_date && inv.due_date < today
-        ).length;
-        setOverdueInvoicesCount(overdue);
-        setCachedInvoices(invRes.data as any, business.id);
-      }
-
-      if (itemsRes.data) {
-        const totalVal = itemsRes.data.reduce(
-          (sum, item) => sum + Number(item.quantity || 0) * Number(item.unit_cost || 0),
-          0
-        );
-        setInventoryValue(totalVal);
-        setCachedInventory(itemsRes.data as any, business.id);
-      }
+      const overdue = allInvoices.filter(
+        (inv: any) => inv.status !== 'paid' && inv.status !== 'cancelled' && inv.due_date && inv.due_date < today
+      ).length;
+      setOverdueInvoicesCount(overdue);
     } catch (_err) {
       // offline mode operates smoothly on cache
     }
@@ -312,6 +466,7 @@ export default function DashboardPage() {
     window.addEventListener('ams:invoices-updated', handleDataUpdate);
     window.addEventListener('ams:customers-updated', handleDataUpdate);
     window.addEventListener('ams:suppliers-data-updated', handleDataUpdate);
+    window.addEventListener('ams:business-updated', handleDataUpdate);
 
     return () => {
       window.removeEventListener('ams:inventory-updated', handleDataUpdate);
@@ -319,6 +474,7 @@ export default function DashboardPage() {
       window.removeEventListener('ams:invoices-updated', handleDataUpdate);
       window.removeEventListener('ams:customers-updated', handleDataUpdate);
       window.removeEventListener('ams:suppliers-data-updated', handleDataUpdate);
+      window.removeEventListener('ams:business-updated', handleDataUpdate);
     };
   }, [loadDashboard]);
 
@@ -518,23 +674,31 @@ export default function DashboardPage() {
 
         {/* Tied Working Capital */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-xs">
-          <div className="flex items-center justify-between bg-surface2/40 p-2.5 rounded-lg border border-border/60">
+          <Link
+            href="/invoices"
+            className="flex items-center justify-between bg-surface2/40 hover:bg-surface2 p-2.5 rounded-lg border border-border/60 transition group cursor-pointer"
+          >
             <div>
-              <span className="text-textMuted">Uncollected Customer Invoices:</span>
+              <span className="text-textMuted group-hover:text-textPrimary transition">Uncollected Customer Invoices:</span>
               <p className="font-bold text-danger text-sm">{currency} {uncollectedInvoicesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
             <span className="text-xs font-bold text-danger bg-dangerBg px-2 py-0.5 rounded">
-              {overdueInvoicesCount > 0 ? `${overdueInvoicesCount} overdue` : 'Trade Receivables'}
+              {overdueInvoicesCount > 0 ? `${overdueInvoicesCount} overdue` : 'Trade Receivables →'}
             </span>
-          </div>
+          </Link>
 
-          <div className="flex items-center justify-between bg-surface2/40 p-2.5 rounded-lg border border-border/60">
+          <Link
+            href="/inventory"
+            className="flex items-center justify-between bg-surface2/40 hover:bg-surface2 p-2.5 rounded-lg border border-border/60 transition group cursor-pointer"
+          >
             <div>
-              <span className="text-textMuted">Tied Inventory Valuation:</span>
+              <span className="text-textMuted group-hover:text-textPrimary transition">Tied Inventory Valuation:</span>
               <p className="font-bold text-textPrimary text-sm">{currency} {inventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
-            <span className="text-base">📦</span>
-          </div>
+            <span className="text-xs font-bold text-accentText bg-accentBg px-2 py-0.5 rounded flex items-center gap-1">
+              <span>📦</span> View Stock →
+            </span>
+          </Link>
         </div>
       </div>
 
@@ -577,37 +741,49 @@ export default function DashboardPage() {
       {/* 2. CORE MONTHLY KPI GRID                                 */}
       {/* ======================================================== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-surface2 rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs font-semibold text-textSecondary uppercase tracking-wider mb-1">Monthly Revenue</p>
+        <Link
+          href="/bookkeeping"
+          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+        >
+          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Monthly Revenue</p>
           <p className="text-2xl font-black text-textPrimary">
             {currency} {(pnl?.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-success font-medium mt-1">Inflows this period</p>
-        </div>
+          <p className="text-[11px] text-success font-medium mt-1">Inflows this period →</p>
+        </Link>
 
-        <div className="bg-surface2 rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs font-semibold text-textSecondary uppercase tracking-wider mb-1">Cost of Goods (COGS)</p>
+        <Link
+          href="/inventory"
+          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+        >
+          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Cost of Goods (COGS)</p>
           <p className="text-2xl font-black text-textPrimary">
             {currency} {(pnl?.costOfGoods || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-textMuted mt-1">Direct production / stock cost</p>
-        </div>
+          <p className="text-[11px] text-textMuted group-hover:text-textSecondary mt-1">Direct production / stock cost →</p>
+        </Link>
 
-        <div className="bg-surface2 rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs font-semibold text-textSecondary uppercase tracking-wider mb-1">Operating Expenses</p>
+        <Link
+          href="/bookkeeping"
+          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+        >
+          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Operating Expenses</p>
           <p className="text-2xl font-black text-textPrimary">
             {currency} {(pnl?.operatingExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-textMuted mt-1">Rent, utilities, fuel, overhead</p>
-        </div>
+          <p className="text-[11px] text-textMuted group-hover:text-textSecondary mt-1">Rent, utilities, fuel, overhead →</p>
+        </Link>
 
-        <div className="bg-surface2 rounded-xl p-4 border border-border shadow-sm">
-          <p className="text-xs font-semibold text-textSecondary uppercase tracking-wider mb-1">Net Profit</p>
+        <Link
+          href="/reports"
+          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+        >
+          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Net Profit</p>
           <p className={`text-2xl font-black ${(pnl?.netProfit || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
             {currency} {(pnl?.netProfit || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-textMuted mt-1">{marginPct.toFixed(1)}% gross margin</p>
-        </div>
+          <p className="text-[11px] text-textMuted group-hover:text-textSecondary mt-1">{marginPct.toFixed(1)}% gross margin (View P&amp;L) →</p>
+        </Link>
       </div>
 
       {/* ======================================================== */}

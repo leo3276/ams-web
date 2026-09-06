@@ -13,9 +13,10 @@ import {
   addImportedBankFeeds,
   matchBankFeedTransaction,
 } from '@/lib/bankSyncStore';
-import { getCachedBusiness, getCachedTransactions, getCachedInvoices } from '@/lib/offlineStore';
+import { getCachedBusiness, getCachedTransactions, setCachedTransactions, getCachedInvoices } from '@/lib/offlineStore';
 import { Transaction, Invoice } from '@/lib/types';
 import { useUserRole } from '@/lib/RoleContext';
+import { logAuditEvent } from '@/lib/auditLogger';
 
 export default function BankingSyncPage() {
   const { role } = useUserRole();
@@ -86,6 +87,19 @@ export default function BankingSyncPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('ams:transactions-updated', handleUpdate);
+    window.addEventListener('ams:invoices-updated', handleUpdate);
+    window.addEventListener('ams:business-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('ams:transactions-updated', handleUpdate);
+      window.removeEventListener('ams:invoices-updated', handleUpdate);
+      window.removeEventListener('ams:business-updated', handleUpdate);
+    };
   }, []);
 
   // Filtered feeds
@@ -180,9 +194,47 @@ export default function BankingSyncPage() {
     reader.readAsText(file);
   };
 
-  // 1-Click Match & Reconcile
+  // 1-Click Match & Reconcile -> Auto-posts to Double-Entry General Ledger
   const handle1ClickMatch = (feedId: string, suggestedCategory: string, amount: number) => {
-    matchBankFeedTransaction(feedId, businessId);
+    const feed = feeds.find((f) => f.id === feedId);
+    if (!feed) return;
+
+    const isCredit = amount > 0 || feed.type === 'credit';
+    const absAmt = Math.abs(amount || feed.amount);
+    const today = feed.transaction_date || new Date().toISOString().slice(0, 10);
+    const txType = isCredit ? 'revenue' : 'operating_expense';
+    const txCat = suggestedCategory || (isCredit ? 'Sales Revenue' : 'General Operating Expense');
+    const txVendor = feed.narrative || (isCredit ? 'Bank Deposit / MoMo Inflow' : 'Bank Debit / MoMo Outflow');
+
+    const newLedgerTx = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      business_id: businessId,
+      transaction_date: today,
+      vendor: txVendor,
+      type: txType as any,
+      category: txCat,
+      amount: absAmt,
+      payment_method: 'bank',
+      created_at: new Date().toISOString(),
+    };
+
+    const currentTxs = getCachedTransactions(businessId);
+    setCachedTransactions([newLedgerTx, ...currentTxs], businessId);
+
+    matchBankFeedTransaction(feedId, businessId, newLedgerTx.id);
+
+    // Immutable Audit Trail
+    logAuditEvent({
+      businessId,
+      actionType: 'CREATE',
+      entityType: 'transaction',
+      entityId: newLedgerTx.id,
+      entityName: txVendor,
+      description: `Reconciled Bank Feed: "${txVendor}" (${currency} ${absAmt.toFixed(2)}) as ${txCat} to Live Ledger`,
+      newValue: newLedgerTx,
+    });
+
+    window.dispatchEvent(new Event('ams:transactions-updated'));
     loadData();
   };
 

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/lib/RoleContext';
 
-import { getCachedBusiness, setCachedBusiness, setCachedUser } from '@/lib/offlineStore';
+import { getCachedBusiness, setCachedBusiness, setCachedUser, resolveActiveBusiness } from '@/lib/offlineStore';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,36 +24,12 @@ export default function LoginPage() {
     localStorage.setItem('ams:web_user_role_v1', selectedRole);
     setCachedUser({ id: userId, email: email || undefined });
 
-    try {
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id, name, currency, business_type')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true })
-        .limit(1);
-
-      if (businesses && businesses.length > 0) {
-        const b = businesses[0];
-        setCachedBusiness(b);
-        if (b.business_type) {
-          localStorage.setItem('ams:active_archetype_v1', b.business_type);
-        }
-        if (b.business_type === 'education_schools') {
-          router.push('/school/overview');
-          return;
-        }
-        router.push('/dashboard');
-        return;
-      }
-    } catch (_e) {}
-
-    const cached = getCachedBusiness();
-    const storedArchetype = localStorage.getItem('ams:active_archetype_v1');
-    if (storedArchetype === 'education_schools' || (cached as any)?.business_type === 'education_schools') {
-      router.push('/school/overview');
-    } else {
-      router.push('/dashboard');
+    const activeBiz = await resolveActiveBusiness(userId);
+    if ((activeBiz as any)?.business_type) {
+      localStorage.setItem('ams:active_archetype_v1', (activeBiz as any).business_type);
     }
+
+    router.push('/dashboard');
   };
 
   const [isElectron, setIsElectron] = useState(false);

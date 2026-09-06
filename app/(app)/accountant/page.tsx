@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Transaction, Invoice } from '@/lib/types';
 import { estimateGhanaTax } from '@/lib/ghanaTax';
 import { printAccountantAuditPackPDF } from '@/lib/pdfGenerator';
-import { getCachedSuppliers, getCachedBusiness } from '@/lib/offlineStore';
+import { getCachedSuppliers, getCachedBusiness, getCachedTransactions, getCachedInvoices, resolveActiveBusiness } from '@/lib/offlineStore';
 
 interface PnL {
   revenue: number;
@@ -101,27 +101,7 @@ export default function AccountantPage() {
     setLoading(true);
     setErrorMsg(null);
 
-    const cachedBiz = getCachedBusiness();
-    let targetBiz = cachedBiz;
-
-    if (!targetBiz) {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) {
-        setErrorMsg('Not logged in.');
-        setLoading(false);
-        return;
-      }
-
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id, name, currency, business_type, tax_id, next_tax_filing_date')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true })
-        .limit(1);
-
-      targetBiz = businesses?.[0] || null;
-    }
+    const targetBiz = await resolveActiveBusiness();
 
     if (!targetBiz) {
       setErrorMsg('No business found for this account.');
@@ -149,9 +129,23 @@ export default function AccountantPage() {
       supabase.from('business_members').select('*').eq('business_id', targetBiz.id),
     ]);
 
-    const allTx: Transaction[] = txRes.data ?? [];
+    const localTxs = getCachedTransactions(targetBiz.id);
+    const localInvs = getCachedInvoices(targetBiz.id);
+
+    const remoteTx: Transaction[] = txRes.data ?? [];
+    const txMap = new Map();
+    localTxs.forEach((t: any) => txMap.set(t.id, t));
+    remoteTx.forEach((t: any) => txMap.set(t.id, t));
+    const allTx: Transaction[] = Array.from(txMap.values());
+
+    const remoteInvs: Invoice[] = invRes.data ?? [];
+    const invMap = new Map();
+    localInvs.forEach((i: any) => invMap.set(i.id || i.invoice_number, i));
+    remoteInvs.forEach((i: any) => invMap.set(i.id || i.invoice_number, i));
+    const allInvs: Invoice[] = Array.from(invMap.values());
+
     setTransactions(allTx);
-    setInvoices(invRes.data ?? []);
+    setInvoices(allInvs);
 
     // 1. Calculate live Balance Sheet directly from ledger and creditor registries
     let periodRev = 0;
@@ -340,6 +334,24 @@ export default function AccountantPage() {
 
   useEffect(() => {
     loadAccountantData();
+
+    const handleUpdate = () => {
+      loadAccountantData();
+    };
+
+    window.addEventListener('ams:business-updated', handleUpdate);
+    window.addEventListener('ams:transactions-updated', handleUpdate);
+    window.addEventListener('ams:invoices-updated', handleUpdate);
+    window.addEventListener('ams:suppliers-data-updated', handleUpdate);
+    window.addEventListener('ams:inventory-updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('ams:business-updated', handleUpdate);
+      window.removeEventListener('ams:transactions-updated', handleUpdate);
+      window.removeEventListener('ams:invoices-updated', handleUpdate);
+      window.removeEventListener('ams:suppliers-data-updated', handleUpdate);
+      window.removeEventListener('ams:inventory-updated', handleUpdate);
+    };
   }, [loadAccountantData]);
 
   // 1. Data Quality Flags Analysis
@@ -545,12 +557,6 @@ export default function AccountantPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/accountant/clients"
-            className="px-3.5 py-2 text-xs font-bold rounded-lg bg-surface2 border border-border text-textPrimary hover:bg-surface1 transition flex items-center gap-1.5"
-          >
-            <span>🏢</span> Access Branch / Switch Business
-          </Link>
           <button
             onClick={() =>
               printAccountantAuditPackPDF(

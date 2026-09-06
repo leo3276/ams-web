@@ -16,6 +16,7 @@ import {
   CustomerBuyBackItem,
 } from '@/lib/customerPayoutStore';
 import { InventoryItem } from '@/lib/types';
+import { printRefundsAndBuyBacksPDF } from '@/lib/pdfGenerator';
 
 export default function RefundsAndPayoutsPage() {
   const { role } = useUserRole();
@@ -142,13 +143,13 @@ export default function RefundsAndPayoutsPage() {
   const handleSaveRefund = (e: React.FormEvent) => {
     e.preventDefault();
     if (!refCustomerName.trim()) {
-      alert('Please enter the customer name.');
+      showNotify('error', 'Please enter the customer name.');
       return;
     }
 
     const validItems = refItems.filter((i) => i.productName.trim() && i.quantityReturned > 0);
     if (validItems.length === 0) {
-      alert('Please add at least one returned product item.');
+      showNotify('error', 'Please add at least one returned product item.');
       return;
     }
 
@@ -176,7 +177,7 @@ export default function RefundsAndPayoutsPage() {
         `✓ Refund ${res.refund.refundNumber} processed for ${currency} ${res.refund.totalRefundAmount.toLocaleString()}`
       );
     } else {
-      alert(res.error || 'Failed to process refund.');
+      showNotify('error', res.error || 'Failed to process refund.');
     }
   };
 
@@ -207,7 +208,7 @@ export default function RefundsAndPayoutsPage() {
     const resale = parseFloat(bbResalePrice) || Math.round(unitCost * 1.35 * 100) / 100;
 
     if (!bbCustomerName.trim() || !bbItemName.trim() || unitCost <= 0) {
-      alert('Please enter valid customer name, item name, and purchase cost.');
+      showNotify('error', 'Please enter valid customer name, item name, and purchase cost.');
       return;
     }
 
@@ -241,7 +242,7 @@ export default function RefundsAndPayoutsPage() {
         `✓ Purchased "${res.buyback.itemName}" from ${res.buyback.customerName} for ${currency} ${res.buyback.totalPayoutAmount.toLocaleString()}! Stock updated.`
       );
     } else {
-      alert(res.error || 'Failed to record customer stock buy-back.');
+      showNotify('error', res.error || 'Failed to record customer stock buy-back.');
     }
   };
 
@@ -281,6 +282,19 @@ export default function RefundsAndPayoutsPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={() =>
+              printRefundsAndBuyBacksPDF(
+                refunds,
+                buybacks,
+                { name: businessName, currency, taxId: null }
+              )
+            }
+            className="px-3.5 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+          >
+            <span>📄 Export Stylish PDF</span>
+          </button>
+
+          <button
             onClick={handleOpenRefundModal}
             className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
@@ -289,7 +303,7 @@ export default function RefundsAndPayoutsPage() {
 
           <button
             onClick={handleOpenBuyBackModal}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
             <span>💵 Buy Stock from Customer</span>
           </button>
@@ -611,15 +625,23 @@ export default function RefundsAndPayoutsPage() {
                 <div className="space-y-2">
                   {refItems.map((item, idx) => (
                     <div key={idx} className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                      <div className="flex-1 min-w-[140px]">
-                        <input
-                          type="text"
+                      <div className="flex-1 min-w-[180px]">
+                        <select
                           required
-                          placeholder="Product Name"
-                          value={item.productName}
-                          onChange={(e) => handleRefundItemChange(idx, 'productName', e.target.value)}
-                          className="w-full px-2.5 py-1.5 rounded border border-slate-200 bg-white font-medium"
-                        />
+                          value={item.productId || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            handleRefundItemChange(idx, 'productId', val);
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded border border-slate-200 bg-white font-medium text-xs text-slate-900"
+                        >
+                          <option value="">-- Select Registered Product --</option>
+                          {inventory.map((inv) => (
+                            <option key={inv.id} value={inv.id}>
+                              {inv.name} ({currency} {Number(inv.unit_price || 0).toFixed(2)}) — In Stock: {inv.quantity}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div className="w-20">

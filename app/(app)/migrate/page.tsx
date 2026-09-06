@@ -18,7 +18,9 @@ import {
   setCachedCustomers,
   getCachedSuppliers,
   setCachedSuppliers,
+  resolveActiveBusiness,
 } from '@/lib/offlineStore';
+import { logAuditEvent } from '@/lib/auditLogger';
 
 export type MigrationCategory =
   | 'inventory'
@@ -389,36 +391,11 @@ export default function MigratePage() {
   useEffect(() => {
     async function init() {
       setLoadingBusiness(true);
-
-      // 1. Check local cached business first
-      try {
-        const cachedBiz = getCachedBusiness();
-        if (cachedBiz?.id) {
-          setBusinessId(cachedBiz.id);
-          setCurrency(cachedBiz.currency || 'GHS');
-        }
-      } catch (_e) {}
-
-      // 2. Fetch from Supabase auth
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData.user?.id;
-        if (userId) {
-          const { data: businesses } = await supabase
-            .from('businesses')
-            .select('id, currency')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: true })
-            .limit(1);
-
-          if (businesses && businesses.length > 0) {
-            setBusinessId(businesses[0].id);
-            setCurrency(businesses[0].currency || 'GHS');
-            setCachedBusiness({ id: businesses[0].id, currency: businesses[0].currency || 'GHS' } as any);
-          }
-        }
-      } catch (_e) {}
-
+      const biz = await resolveActiveBusiness();
+      if (biz) {
+        setBusinessId(biz.id);
+        setCurrency(biz.currency || 'GHS');
+      }
       setLoadingBusiness(false);
     }
     init();
@@ -857,6 +834,46 @@ export default function MigratePage() {
           window.dispatchEvent(new Event('ams:inventory-updated'));
         } catch (_e) {}
 
+        // Calculate total Opening Stock cost valuation and create an Opening Stock transaction for P&L / Balance Sheet
+        const totalOpeningStockCost = validRecords.reduce(
+          (sum: number, r: any) => sum + (Number(r.quantity || 0) * Number(r.unit_cost || 0)),
+          0
+        );
+
+        if (totalOpeningStockCost > 0) {
+          const opnStockTx = {
+            id: `opn_stock_${Date.now()}`,
+            business_id: businessId,
+            transaction_date: new Date().toISOString().split('T')[0],
+            vendor: `Opening Stock: Imported Inventory (${validRecords.length} Items)`,
+            type: 'current_asset',
+            category: 'Opening Stock',
+            amount: totalOpeningStockCost,
+            payment_method: 'cash',
+            created_at: new Date().toISOString(),
+          };
+
+          try {
+            await supabase.from('transactions').insert([opnStockTx]);
+          } catch (_e) {}
+
+          try {
+            const currentCachedTxs = getCachedTransactions(businessId);
+            setCachedTransactions([opnStockTx, ...currentCachedTxs], businessId);
+            window.dispatchEvent(new Event('ams:transactions-updated'));
+          } catch (_e) {}
+        }
+
+        logAuditEvent({
+          businessId: businessId,
+          actionType: 'CREATE',
+          entityType: 'inventory_item',
+          entityId: `mig_inv_${Date.now()}`,
+          entityName: `${validRecords.length} Imported Inventory Products`,
+          description: `Bulk imported ${validRecords.length} inventory products via spreadsheet migration totaling ${currency} ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })} (Opening Stock Cost: ${currency} ${totalOpeningStockCost.toLocaleString(undefined, { minimumFractionDigits: 2 })})`,
+          newValue: { count: validRecords.length, totalValuation, openingStockCost: totalOpeningStockCost },
+        });
+
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Inventory Items' });
       }
 
@@ -945,9 +962,9 @@ export default function MigratePage() {
             id: `rec_${Date.now()}_${idx}`,
             business_id: businessId,
             transaction_date: new Date().toISOString().split('T')[0],
-            vendor: `Customer: ${r.name}`,
-            type: 'revenue',
-            category: `Accounts Receivable | Customer: ${r.name} | phone:${r.phone || ''} | email:${r.email || ''}`,
+            vendor: `Customer Debtor: ${r.name}`,
+            type: 'current_asset',
+            category: `Debtors (Accounts Receivable) | Customer: ${r.name} | phone:${r.phone || ''} | email:${r.email || ''}`,
             amount: r.balance,
             payment_method: 'cash',
             created_at: new Date().toISOString(),
@@ -1014,31 +1031,30 @@ export default function MigratePage() {
           id: 'sup_' + Date.now() + '_' + idx,
           business_id: businessId,
           name: r.name,
-          phone: r.phone || '',
-          email: r.email || '',
+          phone: r.phone || null,
+          email: r.email || null,
           category: r.category || 'General Goods',
-          debtType: 'inventory' as const,
-          balance: Number(r.balance_owed || 0),
-          startingDebt: Number(r.balance_owed || 0),
-          paymentTerms: r.payment_terms || 'Net 30',
-          dueDate: r.due_date || '',
-          notes: r.notes || '',
-          settled: Number(r.balance_owed || 0) <= 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          debt_type: 'inventory' as const,
+          balance_owed: Number(r.balance_owed || 0),
+          starting_debt: Number(r.balance_owed || 0),
+          payment_terms: r.payment_terms || 'Net 30',
+          due_date: r.due_date || null,
+          notes: r.notes || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }));
 
         // Insert into ledger transactions as Short-Term Liabilities
         const payablePayload = validRecords
-          .filter((r: any) => r.balance_owed > 0)
+          .filter((r: any) => Number(r.balance_owed || 0) > 0)
           .map((r: any, idx: number) => ({
             id: `pay_${Date.now()}_${idx}`,
             business_id: businessId,
             transaction_date: r.due_date || new Date().toISOString().split('T')[0],
             vendor: `Supplier: ${r.name}`,
             type: 'short_term_liability',
-            category: `Accounts Payable | ${r.category} | phone:${r.phone || ''} | terms:${r.payment_terms} | debtType:inventory | due:${r.due_date || ''}`,
-            amount: r.balance_owed,
+            category: `Accounts Payable | ${r.category || 'General Goods'} | phone:${r.phone || ''} | terms:${r.payment_terms || 'Net 30'} | debtType:inventory | due:${r.due_date || ''}`,
+            amount: Number(r.balance_owed || 0),
             payment_method: 'cash',
             created_at: new Date().toISOString(),
           }));
@@ -1071,15 +1087,27 @@ export default function MigratePage() {
       // 7. OPENING BALANCES
       if (category === 'opening_balances') {
         const payload = validRecords.map((r: any, idx: number) => {
-          let txType = 'current_asset';
+          let txType: any = 'current_asset';
           const typeLower = String(r.account_type || '').toLowerCase();
-          if (typeLower.includes('liability') || typeLower.includes('loan') || typeLower.includes('debt')) {
+          const nameLower = String(r.account_name || '').toLowerCase();
+
+          if (typeLower.includes('liability') || typeLower.includes('loan') || typeLower.includes('debt') || typeLower.includes('payable')) {
             txType = 'short_term_liability';
           } else if (typeLower.includes('equity') || typeLower.includes('capital')) {
-            txType = 'revenue';
-          } else if (typeLower.includes('fixed') || typeLower.includes('asset')) {
+            txType = 'deposit';
+          } else if (typeLower.includes('fixed') || (typeLower.includes('asset') && !typeLower.includes('current'))) {
             txType = 'fixed_asset';
+          } else {
+            txType = 'current_asset';
           }
+
+          const isBank = nameLower.includes('bank') || nameLower.includes('momo') || nameLower.includes('mobile money');
+          const isDebtor = nameLower.includes('debtor') || nameLower.includes('receivable');
+          const isStock = nameLower.includes('stock') || nameLower.includes('inventory');
+
+          let category = 'Opening Balances';
+          if (isStock) category = 'Opening Stock';
+          else if (isDebtor) category = 'Debtors (Accounts Receivable)';
 
           return {
             id: `opn_${Date.now()}_${idx}`,
@@ -1087,9 +1115,9 @@ export default function MigratePage() {
             transaction_date: r.as_of_date,
             vendor: `Opening Balance: ${r.account_name}`,
             type: txType,
-            category: 'Opening Balances',
+            category: category,
             amount: r.amount,
-            payment_method: r.account_name?.toLowerCase().includes('bank') ? 'bank' : 'cash',
+            payment_method: isBank ? 'bank' : 'cash',
             created_at: new Date().toISOString(),
           };
         });
@@ -1118,13 +1146,15 @@ export default function MigratePage() {
           const cleanEmail = r.email ? String(r.email).trim() : `${normalizeStr(cleanName) || 'staff'}_${Date.now().toString(36)}@company.local`;
 
           return {
+            id: `staff_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             business_id: businessId,
             name: cleanName,
             role: r.role ? r.role.toLowerCase() : 'employee',
-            salary: r.salary || 0,
+            salary: Number(r.salary || 0),
             phone: r.phone || null,
             email: cleanEmail,
-            branch: r.branch || null,
+            branch: r.branch || 'Main Branch',
+            created_at: new Date().toISOString(),
           };
         });
 
@@ -1135,7 +1165,58 @@ export default function MigratePage() {
           setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
         }
 
+        // Save into local staff storage & dispatch live update event
+        try {
+          const staffStorageKey = `ams:staff_members_list_v1_${businessId}`;
+          const currentStaff = JSON.parse(localStorage.getItem(staffStorageKey) || '[]');
+          const merged = [...payload, ...currentStaff];
+          localStorage.setItem(staffStorageKey, JSON.stringify(merged));
+          window.dispatchEvent(new Event('ams:staff-updated'));
+        } catch (_e) {}
+
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Staff Members & Payroll' });
+      }
+
+      // 9. HISTORICAL TRANSACTIONS & EXPENSES
+      if (category === 'transactions') {
+        const payload = validRecords.map((r: any, idx: number) => ({
+          id: `tx_mig_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+          business_id: businessId,
+          transaction_date: r.transaction_date || new Date().toISOString().slice(0, 10),
+          vendor: r.vendor || 'Imported Transaction',
+          type: r.type || 'operating_expense',
+          category: r.category || 'General Operations',
+          amount: Number(r.amount || 0),
+          payment_method: r.payment_method || 'cash',
+          created_at: new Date().toISOString(),
+        }));
+
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const { error } = await supabase.from('transactions').insert(chunk);
+          if (error) console.warn('Supabase transactions insert notice (saving locally):', error.message);
+          setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
+        }
+
+        // Save into local cached transactions & trigger live refresh across dashboard & bookkeeping
+        try {
+          const currentCached = getCachedTransactions(businessId);
+          setCachedTransactions([...payload, ...currentCached], businessId);
+          window.dispatchEvent(new Event('ams:transactions-updated'));
+        } catch (_e) {}
+
+        // Log to immutable Audit Trail
+        logAuditEvent({
+          businessId: businessId,
+          actionType: 'CREATE',
+          entityType: 'transaction',
+          entityId: `mig_batch_${Date.now()}`,
+          entityName: `${validRecords.length} Imported Transactions/Expenses`,
+          description: `Imported ${validRecords.length} historical expenses/transactions totaling ${currency} ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+          newValue: { count: validRecords.length, totalAmount: totalValuation },
+        });
+
+        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Historical Expenses & Ledger Entries' });
       }
 
       setImportProgress(100);

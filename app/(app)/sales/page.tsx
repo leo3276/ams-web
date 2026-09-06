@@ -23,7 +23,9 @@ import {
   getCachedTransactions,
   setCachedTransactions,
   saveOfflineTransaction,
+  resolveActiveBusiness,
 } from '@/lib/offlineStore';
+import { logAuditEvent } from '@/lib/auditLogger';
 
 export default function RecordSalePage() {
   const { archetype, isEducation, students, schoolSettings } = useArchetype();
@@ -53,38 +55,29 @@ export default function RecordSalePage() {
   const loadData = useCallback(async () => {
     // 1. Instantly populate from local cache
     const cachedBiz = getCachedBusiness();
+    const bid = cachedBiz?.id || 'default_biz';
+    setBusinessId(bid);
     if (cachedBiz) {
-      setBusinessId(cachedBiz.id);
       setCurrency(cachedBiz.currency || 'GHS');
     }
-    const cachedInv = getCachedInventory();
+
+    const cachedInv = getCachedInventory(bid);
     if (cachedInv.length > 0) {
       setItems(cachedInv);
       if (!selectedItemId) setSelectedItemId(cachedInv[0].id);
     }
-    const cachedTxs = getCachedTransactions().filter((t) => t.type === 'revenue');
+    const cachedTxs = getCachedTransactions(bid).filter((t) => t.type === 'revenue');
     if (cachedTxs.length > 0) {
       setRecentSales(cachedTxs.slice(0, 10));
     }
     setLoading(false);
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData?.user?.id;
-      if (!userId) return;
-
-      const { data: businesses } = await supabase
-        .from('businesses')
-        .select('id, currency')
-        .eq('user_id', userId)
-        .limit(1);
-
-      const b = businesses?.[0];
+      const b = await resolveActiveBusiness();
       if (!b) return;
 
       setBusinessId(b.id);
       setCurrency(b.currency || 'GHS');
-      setCachedBusiness({ id: b.id, name: 'My Business', currency: b.currency || 'GHS' });
 
       // Load inventory items from cloud
       const { data: invData } = await supabase
@@ -93,22 +86,31 @@ export default function RecordSalePage() {
         .eq('business_id', b.id)
         .order('name', { ascending: true });
 
-      if (invData) {
-        const parsed = invData.map((row) => ({
-          id: row.id,
-          business_id: row.business_id,
-          name: row.name,
-          barcode: row.barcode || '',
-          quantity: Number(row.quantity || 0),
-          unit_cost: Number(row.cost_price ?? row.unit_cost ?? 0),
-          unit_price: Number(row.selling_price ?? row.unit_price ?? 0),
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-        }));
-        setItems(parsed);
-        setCachedInventory(parsed);
-        if (parsed.length > 0 && !selectedItemId) {
-          setSelectedItemId(parsed[0].id);
+      const remoteRows = (invData && invData.length > 0)
+        ? invData.map((row) => ({
+            id: row.id,
+            business_id: row.business_id,
+            name: row.name,
+            barcode: row.barcode || '',
+            quantity: Number(row.quantity || 0),
+            unit_cost: Number(row.cost_price ?? row.unit_cost ?? 0),
+            unit_price: Number(row.selling_price ?? row.unit_price ?? 0),
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+          }))
+        : [];
+
+      const localItems = getCachedInventory(b.id);
+      const mergedMap = new Map<string, InventoryItem>();
+      localItems.forEach((item) => mergedMap.set(item.id, item));
+      remoteRows.forEach((item) => mergedMap.set(item.id, item));
+      const combined = Array.from(mergedMap.values());
+
+      if (combined.length > 0) {
+        setItems(combined);
+        setCachedInventory(combined, b.id);
+        if (!selectedItemId || !combined.find((i) => i.id === selectedItemId)) {
+          setSelectedItemId(combined[0].id);
         }
       }
 
@@ -121,9 +123,8 @@ export default function RecordSalePage() {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (txData) {
+      if (txData && txData.length > 0) {
         setRecentSales(txData as RecentSale[]);
-        setCachedTransactions(txData);
       }
     } catch (_e) {
       // offline mode operates on cache
@@ -139,9 +140,11 @@ export default function RecordSalePage() {
 
     window.addEventListener('ams:inventory-updated', handleUpdate);
     window.addEventListener('ams:transactions-updated', handleUpdate);
+    window.addEventListener('ams:business-updated', handleUpdate);
     return () => {
       window.removeEventListener('ams:inventory-updated', handleUpdate);
       window.removeEventListener('ams:transactions-updated', handleUpdate);
+      window.removeEventListener('ams:business-updated', handleUpdate);
     };
   }, [loadData]);
 
@@ -171,7 +174,8 @@ export default function RecordSalePage() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+      const isInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT' || target?.isContentEditable;
+      if (isInput) return; // Never intercept normal user typing in inputs!
 
       const now = Date.now();
       const timeDiff = now - lastKeyTimeRef.current;
@@ -185,7 +189,7 @@ export default function RecordSalePage() {
           matchAndSelectBarcode(potentialBarcode);
         }
       } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (timeDiff < 60 || !isInput) {
+        if (timeDiff < 60) {
           barcodeBufferRef.current += e.key;
         } else {
           barcodeBufferRef.current = e.key;
@@ -204,7 +208,7 @@ export default function RecordSalePage() {
 
   const handleRecordSale = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!businessId) return;
+    const activeBid = (businessId && businessId !== 'default_biz') ? businessId : (getCachedBusiness()?.id || 'default_biz');
     setErrorMsg(null);
     setSuccessMsg(null);
     setScannedNotification(null);
@@ -235,18 +239,22 @@ export default function RecordSalePage() {
       // Local stock update immediately
       const updatedItems = items.map((i) => (i.id === selectedItem.id ? { ...i, quantity: newQty } : i));
       setItems(updatedItems);
-      setCachedInventory(updatedItems);
+      setCachedInventory(updatedItems, activeBid);
 
       try {
-        const { error: txError } = await supabase.from('transactions').insert({
-          business_id: businessId,
-          transaction_date: today,
-          vendor: vendorDesc,
-          type: 'revenue',
-          category: 'Sales',
-          amount: inventoryTotalAmount,
-          payment_method: paymentMethod,
-        });
+        const { data: insertedTx, error: txError } = await supabase
+          .from('transactions')
+          .insert({
+            business_id: activeBid,
+            transaction_date: today,
+            vendor: vendorDesc,
+            type: 'revenue',
+            category: 'Sales',
+            amount: inventoryTotalAmount,
+            payment_method: paymentMethod,
+          })
+          .select()
+          .single();
 
         if (txError) throw txError;
 
@@ -264,14 +272,44 @@ export default function RecordSalePage() {
           .update({ quantity: newQty })
           .eq('id', selectedItem.id);
 
+        const saleTx = insertedTx || {
+          id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          business_id: activeBid,
+          transaction_date: today,
+          vendor: vendorDesc,
+          type: 'revenue',
+          category: 'Sales',
+          amount: inventoryTotalAmount,
+          payment_method: paymentMethod,
+          created_at: new Date().toISOString(),
+        };
+
+        const existingTxs = getCachedTransactions(activeBid);
+        const filteredTxs = existingTxs.filter((t: any) => t.id !== saleTx.id);
+        setCachedTransactions([saleTx, ...filteredTxs], activeBid);
+
+        // Audit Trail
+        logAuditEvent({
+          businessId: activeBid,
+          actionType: 'CREATE',
+          entityType: 'transaction',
+          entityId: saleTx.id,
+          entityName: vendorDesc,
+          description: `POS Sale: ${parsedQty}x ${selectedItem.name} for ${currency} ${inventoryTotalAmount.toFixed(2)} (${paymentMethod === 'cash' ? 'Cash Drawer' : 'Bank / MoMo'})`,
+          newValue: saleTx,
+        });
+
+        window.dispatchEvent(new Event('ams:transactions-updated'));
+        window.dispatchEvent(new Event('ams:inventory-updated'));
+
         setSubmitting(false);
         setSuccessMsg(`Sale Recorded ✓ Sold ${parsedQty}x ${selectedItem.name} for ${currency} ${inventoryTotalAmount.toFixed(2)} (${paymentMethod === 'cash' ? 'Cash' : 'MoMo/Bank'}).`);
         setQuantity('1');
         loadData();
       } catch (_err: any) {
         // Offline fallback
-        saveOfflineTransaction({
-          business_id: businessId,
+        const offlineTx = saveOfflineTransaction({
+          business_id: activeBid,
           transaction_date: today,
           vendor: vendorDesc,
           type: 'revenue',
@@ -279,6 +317,20 @@ export default function RecordSalePage() {
           amount: inventoryTotalAmount,
           payment_method: paymentMethod,
         });
+
+        // Audit Trail
+        logAuditEvent({
+          businessId: activeBid,
+          actionType: 'CREATE',
+          entityType: 'transaction',
+          entityId: offlineTx.id,
+          entityName: vendorDesc,
+          description: `POS Sale (Offline): ${parsedQty}x ${selectedItem.name} for ${currency} ${inventoryTotalAmount.toFixed(2)}`,
+          newValue: offlineTx,
+        });
+
+        window.dispatchEvent(new Event('ams:transactions-updated'));
+        window.dispatchEvent(new Event('ams:inventory-updated'));
 
         setSubmitting(false);
         setSuccessMsg(`⚡ Sale Recorded Locally (Offline Mode) ✓ Sold ${parsedQty}x ${selectedItem.name} for ${currency} ${inventoryTotalAmount.toFixed(2)}. Stored on PC and will sync automatically when WiFi connects.`);
@@ -298,7 +350,7 @@ export default function RecordSalePage() {
 
       try {
         const { error: txError } = await supabase.from('transactions').insert({
-          business_id: businessId,
+          business_id: activeBid,
           transaction_date: today,
           vendor: cleanDesc,
           type: 'revenue',
@@ -309,6 +361,33 @@ export default function RecordSalePage() {
 
         if (txError) throw txError;
 
+        const customTx = {
+          id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          business_id: activeBid,
+          transaction_date: today,
+          vendor: cleanDesc,
+          type: 'revenue',
+          category: 'Sales',
+          amount: cleanAmt,
+          payment_method: paymentMethod,
+          created_at: new Date().toISOString(),
+        };
+
+        const existingTxs = getCachedTransactions(activeBid);
+        setCachedTransactions([customTx, ...existingTxs], activeBid);
+
+        logAuditEvent({
+          businessId: activeBid,
+          actionType: 'CREATE',
+          entityType: 'transaction',
+          entityId: customTx.id,
+          entityName: cleanDesc,
+          description: `Recorded Custom Sale: "${cleanDesc}" (${currency} ${cleanAmt.toFixed(2)}) via ${paymentMethod === 'cash' ? 'Cash Drawer' : 'Bank / MoMo'}`,
+          newValue: customTx,
+        });
+
+        window.dispatchEvent(new Event('ams:transactions-updated'));
+
         setSubmitting(false);
         setSuccessMsg(`Sale Recorded ✓ Logged ${currency} ${cleanAmt.toFixed(2)} for "${cleanDesc}".`);
         setCustomDescription('');
@@ -316,8 +395,8 @@ export default function RecordSalePage() {
         loadData();
       } catch (_err) {
         // Offline fallback
-        saveOfflineTransaction({
-          business_id: businessId,
+        const offlineTx = saveOfflineTransaction({
+          business_id: activeBid,
           transaction_date: today,
           vendor: cleanDesc,
           type: 'revenue',
@@ -326,8 +405,20 @@ export default function RecordSalePage() {
           payment_method: paymentMethod,
         });
 
+        logAuditEvent({
+          businessId: activeBid,
+          actionType: 'CREATE',
+          entityType: 'transaction',
+          entityId: offlineTx.id,
+          entityName: cleanDesc,
+          description: `Recorded Custom Sale (Offline): "${cleanDesc}" (${currency} ${cleanAmt.toFixed(2)})`,
+          newValue: offlineTx,
+        });
+
+        window.dispatchEvent(new Event('ams:transactions-updated'));
+
         setSubmitting(false);
-        setSuccessMsg(`⚡ Sale Recorded Locally (Offline Mode) ✓ Logged ${currency} ${cleanAmt.toFixed(2)} for "${cleanDesc}". Stored on PC & will sync when online.`);
+        setSuccessMsg(`⚡ Sale Recorded Locally (Offline Mode) ✓ Logged ${currency} ${cleanAmt.toFixed(2)} for "${cleanDesc}". Stored on PC and will sync automatically.`);
         setCustomDescription('');
         setCustomAmount('');
       }

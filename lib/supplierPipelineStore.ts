@@ -1,6 +1,6 @@
 'use client';
 
-import { getCachedBusiness, getCachedInventory, setCachedInventory, addCachedSupplier, getCachedSuppliers, setCachedSuppliers, updateCachedSupplierBalance } from './offlineStore';
+import { getCachedBusiness, getCachedInventory, setCachedInventory, addCachedSupplier, getCachedSuppliers, setCachedSuppliers, updateCachedSupplierBalance, getCachedTransactions, setCachedTransactions } from './offlineStore';
 import { supabase } from './supabase';
 import { InventoryItem } from './types';
 
@@ -221,8 +221,10 @@ export function recordGoodsReceived(
         };
       } else {
         // Create new inventory item
+        const isUuid = item.productId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.productId);
+        const newItemId = isUuid ? item.productId! : crypto.randomUUID();
         const newItem: InventoryItem = {
-          id: item.productId || 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          id: newItemId,
           name: item.productName,
           barcode: 'SKU-' + Math.random().toString(36).slice(2, 7).toUpperCase(),
           quantity: acceptedQty,
@@ -235,6 +237,24 @@ export function recordGoodsReceived(
 
     setCachedInventory(updatedInventory, bid);
     broadcastUpdate('ams:inventory-updated');
+
+    // Sync to Supabase in background
+    if (bid && bid !== 'default_biz') {
+      const rowsToUpsert = updatedInventory.map((inv) => ({
+        id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inv.id) ? inv.id : crypto.randomUUID(),
+        business_id: bid,
+        name: inv.name,
+        barcode: inv.barcode || '',
+        quantity: Number(inv.quantity || 0),
+        unit_cost: Number(inv.unit_cost || 0),
+        unit_price: Number(inv.unit_price || 0),
+      }));
+
+      supabase
+        .from('inventory_items')
+        .upsert(rowsToUpsert, { onConflict: 'id' })
+        .then(() => {});
+    }
   }
 
   // 2. Mark Associated PO as Received if applicable
@@ -346,7 +366,27 @@ export function recordSupplierPayout(
   const updatedVouchers = [newVoucher, ...vouchers];
   saveSupplierPaymentVouchers(updatedVouchers, bid);
 
-  // 3. Record in Cloud Database Transaction Ledger
+  // 3. Record in Local & Cloud Database Transaction Ledger
+  const paymentChannel = (data.paymentMethod === 'bank' || data.paymentMethod === 'momo') ? 'bank' : 'cash';
+  const payoutTx = {
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    business_id: bid,
+    transaction_date: newVoucher.paymentDate,
+    vendor: `Supplier Settlement: ${newVoucher.supplierName}`,
+    type: 'operating_expense' as const,
+    category: `Accounts Payable Settlement | ${newVoucher.paymentMethod.toUpperCase()} | Ref: ${newVoucher.paymentReference || newVoucher.voucherNumber}`,
+    amount: newVoucher.netAmountDisbursed,
+    payment_method: paymentChannel,
+    created_at: new Date().toISOString(),
+  };
+
+  const currentTxs = getCachedTransactions(bid);
+  setCachedTransactions([payoutTx, ...currentTxs], bid);
+
+  broadcastUpdate('ams:transactions-updated');
+  broadcastUpdate('ams:suppliers-data-updated');
+  broadcastUpdate('ams:suppliers-updated');
+
   try {
     supabase.from('transactions').insert({
       business_id: bid,
@@ -355,7 +395,7 @@ export function recordSupplierPayout(
       type: 'operating_expense',
       category: `Accounts Payable Settlement | ${newVoucher.paymentMethod.toUpperCase()} | Ref: ${newVoucher.paymentReference || newVoucher.voucherNumber}`,
       amount: newVoucher.netAmountDisbursed,
-      payment_method: newVoucher.paymentMethod === 'bank' ? 'bank' : 'cash',
+      payment_method: paymentChannel,
     }).then(() => {});
   } catch (_e) {}
 

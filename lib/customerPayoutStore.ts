@@ -1,6 +1,12 @@
 'use client';
 
-import { getCachedBusiness, getCachedInventory, setCachedInventory } from './offlineStore';
+import {
+  getCachedBusiness,
+  getCachedInventory,
+  setCachedInventory,
+  getCachedTransactions,
+  setCachedTransactions,
+} from './offlineStore';
 import { supabase } from './supabase';
 import { InventoryItem } from './types';
 
@@ -113,6 +119,7 @@ export function processCustomerRefund(
   // 1. Restock resellable items to inventory
   const inventory = getCachedInventory(bid);
   let updatedInventory = [...inventory];
+  const restockedRowsToSync: any[] = [];
 
   data.items.forEach((item) => {
     if (item.condition === 'resellable' && item.quantityReturned > 0) {
@@ -120,27 +127,55 @@ export function processCustomerRefund(
         (inv) => (item.productId && inv.id === item.productId) || inv.name.toLowerCase() === item.productName.toLowerCase()
       );
       if (existingIdx >= 0) {
+        const newQty = Number(updatedInventory[existingIdx].quantity || 0) + item.quantityReturned;
         updatedInventory[existingIdx] = {
           ...updatedInventory[existingIdx],
-          quantity: Number(updatedInventory[existingIdx].quantity || 0) + item.quantityReturned,
+          quantity: newQty,
         };
+        restockedRowsToSync.push(updatedInventory[existingIdx]);
       }
     }
   });
 
   setCachedInventory(updatedInventory, bid);
+  broadcastUpdate('ams:inventory-updated');
 
-  // 2. Record Revenue Reduction / Refund Expense in Cloud Ledger
-  try {
-    supabase.from('transactions').insert({
+  // Sync restocked inventory to Supabase
+  if (bid && bid !== 'default_biz' && restockedRowsToSync.length > 0) {
+    const rowsToUpsert = restockedRowsToSync.map((inv) => ({
+      id: inv.id,
       business_id: bid,
-      transaction_date: newRefund.refundDate,
-      vendor: `Customer Refund: ${newRefund.customerName}`,
-      type: 'operating_expense',
-      category: `Customer Sales Return & Refund | ${newRefund.payoutMethod.toUpperCase()}`,
-      amount: newRefund.totalRefundAmount,
-      payment_method: newRefund.payoutMethod === 'momo' ? 'cash' : 'cash',
-    }).then(() => {});
+      name: inv.name,
+      barcode: inv.barcode || '',
+      quantity: Number(inv.quantity || 0),
+      unit_cost: Number(inv.unit_cost || 0),
+      unit_price: Number(inv.unit_price || 0),
+    }));
+    supabase.from('inventory_items').upsert(rowsToUpsert, { onConflict: 'id' }).then(() => {});
+  }
+
+  // 2. Record Customer Sales Return in Local & Cloud Transactions
+  const paymentChannel = data.payoutMethod === 'momo' ? 'bank' : 'cash';
+  const returnTx = {
+    id: crypto.randomUUID(),
+    business_id: bid,
+    transaction_date: newRefund.refundDate,
+    vendor: `Customer Refund: ${newRefund.customerName}`,
+    type: 'return',
+    category: `Customer Sales Return & Refund | ${newRefund.payoutMethod.toUpperCase()}`,
+    amount: newRefund.totalRefundAmount,
+    payment_method: paymentChannel,
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    const existingTxs = getCachedTransactions(bid);
+    setCachedTransactions([returnTx, ...existingTxs.filter((t) => t.id !== returnTx.id)], bid);
+    broadcastUpdate('ams:transactions-updated');
+
+    if (bid && bid !== 'default_biz') {
+      supabase.from('transactions').insert(returnTx).then(() => {});
+    }
   } catch (_e) {}
 
   const updatedRefunds = [newRefund, ...current];
@@ -225,18 +260,30 @@ export function recordCustomerStockBuyBack(
   }
 
   setCachedInventory(updatedInventory, bid);
+  broadcastUpdate('ams:inventory-updated');
 
-  // 2. Record Stock Purchase in Ledger
+  // 2. Record Stock Purchase in Local & Cloud Ledger
+  const paymentChannel = data.payoutMethod === 'momo' ? 'bank' : 'cash';
+  const buyBackTx = {
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    business_id: bid,
+    transaction_date: newBuyBack.purchaseDate,
+    vendor: `Customer Buy-Back: ${newBuyBack.customerName}`,
+    type: 'cost_of_goods' as const,
+    category: `Direct Stock Purchase from Customer | ${newBuyBack.itemName} | ${newBuyBack.payoutMethod.toUpperCase()}`,
+    amount: newBuyBack.totalPayoutAmount,
+    payment_method: paymentChannel,
+    created_at: new Date().toISOString(),
+  };
+
   try {
-    supabase.from('transactions').insert({
-      business_id: bid,
-      transaction_date: newBuyBack.purchaseDate,
-      vendor: `Customer Buy-Back: ${newBuyBack.customerName}`,
-      type: 'cost_of_goods',
-      category: `Direct Stock Purchase from Customer | ${newBuyBack.itemName} | ${newBuyBack.payoutMethod.toUpperCase()}`,
-      amount: newBuyBack.totalPayoutAmount,
-      payment_method: newBuyBack.payoutMethod === 'momo' ? 'cash' : 'cash',
-    }).then(() => {});
+    const existingTxs = getCachedTransactions(bid);
+    setCachedTransactions([buyBackTx, ...existingTxs], bid);
+    broadcastUpdate('ams:transactions-updated');
+
+    if (bid && bid !== 'default_biz') {
+      supabase.from('transactions').insert(buyBackTx).then(() => {});
+    }
   } catch (_e) {}
 
   const updatedBuyBacks = [newBuyBack, ...current];

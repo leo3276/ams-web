@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ARCHETYPES, BusinessArchetypeId } from '@/lib/archetypes/config';
 import { useArchetype } from '@/lib/ArchetypeContext';
-import { setCachedBusiness, getCachedBusiness, getBusinessSecurityPin, setBusinessSecurityPin, getAccountantSecurityPin, setAccountantSecurityPin } from '@/lib/offlineStore';
+import { setCachedBusiness, getCachedBusiness, getBusinessSecurityPin, setBusinessSecurityPin, getAccountantSecurityPin, setAccountantSecurityPin, resolveActiveBusiness } from '@/lib/offlineStore';
 
 const CURRENCIES = ['GHS', 'USD', 'NGN', 'EUR', 'GBP', 'KES', 'ZAR'];
 const FISCAL_STARTS = [
@@ -43,44 +43,15 @@ export default function BusinessProfilePage() {
         }
 
         const userId = session.user.id;
-        const currentCached = getCachedBusiness();
-        let targetBizId = currentCached?.id;
-
-        let b: any = null;
-        if (targetBizId && targetBizId !== 'default_biz') {
-          const { data: foundBiz } = await supabase
-            .from('businesses')
-            .select('*')
-            .eq('id', targetBizId)
-            .single();
-          b = foundBiz;
-        }
-
-        if (!b) {
-          const { data: businesses } = await supabase
-            .from('businesses')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: true })
-            .limit(1);
-          b = businesses?.[0];
-        }
+        const b = await resolveActiveBusiness(userId);
 
         if (b) {
           setExistingBusinessId(b.id);
           setBusinessName(b.name || '');
           setCurrency(b.currency || 'GHS');
-          setFiscalStart(b.fiscal_year_start || 'January');
+          setFiscalStart((b as any).fiscal_year_start || 'January');
           setBranchSecurityPin(getBusinessSecurityPin(b.id));
           const existingAccPin = getAccountantSecurityPin(b.id);
-          if (existingAccPin) setAccountantPin(existingAccPin);
-          setSelectedArchetype('retail_wholesale');
-        } else if (currentCached) {
-          setExistingBusinessId(currentCached.id);
-          setBusinessName(currentCached.name || '');
-          setCurrency(currentCached.currency || 'GHS');
-          setBranchSecurityPin(getBusinessSecurityPin(currentCached.id));
-          const existingAccPin = getAccountantSecurityPin(currentCached.id);
           if (existingAccPin) setAccountantPin(existingAccPin);
           setSelectedArchetype('retail_wholesale');
         } else {
@@ -172,6 +143,11 @@ export default function BusinessProfilePage() {
         }
       } catch (_supabaseErr) {
         // Local cache handles offline mode
+      }
+
+      // Broadcast update to layout navbar and all open views
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('ams:business-updated'));
       }
 
       setLoading(false);

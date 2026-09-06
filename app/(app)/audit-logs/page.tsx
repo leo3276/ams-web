@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { AuditLogEntry, fetchAuditLogs, logAuditEvent } from '@/lib/auditLogger';
+import { AuditLogEntry, fetchAuditLogs, logAuditEvent, getCachedAuditLogs } from '@/lib/auditLogger';
 import { getCachedBusiness } from '@/lib/offlineStore';
 import { useUserRole } from '@/lib/RoleContext';
+import { printAuditTrailReportPDF } from '@/lib/pdfGenerator';
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -16,14 +17,36 @@ export default function AuditLogsPage() {
   const business = getCachedBusiness();
 
   useEffect(() => {
-    const loadLogs = async () => {
-      setLoading(true);
-      const data = await fetchAuditLogs();
-      setLogs(data);
+    // 1. Instant 0ms load from local cache
+    const cached = getCachedAuditLogs(business?.id);
+    if (cached.length > 0) {
+      setLogs(cached);
       setLoading(false);
+    }
+
+    // 2. Fetch remote / backfill in background
+    const loadLogs = async () => {
+      try {
+        const data = await fetchAuditLogs(business?.id);
+        if (data && data.length > 0) {
+          setLogs(data);
+        }
+      } finally {
+        setLoading(false);
+      }
     };
     loadLogs();
-  }, []);
+
+    const handleAuditUpdate = () => {
+      const refreshed = getCachedAuditLogs(business?.id);
+      if (refreshed.length > 0) setLogs(refreshed);
+    };
+
+    window.addEventListener('ams:audit-logs-updated', handleAuditUpdate);
+    return () => {
+      window.removeEventListener('ams:audit-logs-updated', handleAuditUpdate);
+    };
+  }, [business?.id]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
@@ -110,11 +133,23 @@ export default function AuditLogsPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={handleExportCSV}
+            onClick={() =>
+              printAuditTrailReportPDF(
+                filteredLogs,
+                { name: business?.name || 'My Business', currency: business?.currency || 'GHS', taxId: null }
+              )
+            }
             disabled={filteredLogs.length === 0}
             className="px-3.5 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold hover:opacity-90 transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
           >
-            <span>📥</span> Export Audit Report (CSV)
+            <span>📄</span> Export Stylish PDF
+          </button>
+          <button
+            onClick={handleExportCSV}
+            disabled={filteredLogs.length === 0}
+            className="px-3.5 py-2 rounded-lg border border-border bg-surface2 text-textPrimary text-xs font-bold hover:bg-surface1 transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <span>📥</span> CSV
           </button>
         </div>
       </div>

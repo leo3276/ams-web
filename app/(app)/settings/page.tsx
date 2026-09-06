@@ -101,9 +101,61 @@ export default function SettingsPage() {
   const [reportFrequency, setReportFrequency] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [executiveEmail, setExecutiveEmail] = useState('');
   const [executiveWhatsApp, setExecutiveWhatsApp] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [savedMsg, setSavedMsg] = useState(false);
+  const [updaterStatus, setUpdaterStatus] = useState<string | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateReady, setUpdateReady] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.onUpdaterStatus) {
+      const unsub = (window as any).electronAPI.onUpdaterStatus((info: any) => {
+        if (info.status === 'checking') {
+          setUpdaterStatus('Checking GitHub Releases for updates…');
+        } else if (info.status === 'available') {
+          setUpdaterStatus(`New update v${info.version} found! Downloading in background…`);
+        } else if (info.status === 'downloading') {
+          setUpdaterStatus(`Downloading update: ${info.percent}%`);
+        } else if (info.status === 'downloaded') {
+          setUpdateReady(info.version || 'latest');
+          setUpdaterStatus(`✓ Update v${info.version} downloaded! Restart to apply.`);
+        } else if (info.status === 'up-to-date') {
+          setUpdaterStatus('✓ You are running the latest version.');
+        } else if (info.status === 'error') {
+          setUpdaterStatus('Auto-update check completed.');
+        }
+      });
+      return () => {
+        if (typeof unsub === 'function') unsub();
+      };
+    }
+  }, []);
+
+  const handleCheckForUpdates = async () => {
+    if (typeof window === 'undefined' || !(window as any).electronAPI?.checkForUpdates) {
+      setUpdaterStatus('Auto-updates run automatically in the installed desktop workstation.');
+      return;
+    }
+    setCheckingUpdate(true);
+    setUpdaterStatus('Checking for latest release…');
+    try {
+      const res = await (window as any).electronAPI.checkForUpdates();
+      if (res?.status === 'error') {
+        setUpdaterStatus('Could not check updates: ' + (res.message || 'Offline or network error'));
+      }
+    } catch (_e) {
+      setUpdaterStatus('Check complete.');
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const handleRestartToUpdate = () => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.restartAndInstallUpdate) {
+      (window as any).electronAPI.restartAndInstallUpdate();
+    }
+  };
 
   useEffect(() => {
     async function loadRemoteSettings() {
@@ -454,15 +506,58 @@ export default function SettingsPage() {
 
       {/* Build & Workstation Information */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">💻</span>
-            <h2 className="text-sm font-bold text-slate-900">Workstation &amp; App Version</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">💻</span>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Workstation &amp; App Version</h2>
+              <p className="text-[11px] text-slate-500">Silent auto-updates powered by GitHub Releases</p>
+            </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-            v1.0.9 · Release
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+              v1.0.9 · Release
+            </span>
+            {updateReady ? (
+              <button
+                type="button"
+                onClick={handleRestartToUpdate}
+                className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition animate-pulse flex items-center gap-1.5"
+              >
+                <span>🚀</span> Restart to Apply v{updateReady}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCheckForUpdates}
+                disabled={checkingUpdate}
+                className="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <span>{checkingUpdate ? '⏳' : '🔄'}</span>
+                {checkingUpdate ? 'Checking…' : 'Check for Updates'}
+              </button>
+            )}
+          </div>
         </div>
+
+        {updaterStatus && (
+          <div className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+            updateReady 
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+              : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}>
+            <span className="font-medium">{updaterStatus}</span>
+            {updateReady && (
+              <button
+                type="button"
+                onClick={handleRestartToUpdate}
+                className="px-2.5 py-1 text-[11px] font-bold bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition"
+              >
+                Restart Now
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">

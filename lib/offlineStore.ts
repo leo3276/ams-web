@@ -284,7 +284,18 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
     return cachedBiz;
   }
 
-  return null;
+  // 5. Resilient Auto-Provisioning: Guarantee new users & offline accounts are never stranded with null business
+  const fallbackBiz: CachedBusiness = {
+    id: `biz_${activeUserId || 'enterprise'}_${Date.now()}`,
+    name: 'My Enterprise',
+    currency: 'GHS',
+    user_id: activeUserId || undefined,
+    business_type: 'retail_wholesale',
+    industry: 'Commercial Retail & Wholesale',
+    fiscal_year_start: 'January',
+  };
+  setCachedBusiness(fallbackBiz);
+  return fallbackBiz;
 }
 
 // 2. Inventory Cache (Scoped by business)

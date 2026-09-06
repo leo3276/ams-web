@@ -361,7 +361,7 @@ export default function MigratePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [category, setCategory] = useState<MigrationCategory>('inventory');
-  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [currentBusinessId, setCurrentBusinessId] = useState<string | null>(null);
   const [currency, setCurrency] = useState('GHS');
   const [loadingBusiness, setLoadingBusiness] = useState(true);
 
@@ -391,9 +391,14 @@ export default function MigratePage() {
   useEffect(() => {
     async function init() {
       setLoadingBusiness(true);
+      const cached = getCachedBusiness();
+      if (cached?.id) {
+        setCurrentBusinessId(cached.id);
+        setCurrency(cached.currency || 'GHS');
+      }
       const biz = await resolveActiveBusiness();
-      if (biz) {
-        setBusinessId(biz.id);
+      if (biz?.id) {
+        setCurrentBusinessId(biz.id);
         setCurrency(biz.currency || 'GHS');
       }
       setLoadingBusiness(false);
@@ -775,10 +780,21 @@ export default function MigratePage() {
 
   // Execute Batch Ingestion into Supabase
   const handleExecuteImport = async () => {
-    if (!businessId) {
-      setErrorMsg('No business ID found. Please make sure you are logged in.');
+    let activeBid = currentBusinessId;
+    if (!activeBid) {
+      const resolved = await resolveActiveBusiness();
+      activeBid = resolved?.id || getCachedBusiness()?.id || null;
+      if (activeBid) {
+        setCurrentBusinessId(activeBid);
+      }
+    }
+
+    if (!activeBid) {
+      setErrorMsg('No business profile found. Please make sure you are logged in or configure your profile in Settings.');
       return;
     }
+
+    const businessId = activeBid;
 
     const validRecords = parsedRecords.filter((r) => r.isValid);
     if (validRecords.length === 0) {

@@ -46,6 +46,8 @@ jobs:
         with:
           files: |
             dist/*.exe
+            dist/*.exe.blockmap
+            dist/latest.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -87,6 +89,9 @@ jobs:
         with:
           files: |
             dist/*.dmg
+            dist/*.dmg.blockmap
             dist/*.zip
+            dist/*.zip.blockmap
+            dist/latest-mac.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

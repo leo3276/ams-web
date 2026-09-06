@@ -103,8 +103,8 @@ const CATEGORY_CONFIG: Record<
   suppliers: {
     label: 'Suppliers & Vendor Payables',
     icon: '🏭',
-    description: 'Supplier directory, credit balances owed (Short-Term Liabilities), payment terms, and due dates.',
-    destination: 'Suppliers & Creditor Debt Book (suppliers & payables)',
+    description: 'Supplier directory, credit balances owed (Short-Term Liabilities), payment terms, and inventory goods supplied.',
+    destination: 'Suppliers & Creditor Debt Book (suppliers & payables + inventory)',
     fields: [
       { key: 'name', label: 'Supplier / Vendor Name', required: true, type: 'text', matchedHeader: null },
       { key: 'phone', label: 'Phone / WhatsApp', required: false, type: 'text', matchedHeader: null },
@@ -114,6 +114,11 @@ const CATEGORY_CONFIG: Record<
       { key: 'payment_terms', label: 'Payment Terms (e.g. Net 30, COD)', required: false, type: 'text', matchedHeader: null },
       { key: 'due_date', label: 'Payment Due Date (YYYY-MM-DD)', required: false, type: 'text', matchedHeader: null },
       { key: 'notes', label: 'Location / Terms / Notes', required: false, type: 'text', matchedHeader: null },
+      { key: 'item_name', label: 'Supplied Goods / Item Name (Inventory)', required: false, type: 'text', matchedHeader: null },
+      { key: 'quantity', label: 'Quantity Supplied / Stock Qty', required: false, type: 'number', matchedHeader: null },
+      { key: 'unit_cost', label: 'Unit Cost (Buying Price)', required: false, type: 'number', matchedHeader: null },
+      { key: 'unit_price', label: 'Unit Price (Selling Price)', required: false, type: 'number', matchedHeader: null },
+      { key: 'barcode', label: 'Barcode / SKU', required: false, type: 'text', matchedHeader: null },
     ],
   },
   opening_balances: {
@@ -160,7 +165,8 @@ const CATEGORY_CONFIG: Record<
 };
 
 const FUZZY_DICTIONARY: Record<string, string[]> = {
-  name: ['itemname', 'productname', 'description', 'suppliername', 'employeename', 'staffname', 'fullname', 'clientname', 'customername', 'name', 'item', 'product', 'desc', 'title', 'goods', 'asset', 'equipment', 'supplier', 'vendor'],
+  name: ['suppliername', 'vendorname', 'companyname', 'employeename', 'staffname', 'fullname', 'clientname', 'customername', 'name', 'title', 'supplier', 'vendor'],
+  item_name: ['itemname', 'goodsname', 'suppliedgoods', 'itemsupplied', 'productsupplied', 'inventorygoods', 'goods', 'product', 'productname', 'items', 'item', 'merchandise', 'materials', 'desc', 'description'],
   barcode: ['barcode', 'sku', 'itemcode', 'upc', 'ean', 'partnumber', 'code', 'serial', 'id'],
   quantity: ['qtyavailable', 'qtyonhand', 'stockquantity', 'quantity', 'qty', 'stock', 'available', 'units', 'count', 'inventory', 'pieces'],
   unit_cost: ['unitcostprice', 'buyingprice', 'purchaseprice', 'unitcost', 'costprice', 'buyprice', 'buyingcost', 'costperunit', 'cost', 'buying'],
@@ -683,6 +689,11 @@ export default function MigratePage() {
         const terms = String(row[keyToHeader.payment_terms || ''] || '').trim() || 'Net 30';
         const dueDate = row[keyToHeader.due_date || ''] ? cleanDate(row[keyToHeader.due_date || '']) : null;
         const notes = String(row[keyToHeader.notes || ''] || '').trim();
+        const itemName = String(row[keyToHeader.item_name || ''] || '').trim();
+        const quantity = cleanNumber(row[keyToHeader.quantity || '']);
+        const unitCost = cleanNumber(row[keyToHeader.unit_cost || '']);
+        const unitPrice = cleanNumber(row[keyToHeader.unit_price || '']);
+        const barcode = String(row[keyToHeader.barcode || ''] || '').trim();
 
         return {
           _id: index,
@@ -694,6 +705,11 @@ export default function MigratePage() {
           payment_terms: terms,
           due_date: dueDate,
           notes: notes || null,
+          item_name: itemName || null,
+          quantity: quantity || 0,
+          unit_cost: unitCost || 0,
+          unit_price: unitPrice || 0,
+          barcode: barcode || null,
           isValid: Boolean(name),
         };
       }
@@ -1041,15 +1057,15 @@ export default function MigratePage() {
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Ledger Transactions' });
       }
 
-      // 6. SUPPLIERS & VENDOR PAYABLES (CREDITORS)
+      // 6. SUPPLIERS & VENDOR PAYABLES (CREDITORS) + INVENTORY GOODS
       if (category === 'suppliers') {
         const supplierList = validRecords.map((r: any, idx: number) => ({
-          id: 'sup_' + Date.now() + '_' + idx,
+          id: 'sup_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 6),
           business_id: businessId,
           name: r.name,
           phone: r.phone || null,
           email: r.email || null,
-          category: r.category || 'General Goods',
+          category: r.category || 'Inventory Goods',
           debt_type: 'inventory' as const,
           balance_owed: Number(r.balance_owed || 0),
           starting_debt: Number(r.balance_owed || 0),
@@ -1060,20 +1076,82 @@ export default function MigratePage() {
           updated_at: new Date().toISOString(),
         }));
 
-        // Insert into ledger transactions as Short-Term Liabilities
+        // A. PUSH SUPPLIER INVENTORY GOODS INTO INVENTORY CATALOG
+        const goodsItems: any[] = [];
+        validRecords.forEach((r: any, idx: number) => {
+          const hasExplicitGoods = Boolean(r.item_name || Number(r.quantity || 0) > 0);
+          const isInventoryCategory = Boolean(
+            (r.category && /inventory|stock|goods|material|produce|merchandise|retail|wholesale/i.test(r.category)) ||
+            (r.notes && /inventory|stock|goods/i.test(r.notes))
+          );
+
+          if (hasExplicitGoods || isInventoryCategory) {
+            const qty = Math.max(1, Number(r.quantity || 1));
+            let unitCost = Number(r.unit_cost || 0);
+            if (unitCost <= 0 && Number(r.balance_owed || 0) > 0) {
+              unitCost = Math.round((Number(r.balance_owed) / qty) * 100) / 100;
+            }
+            let unitPrice = Number(r.unit_price || 0);
+            if (unitPrice <= 0 && unitCost > 0) {
+              unitPrice = Math.round(unitCost * 1.25 * 100) / 100;
+            }
+
+            const itemName = r.item_name
+              ? String(r.item_name).trim()
+              : (r.category && !/general/i.test(r.category) ? `${r.name} - ${r.category}` : `${r.name} Stock Items`);
+
+            // Generate UUID for Supabase inventory_items table
+            const itemId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+              ? crypto.randomUUID() 
+              : `inv_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
+
+            goodsItems.push({
+              id: itemId,
+              business_id: businessId,
+              name: itemName,
+              barcode: r.barcode || '',
+              quantity: qty,
+              unit_cost: unitCost,
+              unit_price: unitPrice,
+              created_at: new Date().toISOString(),
+            });
+          }
+        });
+
+        if (goodsItems.length > 0) {
+          for (let i = 0; i < goodsItems.length; i += chunkSize) {
+            const chunk = goodsItems.slice(i, i + chunkSize);
+            const { error } = await supabase.from('inventory_items').insert(chunk);
+            if (error) console.warn('Supabase supplier goods insert notice (saving locally):', error.message);
+          }
+
+          // Merge into local offline inventory cache
+          try {
+            const currentCachedInv = getCachedInventory(businessId);
+            const mergedInv = [...goodsItems, ...currentCachedInv];
+            setCachedInventory(mergedInv as any, businessId);
+            window.dispatchEvent(new Event('ams:inventory-updated'));
+          } catch (_e) {}
+        }
+
+        // B. Insert into ledger transactions as Short-Term Liabilities (Accounts Payable)
+        const todayIso = new Date().toISOString().split('T')[0];
         const payablePayload = validRecords
           .filter((r: any) => Number(r.balance_owed || 0) > 0)
-          .map((r: any, idx: number) => ({
-            id: `pay_${Date.now()}_${idx}`,
-            business_id: businessId,
-            transaction_date: r.due_date || new Date().toISOString().split('T')[0],
-            vendor: `Supplier: ${r.name}`,
-            type: 'short_term_liability',
-            category: `Accounts Payable | ${r.category || 'General Goods'} | phone:${r.phone || ''} | terms:${r.payment_terms || 'Net 30'} | debtType:inventory | due:${r.due_date || ''}`,
-            amount: Number(r.balance_owed || 0),
-            payment_method: 'cash',
-            created_at: new Date().toISOString(),
-          }));
+          .map((r: any, idx: number) => {
+            const sup = supplierList[idx];
+            return {
+              id: sup?.id || `pay_${Date.now()}_${idx}`,
+              business_id: businessId,
+              transaction_date: todayIso, // Current ledger date so liability is immediately recognized on Balance Sheet
+              vendor: `Supplier: ${r.name}`,
+              type: 'short_term_liability',
+              category: 'Accounts Payable',
+              amount: Number(r.balance_owed || 0),
+              payment_method: 'credit',
+              created_at: new Date().toISOString(),
+            };
+          });
 
         if (payablePayload.length > 0) {
           for (let i = 0; i < payablePayload.length; i += chunkSize) {
@@ -1089,7 +1167,7 @@ export default function MigratePage() {
           } catch (_e) {}
         }
 
-        // Also save into scoped local offline supplier cache
+        // C. Save into scoped local offline supplier cache
         try {
           const existing = getCachedSuppliers(businessId);
           const merged = [...supplierList, ...existing];
@@ -1097,7 +1175,21 @@ export default function MigratePage() {
           window.dispatchEvent(new Event('ams:suppliers-data-updated'));
         } catch (_e) {}
 
-        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Suppliers & Creditor Accounts' });
+        logAuditEvent({
+          businessId: businessId,
+          actionType: 'CREATE',
+          entityType: 'supplier',
+          entityId: `mig_sup_${Date.now()}`,
+          entityName: `${validRecords.length} Imported Suppliers`,
+          description: `Bulk imported ${validRecords.length} suppliers and payables via migration totaling ${currency} ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}${goodsItems.length > 0 ? ` (and restocked ${goodsItems.length} goods items into Inventory)` : ''}`,
+          newValue: { count: validRecords.length, totalValuation, goodsCount: goodsItems.length },
+        });
+
+        setImportSuccessStats({ 
+          total: validRecords.length, 
+          value: totalValuation, 
+          entity: goodsItems.length > 0 ? `Suppliers & Restocked ${goodsItems.length} Goods to Inventory` : 'Suppliers & Creditor Accounts' 
+        });
       }
 
       // 7. OPENING BALANCES
@@ -1276,8 +1368,8 @@ export default function MigratePage() {
     } else if (type === 'suppliers') {
       tFileName = 'AMS_Suppliers_Template.xlsx';
       sampleData = [
-        { 'Supplier Name': 'Ghana Rubber Products Ltd', Phone: '0302123456', Email: 'sales@ghanarubber.com', Category: 'Raw Materials', 'Debt Owed': 18500.00, 'Payment Terms': 'Net 30', 'Due Date': '2026-09-30', Notes: 'North Industrial Area' },
-        { 'Supplier Name': 'Olam Agri Ghana', Phone: '0302987654', Email: 'orders@olam.com', Category: 'Inventory Goods', 'Debt Owed': 45000.00, 'Payment Terms': 'Net 60', 'Due Date': '2026-10-15', Notes: 'Bulk grains supplier' },
+        { 'Supplier Name': 'Ghana Rubber Products Ltd', Phone: '0302123456', Email: 'sales@ghanarubber.com', Category: 'Raw Materials', 'Debt Owed': 18500.00, 'Payment Terms': 'Net 30', 'Due Date': '2026-09-30', 'Supplied Item Name': 'Industrial Packaging Crates', Quantity: 50, 'Unit Cost': 370.00, 'Unit Price': 450.00, Barcode: 'CRATE-IND-01', Notes: 'North Industrial Area' },
+        { 'Supplier Name': 'Olam Agri Ghana', Phone: '0302987654', Email: 'orders@olam.com', Category: 'Inventory Goods', 'Debt Owed': 45000.00, 'Payment Terms': 'Net 60', 'Due Date': '2026-10-15', 'Supplied Item Name': 'Royal Aroma Rice 25kg', Quantity: 100, 'Unit Cost': 450.00, 'Unit Price': 520.00, Barcode: 'RIC-25KG-01', Notes: 'Bulk grains supplier' },
       ];
     } else if (type === 'opening_balances') {
       tFileName = 'AMS_Opening_Balances_Template.xlsx';
@@ -1670,6 +1762,7 @@ export default function MigratePage() {
                         <th className="p-3 text-right">Debt Owed (Liability)</th>
                         <th className="p-3">Payment Terms</th>
                         <th className="p-3">Due Date</th>
+                        <th className="p-3">Supplied Goods (Restocked to Inventory)</th>
                       </>
                     )}
                     {category === 'opening_balances' && (
@@ -1768,6 +1861,15 @@ export default function MigratePage() {
                           <td className="p-3 text-right font-black text-red-500">{currency} {Number(r.balance_owed || 0).toFixed(2)}</td>
                           <td className="p-3 text-textSecondary">{r.payment_terms || 'Net 30'}</td>
                           <td className="p-3 text-textSecondary">{r.due_date || '—'}</td>
+                          <td className="p-3 text-textPrimary">
+                            {r.item_name || r.quantity > 0 ? (
+                              <span className="px-2 py-0.5 text-[10px] font-bold bg-brandCyan/20 text-brandCyan rounded flex items-center gap-1 w-fit">
+                                📦 {r.item_name || 'Supplied Goods'} ({r.quantity || 1} units @ {currency} {(r.unit_cost || 0).toFixed(2)})
+                              </span>
+                            ) : (
+                              <span className="text-textSecondary text-[11px]">—</span>
+                            )}
+                          </td>
                         </>
                       )}
 

@@ -19,6 +19,7 @@ export type AuditEntityType =
   | 'invoice'
   | 'inventory_item'
   | 'supplier_payout'
+  | 'supplier'
   | 'staff_member'
   | 'business_profile'
   | 'bank_reconciliation'

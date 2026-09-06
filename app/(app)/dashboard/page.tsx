@@ -15,6 +15,7 @@ import {
   getCachedInvoices,
   setCachedInvoices,
   getCachedSuppliers,
+  setCachedSuppliers,
   resolveActiveBusiness,
 } from '@/lib/offlineStore';
 
@@ -373,13 +374,57 @@ export default function DashboardPage() {
       const finalDebtors = invoiceDebtorsTotal + debtorTxsTotal;
 
       const cachedSups = getCachedSuppliers(business.id);
+      const supsMap = new Map<string, any>();
+      cachedSups.forEach((s) => {
+        const key = (s.name || '').toLowerCase().trim();
+        if (key) supsMap.set(key, s);
+      });
+
+      // Scan all transactions for supplier bills / accounts payable
+      allTxs.forEach((t: any) => {
+        const isSupplierBill =
+          t.type === 'short_term_liability' ||
+          t.type === 'long_term_liability' ||
+          (t.category && t.category.includes('Accounts Payable')) ||
+          (t.vendor && t.vendor.startsWith('Supplier:'));
+
+        if (isSupplierBill) {
+          const rawVendor = (t.vendor || '').replace(/^Supplier:\s*/i, '').trim() || 'Supplier Creditor';
+          const key = rawVendor.toLowerCase().trim();
+          const amt = Number(t.amount || 0);
+          if (key && amt > 0) {
+            const existing = supsMap.get(key);
+            if (!existing) {
+              supsMap.set(key, {
+                id: t.id || `sup_${Date.now()}`,
+                business_id: business.id,
+                name: rawVendor,
+                phone: null,
+                category: 'Accounts Payable',
+                debt_type: t.type === 'long_term_liability' ? 'fixed_asset' : 'inventory',
+                balance_owed: amt,
+                payment_terms: 'Net 30',
+                created_at: t.created_at || t.transaction_date || new Date().toISOString(),
+              });
+            } else if (Number(existing.balance_owed || 0) <= 0) {
+              existing.balance_owed = amt;
+            }
+          }
+        }
+      });
+
+      const activeSuppliers = Array.from(supsMap.values());
+      if (activeSuppliers.length > cachedSups.length) {
+        setCachedSuppliers(activeSuppliers, business.id);
+      }
+
       let tradePayablesCurrentLiabilities = 0;
       let tradePayablesFixedAsset = 0;
       let tradePayablesLongTermLoan = 0;
       let tradePayablesLoanCashInflow = 0;
       let tradePayablesLoanBankInflow = 0;
 
-      cachedSups.forEach((s) => {
+      activeSuppliers.forEach((s) => {
         const b = Number(s.balance_owed || 0);
         if (b <= 0) return;
         const isBankChannel = s.loan_channel === 'bank';

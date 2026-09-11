@@ -10,7 +10,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://amssoftware.site'),
+  metadataBase: new URL('https://amsaccounting.site'),
   title: {
     default: 'AMS Software',
     template: '%s | AMS Software',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   keywords: [
     'AMS Software',
     'AMS',
-    'amssoftware.site',
+    'amsaccounting.site',
     'bookkeeping software',
     'accounting software Ghana',
     'POS software',
@@ -29,11 +29,11 @@ export const metadata: Metadata = {
     'inventory management',
   ],
   alternates: {
-    canonical: 'https://amssoftware.site',
+    canonical: 'https://amsaccounting.site',
   },
   openGraph: {
     type: 'website',
-    url: 'https://amssoftware.site',
+    url: 'https://amsaccounting.site',
     title: 'AMS Software',
     description: 'Smart bookkeeping, invoicing, and financial management for SMEs.',
     siteName: 'AMS Software',

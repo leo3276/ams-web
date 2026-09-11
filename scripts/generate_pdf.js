@@ -122,13 +122,13 @@ const htmlContent = `<!DOCTYPE html>
 <body>
 
 <div class="header-box">
-  <h1>AMS (Accounting Made Simple)</h1>
+  <h1>AMS Software</h1>
   <div class="subtitle">Complete Business Capabilities, System Architecture & User Guide</div>
   <div class="tagline">The All-in-One Dual-Platform Financial Operating System for Growing Businesses</div>
 </div>
 
 <h2>1. Executive Summary</h2>
-<p><strong>AMS (Accounting Made Simple)</strong> is an enterprise-grade financial management and bookkeeping ecosystem designed specifically for SMEs, entrepreneurs, and fast-growing businesses.</p>
+<p><strong>AMS Software</strong> is an enterprise-grade financial management and bookkeeping ecosystem designed specifically for SMEs, entrepreneurs, and fast-growing businesses.</p>
 <p>Historically, business owners have faced a frustrating dilemma: either use overly complicated corporate accounting software requiring specialized accounting degrees, or rely on manual paper notebooks and scattered Excel sheets that lead to tax non-compliance, uncollected debts, and cash flow blind spots.</p>
 <p>AMS resolves this permanently through a <strong>dual-platform ecosystem</strong>:</p>
 <ul>
@@ -263,7 +263,7 @@ const htmlContent = `<!DOCTYPE html>
 </table>
 
 <div class="footer">
-  AMS (Accounting Made Simple) &middot; Enterprise Edition &middot; Built for Modern Business Growth
+  AMS Software &middot; Enterprise Edition &middot; Built for Modern Business Growth
 </div>
 
 </body>

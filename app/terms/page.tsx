@@ -17,7 +17,7 @@ export default function TermsPage() {
           <section className="bg-gray-50 p-4 rounded-xl border border-border">
             <h2 className="text-base font-bold text-textPrimary mb-1">1. Proprietary Software &amp; Ownership</h2>
             <p className="text-textSecondary text-xs leading-relaxed">
-              AMS (Accounting Made Simple), including its mobile and web software, user interface design, branding, database architectures, and proprietary algorithms (Gemini AI Vision OCR, barcode lookup, automated statutory tax schedule calculations, and PDF generation engines) are the exclusive intellectual property and copyright of the creator and owner of AMS.
+              AMS Software, including its mobile and web software, user interface design, branding, database architectures, and proprietary algorithms (Gemini AI Vision OCR, barcode lookup, automated statutory tax schedule calculations, and PDF generation engines) are the exclusive intellectual property and copyright of the creator and owner of AMS.
             </p>
           </section>
 
@@ -44,7 +44,7 @@ export default function TermsPage() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-border text-center text-xs text-textSecondary">
-          © 2026 AMS (Accounting Made Simple) · All Rights Reserved
+          © 2026 AMS Software · All Rights Reserved
         </div>
       </div>
     </div>

@@ -124,7 +124,10 @@ export default function SignUpPage() {
           full_name: cleanName,
           owner_pin: cleanPin,
         },
-        emailRedirectTo: 'https://ams-8nhc3v8sk-fms11.vercel.app/login',
+        emailRedirectTo:
+          typeof window !== 'undefined'
+            ? `${window.location.origin}/login`
+            : 'https://amssoftware.site/login',
       },
     });
 
@@ -258,7 +261,10 @@ export default function SignUpPage() {
       type: 'signup',
       email: cleanEmail,
       options: {
-        emailRedirectTo: 'https://ams-8nhc3v8sk-fms11.vercel.app/login',
+        emailRedirectTo:
+          typeof window !== 'undefined'
+            ? `${window.location.origin}/login`
+            : 'https://amssoftware.site/login',
       },
     });
 

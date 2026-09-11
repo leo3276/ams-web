@@ -562,7 +562,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
             <p className="text-slate-500 font-semibold mb-0.5">Desktop Core</p>
-            <p className="font-bold text-slate-800">AMS Accounting Desktop</p>
+            <p className="font-bold text-slate-800">AMS Software Desktop</p>
           </div>
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
             <p className="text-slate-500 font-semibold mb-0.5">Architecture</p>

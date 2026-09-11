@@ -127,7 +127,7 @@ export function printPnLPdf(
         </table>
 
         <div class="footer">
-          <div>Generated via AMS Accounting Workstation</div>
+          <div>Generated via AMS Software</div>
           <div>${new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </body>

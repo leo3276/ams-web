@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'AMS — Accounting Made Simple',
+    name: 'AMS Software',
     short_name: 'AMS',
     description: 'Smart bookkeeping, invoicing, and financial management for SMEs.',
     start_url: '/dashboard',

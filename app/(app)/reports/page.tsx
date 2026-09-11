@@ -687,7 +687,7 @@ export default function ReportsPage() {
       brief += `  Total Credits:        ${currency} ${totalCredits.toLocaleString()}\n\n`;
     }
 
-    brief += `AMS (Accounting Made Simple) · Certified Report Compilation`;
+    brief += `AMS Software · Certified Report Compilation`;
 
     const blob = new Blob([brief], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

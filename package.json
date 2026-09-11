@@ -1,9 +1,9 @@
 {
   "name": "ams-desktop",
-  "productName": "AMS Accounting",
+  "productName": "AMS Software",
   "version": "1.0.9",
   "private": true,
-  "description": "AMS - Accounting Made Simple Native Desktop Workstation for Small & Medium Businesses",
+  "description": "AMS Software Native Desktop Workstation for Small & Medium Businesses",
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 3000",
@@ -16,9 +16,9 @@
     "dist": "npm run desktop:build"
   },
   "build": {
-    "appId": "com.ams.accounting",
-    "productName": "AMS Accounting",
-    "copyright": "Copyright © 2026 AMS - Accounting Made Simple",
+    "appId": "com.ams.software",
+    "productName": "AMS Software",
+    "copyright": "Copyright © 2026 AMS Software",
     "publish": {
       "provider": "github",
       "owner": "leo3276",
@@ -75,7 +75,7 @@
       "identity": null
     },
     "dmg": {
-      "title": "AMS Accounting Installer",
+      "title": "AMS Software Installer",
       "contents": [
         {
           "x": 130,
@@ -94,7 +94,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "AMS Accounting",
+      "shortcutName": "AMS Software",
       "installerIcon": "electron/assets/icon.ico",
       "uninstallerIcon": "electron/assets/icon.ico",
       "installerHeaderIcon": "electron/assets/icon.ico"

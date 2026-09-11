@@ -42,7 +42,7 @@ const doc = new Document({
       children: [
         // Title
         new Paragraph({
-          text: 'AMS (Accounting Made Simple)',
+          text: 'AMS Software',
           heading: HeadingLevel.TITLE,
           spacing: { after: 120 },
           run: { size: 36, bold: true, color: '0C447C' },
@@ -66,7 +66,7 @@ const doc = new Document({
           run: { bold: true, size: 28, color: '0C447C' },
         }),
         new Paragraph({
-          text: 'AMS (Accounting Made Simple) is an enterprise-grade financial management and bookkeeping ecosystem designed specifically for SMEs, entrepreneurs, and fast-growing businesses.',
+          text: 'AMS Software is an enterprise-grade financial management and bookkeeping ecosystem designed specifically for SMEs, entrepreneurs, and fast-growing businesses.',
           spacing: { after: 120 },
         }),
         new Paragraph({

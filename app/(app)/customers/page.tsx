@@ -65,20 +65,55 @@ export default function CustomersPage() {
         supabase.from('invoices').select('*').eq('business_id', business.id).order('created_at', { ascending: false }),
       ]);
 
+      const remoteInvs = invoicesRes.data ?? [];
+      const localInvs = getCachedInvoices(business.id);
+      const mergedMap = new Map();
+      localInvs.forEach((i: any) => mergedMap.set(i.id || i.invoice_number, i));
+      remoteInvs.forEach((i: any) => mergedMap.set(i.id || i.invoice_number, i));
+      const merged = Array.from(mergedMap.values());
+      if (merged.length > 0) {
+        setAllInvoices(merged);
+        setCachedInvoices(merged as any, business.id);
+      }
+
       if (summaryRes.data && summaryRes.data.length > 0) {
         setCustomers(summaryRes.data);
         setCachedCustomers(summaryRes.data, business.id);
-      }
+      } else if (merged.length > 0) {
+        // Synthesize customer summary from invoices so mobile invoices display immediately on Desktop
+        const custMap = new Map<string, any>();
+        merged.forEach((inv: any) => {
+          const name = (inv.customer_name || 'Customer').trim();
+          const amt = Number(inv.amount || 0);
+          const isPaid = inv.status === 'paid';
+          const isCancelled = inv.status === 'cancelled';
+          if (isCancelled) return;
 
-      if (invoicesRes.data && invoicesRes.data.length > 0) {
-        const remoteInvs = invoicesRes.data ?? [];
-        const localInvs = getCachedInvoices(business.id);
-        const mergedMap = new Map();
-        localInvs.forEach((i: any) => mergedMap.set(i.id || i.invoice_number, i));
-        remoteInvs.forEach((i: any) => mergedMap.set(i.id || i.invoice_number, i));
-        const merged = Array.from(mergedMap.values());
-        setAllInvoices(merged);
-        setCachedInvoices(merged as any, business.id);
+          const existing = custMap.get(name) || {
+            customer_name: name,
+            customer_email: inv.customer_email || null,
+            customer_phone: inv.customer_phone || null,
+            total_invoiced: 0,
+            total_paid: 0,
+            total_outstanding: 0,
+            invoice_count: 0,
+            last_invoice_date: inv.due_date || inv.created_at,
+          };
+
+          existing.invoice_count += 1;
+          existing.total_invoiced += amt;
+          if (isPaid) {
+            existing.total_paid += amt;
+          } else {
+            existing.total_outstanding += amt;
+          }
+          if (inv.customer_email && !existing.customer_email) existing.customer_email = inv.customer_email;
+          if (inv.customer_phone && !existing.customer_phone) existing.customer_phone = inv.customer_phone;
+          custMap.set(name, existing);
+        });
+        const derived = Array.from(custMap.values());
+        setCustomers(derived);
+        setCachedCustomers(derived, business.id);
       }
     } catch (_e) {
       // offline fallback
@@ -104,7 +139,7 @@ export default function CustomersPage() {
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       const matchesSearch =
-        c.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.customer_email && c.customer_email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (c.customer_phone && c.customer_phone.includes(searchTerm));
 

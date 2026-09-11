@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-base font-bold text-textPrimary mb-1">1. Information We Collect</h2>
             <p className="text-textSecondary text-xs leading-relaxed">
-              We collect user account information (such as name and email address) and business bookkeeping data (receipt images, transactions, invoice records, and inventory listings) strictly to deliver the AMS accounting software service.
+              We collect user account information (such as name and email address) and business bookkeeping data (receipt images, transactions, invoice records, and inventory listings) strictly to deliver the AMS Software service.
             </p>
           </section>
 
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-border text-center text-xs text-textSecondary">
-          © 2026 AMS (Accounting Made Simple) · All Rights Reserved
+          © 2026 AMS Software · All Rights Reserved
         </div>
       </div>
     </div>

@@ -196,45 +196,51 @@ export default function SuppliersPage() {
     // Load cached records (combining business-specific cache and general fallback)
     let sups = getCachedSuppliers(bid);
 
-    // Only fallback to Supabase transactions if local suppliers list has never been initialized
-    const cacheKey = `ams_suppliers_initialized_${bid}`;
-    const hasInitialized = typeof window !== 'undefined' && localStorage.getItem(cacheKey);
-    if (!hasInitialized && sups.length === 0 && bid && bid !== 'default_biz') {
+    // Continuous sync with Supabase cloud transactions across Desktop, Web & Mobile
+    if (bid && bid !== 'default_biz') {
       try {
         const { data: txs } = await supabase
           .from('transactions')
           .select('*')
-          .eq('business_id', bid)
-          .eq('type', 'short_term_liability');
+          .eq('business_id', bid);
 
         if (txs && txs.length > 0) {
-          const merged: Supplier[] = [];
+          const merged: Supplier[] = [...sups];
           txs.forEach((tx: any) => {
-            const rawVendor = tx.vendor ? tx.vendor.replace('Supplier:', '').trim() : 'Vendor';
-            const existingIdx = merged.findIndex((s) => s.name.toLowerCase() === rawVendor.toLowerCase());
-            if (existingIdx >= 0) {
-              merged[existingIdx].balance_owed = Number(tx.amount || 0);
-            } else {
-              merged.push({
-                id: isUUID(tx.id) ? tx.id : generateUUID(),
-                business_id: bid,
-                name: rawVendor,
-                phone: null,
-                category: 'General Goods',
-                debt_type: 'inventory',
-                payment_terms: 'Net 30',
-                balance_owed: Number(tx.amount || 0),
-                created_at: tx.created_at || new Date().toISOString(),
-              });
+            const rawVendor = tx.vendor ? tx.vendor.replace(/^Supplier:\s*/i, '').replace(/^Vendor:\s*/i, '').trim() : '';
+            const cat = (tx.category || '').toLowerCase();
+            const isSupplierTx =
+              tx.type === 'short_term_liability' ||
+              tx.type === 'long_term_liability' ||
+              cat.includes('payable') ||
+              cat.includes('creditor') ||
+              (tx.vendor && tx.vendor.toLowerCase().startsWith('supplier:'));
+
+            if (isSupplierTx && rawVendor && rawVendor.toLowerCase() !== 'accounts payable') {
+              const existingIdx = merged.findIndex((s) => (s.name || '').toLowerCase() === rawVendor.toLowerCase());
+              if (existingIdx >= 0) {
+                if (Number(merged[existingIdx].balance_owed || 0) <= 0 && Number(tx.amount || 0) > 0) {
+                  merged[existingIdx].balance_owed = Number(tx.amount || 0);
+                }
+              } else {
+                merged.push({
+                  id: isUUID(tx.id) ? tx.id : generateUUID(),
+                  business_id: bid,
+                  name: rawVendor,
+                  phone: null,
+                  category: 'General Goods',
+                  debt_type: tx.type === 'long_term_liability' ? 'fixed_asset' : 'inventory',
+                  payment_terms: 'Net 30',
+                  balance_owed: Number(tx.amount || 0),
+                  created_at: tx.created_at || new Date().toISOString(),
+                });
+              }
             }
           });
           sups = merged;
           setCachedSuppliers(merged, bid);
         }
-        localStorage.setItem(cacheKey, 'true');
       } catch (_e) {}
-    } else if (typeof window !== 'undefined' && !hasInitialized) {
-      localStorage.setItem(cacheKey, 'true');
     }
 
     setSuppliers(sups);
@@ -467,8 +473,8 @@ export default function SuppliersPage() {
 
     addCachedSupplier(newSup, bid);
 
-    // Also record supplier starting debt bill to Supabase transactions so it syncs across all pages
-    if (startingDebt > 0 && bid && isUUID(bid)) {
+    // Also record supplier record to Supabase transactions so it syncs across all pages and mobile
+    if (bid && isUUID(bid)) {
       supabase
         .from('transactions')
         .insert({
@@ -478,7 +484,7 @@ export default function SuppliersPage() {
           vendor: `Supplier: ${newSup.name}`,
           type: formDebtType === 'fixed_asset' || formDebtType === 'long_term_loan' ? 'long_term_liability' : 'short_term_liability',
           category: 'Accounts Payable',
-          amount: startingDebt,
+          amount: Number(startingDebt || 0),
           payment_method: formLoanChannel === 'cash' ? 'cash' : 'bank',
         })
         .then(() => {});

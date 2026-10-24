@@ -1,7 +1,7 @@
 {
   "name": "ams-desktop",
   "productName": "AMS Software",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "private": true,
   "description": "AMS Software Native Desktop Workstation for Small & Medium Businesses",
   "main": "electron/main.js",

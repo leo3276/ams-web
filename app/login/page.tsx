@@ -60,18 +60,25 @@ export default function LoginPage() {
     checkActiveSession();
   }, []);
 
+  const resolveIdentifier = (input: string) => {
+    const trimmed = (input || '').trim();
+    if (trimmed.includes('@')) return trimmed.toLowerCase();
+    const digits = trimmed.replace(/[^0-9]/g, '');
+    if (digits.startsWith('233') && digits.length === 12) return `${digits}@amsaccounting.site`;
+    if (digits.startsWith('0') && digits.length === 10) return `233${digits.slice(1)}@amsaccounting.site`;
+    if (digits.length === 9) return `233${digits}@amsaccounting.site`;
+    return `${digits}@amsaccounting.site`;
+  };
+
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (selectedRole === 'owner' && !ownerPin.trim()) {
-      setErrorMsg('Please enter your Master Owner Security PIN.');
-      return;
-    }
+    const resolvedEmail = resolveIdentifier(email);
 
     // Offline bypass if network is absent
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const emailPinKey = `ams:owner_pin:${email.trim().toLowerCase()}`;
+      const emailPinKey = `ams:owner_pin:${resolvedEmail}`;
       const cachedPin = localStorage.getItem(emailPinKey);
       if (selectedRole === 'owner' && cachedPin && ownerPin.trim() !== cachedPin) {
         setErrorMsg('Incorrect Master Owner Security PIN for offline access.');
@@ -87,7 +94,7 @@ export default function LoginPage() {
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: resolvedEmail,
         password: password.trim(),
       });
 
@@ -95,7 +102,7 @@ export default function LoginPage() {
       if (error) {
         // If network failed, attempt offline cached auth
         if (error.message?.includes('fetch') || error.message?.includes('network')) {
-          const emailPinKey = `ams:owner_pin:${email.trim().toLowerCase()}`;
+          const emailPinKey = `ams:owner_pin:${resolvedEmail}`;
           const cachedPin = localStorage.getItem(emailPinKey);
           if (selectedRole === 'owner' && cachedPin && ownerPin.trim() !== cachedPin) {
             setErrorMsg('Offline mode: Incorrect Master Owner Security PIN.');
@@ -167,7 +174,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface2 px-4 py-12">
       <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-sm border border-border">
         <h1 className="text-2xl font-bold text-textPrimary mb-1">Welcome back</h1>
-        <p className="text-xs text-textSecondary mb-5">Log in to manage your books, stock, and reports.</p>
+        <p className="text-xs text-textSecondary mb-5">Log in with your AMS Lite or AMS Pro email or phone number.</p>
 
         {/* Role Selector */}
         <label className="block text-xs font-bold text-textSecondary mb-1.5">Select your role</label>
@@ -197,13 +204,13 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handlePasswordLogin}>
-          <label className="block text-xs font-semibold text-textSecondary mb-1">Email</label>
+          <label className="block text-xs font-semibold text-textSecondary mb-1">Email or Phone Number</label>
           <input
-            type="email"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-textPrimary"
-            placeholder="name@business.com"
+            placeholder="024 123 4567 or name@business.com"
             required
           />
 
@@ -219,18 +226,17 @@ export default function LoginPage() {
 
           {selectedRole === 'owner' && (
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-textSecondary mb-1">Owner Master PIN</label>
+              <label className="block text-xs font-semibold text-textSecondary mb-1">Owner Master PIN (Optional for Lite accounts)</label>
               <input
                 type="password"
                 maxLength={6}
                 value={ownerPin}
                 onChange={(e) => setOwnerPin(e.target.value)}
                 className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-1 focus:outline-none focus:border-textPrimary"
-                placeholder="Enter 4-6 digit Owner PIN"
-                required
+                placeholder="Enter 4-6 digit Owner PIN if set"
               />
               <p className="text-[11px] text-textMuted">
-                🔒 Security check: Required to authorize Owner master access.
+                🔒 Leave blank if you created your account in AMS Lite.
               </p>
             </div>
           )}

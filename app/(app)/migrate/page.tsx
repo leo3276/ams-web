@@ -25,14 +25,16 @@ import {
 import { logAuditEvent } from '@/lib/auditLogger';
 
 export type MigrationCategory =
+  | 'sales'
+  | 'expenses'
   | 'inventory'
   | 'invoices'
-  | 'assets'
   | 'customers'
-  | 'transactions'
   | 'suppliers'
+  | 'assets'
   | 'opening_balances'
-  | 'payroll';
+  | 'payroll'
+  | 'transactions';
 
 interface FieldMapping {
   key: string;
@@ -46,6 +48,32 @@ const CATEGORY_CONFIG: Record<
   MigrationCategory,
   { label: string; icon: string; description: string; destination: string; fields: FieldMapping[] }
 > = {
+  sales: {
+    label: 'Sales & Revenue Records',
+    icon: '💰',
+    description: 'Daily sales logs, cash/bank receipts, customer orders, POS transactions, and revenue entries.',
+    destination: 'Sales Register, Cash Flow & Revenue Ledger (transactions & sales)',
+    fields: [
+      { key: 'transaction_date', label: 'Sale Date (YYYY-MM-DD)', required: true, type: 'text', matchedHeader: null },
+      { key: 'vendor', label: 'Customer / Item Description / Reference', required: true, type: 'text', matchedHeader: null },
+      { key: 'amount', label: 'Sale Amount', required: true, type: 'number', matchedHeader: null },
+      { key: 'category', label: 'Sales Category / Department', required: false, type: 'text', matchedHeader: null },
+      { key: 'payment_method', label: 'Payment Method (Cash or Bank/MoMo)', required: false, type: 'text', matchedHeader: null },
+    ],
+  },
+  expenses: {
+    label: 'Expenses & Cashbook',
+    icon: '💸',
+    description: 'Vendor disbursements, utility bills, rent, supplies, transport, and daily operating expenses.',
+    destination: 'Bookkeeping & Expense Ledger (transactions: operating_expense)',
+    fields: [
+      { key: 'transaction_date', label: 'Expense Date (YYYY-MM-DD)', required: true, type: 'text', matchedHeader: null },
+      { key: 'vendor', label: 'Payee / Vendor / Particulars', required: true, type: 'text', matchedHeader: null },
+      { key: 'amount', label: 'Expense Amount', required: true, type: 'number', matchedHeader: null },
+      { key: 'category', label: 'Expense Category (Rent, Utilities, etc.)', required: false, type: 'text', matchedHeader: null },
+      { key: 'payment_method', label: 'Payment Method (Cash or Bank/MoMo)', required: false, type: 'text', matchedHeader: null },
+    ],
+  },
   inventory: {
     label: 'Inventory & Stock',
     icon: '📦',
@@ -73,20 +101,6 @@ const CATEGORY_CONFIG: Record<
       { key: 'due_date', label: 'Due Date (YYYY-MM-DD)', required: false, type: 'text', matchedHeader: null },
       { key: 'status', label: 'Status (paid / sent / draft)', required: false, type: 'text', matchedHeader: null },
       { key: 'description', label: 'Description / Line Items', required: false, type: 'text', matchedHeader: null },
-    ],
-  },
-  assets: {
-    label: 'Fixed Assets & Machinery',
-    icon: '🏢',
-    description: 'Capital assets, plant & machinery, vehicles, office equipment, purchase costs, and acquisition dates.',
-    destination: 'Fixed Assets & Capital Allowances (transactions & balance sheet)',
-    fields: [
-      { key: 'name', label: 'Asset Description / Name', required: true, type: 'text', matchedHeader: null },
-      { key: 'category', label: 'Asset Class (Vehicles, Machinery, IT, Furniture)', required: false, type: 'text', matchedHeader: null },
-      { key: 'cost', label: 'Purchase / Acquisition Cost', required: true, type: 'number', matchedHeader: null },
-      { key: 'acquisition_date', label: 'Purchase Date (YYYY-MM-DD)', required: false, type: 'text', matchedHeader: null },
-      { key: 'serial_number', label: 'Serial / Tag #', required: false, type: 'text', matchedHeader: null },
-      { key: 'depreciation_rate', label: 'Annual Depreciation % (e.g. 20%)', required: false, type: 'number', matchedHeader: null },
     ],
   },
   customers: {
@@ -123,6 +137,20 @@ const CATEGORY_CONFIG: Record<
       { key: 'barcode', label: 'Barcode / SKU', required: false, type: 'text', matchedHeader: null },
     ],
   },
+  assets: {
+    label: 'Fixed Assets & Machinery',
+    icon: '🏢',
+    description: 'Capital assets, plant & machinery, vehicles, office equipment, purchase costs, and acquisition dates.',
+    destination: 'Fixed Assets & Capital Allowances (transactions & balance sheet)',
+    fields: [
+      { key: 'name', label: 'Asset Description / Name', required: true, type: 'text', matchedHeader: null },
+      { key: 'category', label: 'Asset Class (Vehicles, Machinery, IT, Furniture)', required: false, type: 'text', matchedHeader: null },
+      { key: 'cost', label: 'Purchase / Acquisition Cost', required: true, type: 'number', matchedHeader: null },
+      { key: 'acquisition_date', label: 'Purchase Date (YYYY-MM-DD)', required: false, type: 'text', matchedHeader: null },
+      { key: 'serial_number', label: 'Serial / Tag #', required: false, type: 'text', matchedHeader: null },
+      { key: 'depreciation_rate', label: 'Annual Depreciation % (e.g. 20%)', required: false, type: 'number', matchedHeader: null },
+    ],
+  },
   opening_balances: {
     label: 'Opening Starting Balances',
     icon: '🏦',
@@ -152,16 +180,17 @@ const CATEGORY_CONFIG: Record<
     ],
   },
   transactions: {
-    label: 'General Ledger Expenses',
+    label: 'General Ledger Cashbook',
     icon: '📋',
-    description: 'Historical income and expense cashbook entries, vendor payments, and operating costs.',
+    description: 'Historical income and expense cashbook entries, multi-category journals, and vendor transactions.',
     destination: 'General Ledger Bookkeeping (transactions)',
     fields: [
       { key: 'transaction_date', label: 'Date (YYYY-MM-DD)', required: true, type: 'text', matchedHeader: null },
       { key: 'vendor', label: 'Description / Vendor / Particulars', required: true, type: 'text', matchedHeader: null },
-      { key: 'type', label: 'Type (revenue or expense)', required: true, type: 'text', matchedHeader: null },
+      { key: 'type', label: 'Type (revenue or expense)', required: false, type: 'text', matchedHeader: null },
       { key: 'amount', label: 'Transaction Amount', required: true, type: 'number', matchedHeader: null },
       { key: 'category', label: 'Expense / Revenue Category', required: false, type: 'text', matchedHeader: null },
+      { key: 'payment_method', label: 'Payment Method (Cash or Bank/MoMo)', required: false, type: 'text', matchedHeader: null },
     ],
   },
 };
@@ -179,7 +208,7 @@ const FUZZY_DICTIONARY: Record<string, string[]> = {
   customer_email: ['customeremail', 'clientemail', 'emailaddress', 'email', 'mail'],
   phone: ['phonenumber', 'whatsapp', 'mobile', 'cell', 'tel', 'contact', 'momo', 'telephone', 'phone'],
   email: ['emailaddress', 'staffemail', 'useremail', 'email', 'mail'],
-  amount: ['invoicetotal', 'grandtotal', 'netamount', 'openingbalance', 'totalamount', 'amount', 'total', 'sum', 'value', 'price'],
+  amount: ['salesamount', 'expenseamount', 'saleamount', 'invoicetotal', 'grandtotal', 'netamount', 'openingbalance', 'totalamount', 'amount', 'total', 'sum', 'value', 'price', 'paid', 'totalpaid'],
   cost: ['purchasecost', 'originalcost', 'buyingcost', 'costprice', 'purchaseprice', 'cost', 'value', 'price'],
   due_date: ['paymentdue', 'invoicedate', 'duedate', 'due', 'expiry', 'date'],
   status: ['paymentstatus', 'paidstatus', 'status', 'state', 'condition'],
@@ -188,11 +217,11 @@ const FUZZY_DICTIONARY: Record<string, string[]> = {
   balance_owed: ['balanceowed', 'debtowed', 'amountowed', 'supplierdebt', 'billdue', 'payable', 'payables', 'debt', 'balance'],
   payment_terms: ['paymentterms', 'creditperiod', 'creditdays', 'terms', 'term', 'days'],
   notes: ['location', 'address', 'remarks', 'comment', 'notes', 'memo', 'terms'],
-  category: ['assetclass', 'supplytype', 'classification', 'category', 'group', 'dept', 'type'],
+  category: ['salescategory', 'expensecategory', 'assetclass', 'supplytype', 'classification', 'category', 'group', 'dept', 'department', 'type', 'account', 'head'],
   acquisition_date: ['purchasedate', 'acquisitiondate', 'installationdate', 'boughton', 'startdate', 'acquired', 'date'],
   serial_number: ['serialnumber', 'chassis', 'assetid', 'serialno', 'serial', 'tag', 'vin'],
   depreciation_rate: ['depreciationrate', 'depreciationpercent', 'annualdepr', 'depreciation', 'depr', 'rate'],
-  transaction_date: ['transactiondate', 'asofdate', 'recordedat', 'txdate', 'date', 'day'],
+  transaction_date: ['saledate', 'expensedate', 'orderdate', 'transactiondate', 'asofdate', 'recordedat', 'txdate', 'date', 'day'],
   as_of_date: ['openingdate', 'statementdate', 'asofdate', 'startdate', 'date'],
   account_name: ['accountname', 'accountdescription', 'bankname', 'account', 'ledger', 'head'],
   account_type: ['accounttype', 'acctype', 'classification', 'type', 'class'],
@@ -200,14 +229,38 @@ const FUZZY_DICTIONARY: Record<string, string[]> = {
   salary: ['basicsalary', 'monthlysalary', 'remuneration', 'salary', 'pay', 'wage', 'amount'],
   branch: ['branchlocation', 'storelocation', 'location', 'branch', 'store', 'shop', 'outlet', 'site'],
   ghana_card_tin: ['ghanacard', 'ssnit', 'idnumber', 'nationalid', 'taxid', 'tin'],
-  vendor: ['particulars', 'payee', 'payer', 'vendor', 'party', 'client', 'description'],
+  vendor: ['particulars', 'payee', 'payer', 'vendor', 'party', 'client', 'customer', 'customername', 'buyer', 'description', 'desc', 'items', 'item', 'itemname', 'details', 'source', 'merchant', 'recipient'],
   type: ['txtype', 'entrytype', 'kind', 'flow', 'type'],
+  payment_method: ['paymentmethod', 'paymentmode', 'paymenttype', 'method', 'mode', 'mop', 'channel', 'tender', 'paidvia', 'payvia', 'wallet', 'account'],
 };
 
 function normalizeStr(str: string): string {
   return String(str || '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
+}
+
+function cleanPaymentMethod(val: any): 'cash' | 'bank' {
+  if (!val) return 'cash';
+  const str = String(val).toLowerCase();
+  if (
+    str.includes('bank') ||
+    str.includes('momo') ||
+    str.includes('mobile') ||
+    str.includes('mtn') ||
+    str.includes('telecel') ||
+    str.includes('airteltigo') ||
+    str.includes('card') ||
+    str.includes('transfer') ||
+    str.includes('pos') ||
+    str.includes('cheque') ||
+    str.includes('check') ||
+    str.includes('wire') ||
+    str.includes('online')
+  ) {
+    return 'bank';
+  }
+  return 'cash';
 }
 
 function cleanNumber(val: any): number {
@@ -274,6 +327,8 @@ function autoClassifyHeaders(headers: string[]): { category: MigrationCategory; 
   const normHeaders = headers.map(normalizeStr);
 
   const scores: Record<MigrationCategory, { score: number; reasons: string[] }> = {
+    sales: { score: 0, reasons: [] },
+    expenses: { score: 0, reasons: [] },
     invoices: { score: 0, reasons: [] },
     assets: { score: 0, reasons: [] },
     inventory: { score: 0, reasons: [] },
@@ -284,9 +339,25 @@ function autoClassifyHeaders(headers: string[]): { category: MigrationCategory; 
     payroll: { score: 0, reasons: [] },
   };
 
+  // Check Sales & Revenue
+  if (normHeaders.some((h) => ['sales', 'sale', 'selling', 'salestotal', 'revenue', 'soldto', 'buyer', 'receiptno', 'pos', 'salesamount', 'cashsale', 'inflow', 'ordertotal'].includes(h))) {
+    scores.sales.score += 7;
+    scores.sales.reasons.push('Sales / Revenue / POS Receipt columns');
+  }
+  if (normHeaders.some((h) => ['customername', 'customer', 'client'].includes(h)) && normHeaders.some((h) => ['amount', 'total', 'price', 'paid'].includes(h)) && !normHeaders.some((h) => ['invoicenumber', 'invno', 'billno'].includes(h))) {
+    scores.sales.score += 4;
+    scores.sales.reasons.push('Customer Sales Receipt / Cash Flow');
+  }
+
+  // Check Expenses & Cashbook
+  if (normHeaders.some((h) => ['expense', 'expenses', 'expenditure', 'disbursement', 'operatingcost', 'billamount', 'voucher', 'overhead', 'vendorpayment', 'outflow'].includes(h))) {
+    scores.expenses.score += 7;
+    scores.expenses.reasons.push('Expense / Operating Cost / Voucher columns');
+  }
+
   // Check Invoices
   if (normHeaders.some((h) => ['invoicenumber', 'invno', 'invoiceno', 'billno', 'invoiceid'].includes(h))) {
-    scores.invoices.score += 5;
+    scores.invoices.score += 6;
     scores.invoices.reasons.push('Invoice Number column');
   }
   if (normHeaders.some((h) => ['duedate', 'paymentstatus', 'billto'].includes(h))) {
@@ -342,10 +413,10 @@ function autoClassifyHeaders(headers: string[]): { category: MigrationCategory; 
     scores.payroll.reasons.push('Staff Name / Salary / SSNIT columns');
   }
 
-  // Check Transactions
-  if (normHeaders.some((h) => ['transactiondate', 'vendor', 'payee', 'txtype', 'expensecategory'].includes(h))) {
-    scores.transactions.score += 4;
-    scores.transactions.reasons.push('Transaction Date / Vendor / Flow');
+  // Check General Ledger Cashbook / Mixed Transactions
+  if (normHeaders.some((h) => ['transactiondate', 'txtype', 'entrytype', 'cashbook', 'ledger'].includes(h))) {
+    scores.transactions.score += 5;
+    scores.transactions.reasons.push('General Ledger Cashbook Flow');
   }
 
   let topCategory: MigrationCategory = 'inventory';
@@ -585,7 +656,47 @@ export default function MigratePage() {
     });
 
     return rawRows.map((row, index) => {
-      // 1. INVENTORY
+      // 1. SALES & REVENUE RECORDS
+      if (category === 'sales') {
+        const date = cleanDate(row[keyToHeader.transaction_date || '']);
+        const vendor = String(row[keyToHeader.vendor || ''] || '').trim();
+        const amount = cleanNumber(row[keyToHeader.amount || '']);
+        const cat = String(row[keyToHeader.category || ''] || '').trim() || 'Sales';
+        const paymentMethod = cleanPaymentMethod(row[keyToHeader.payment_method || '']);
+
+        return {
+          _id: index,
+          transaction_date: date,
+          vendor: vendor || `Sale #${index + 1}`,
+          type: 'revenue',
+          amount: amount || 0,
+          category: cat,
+          payment_method: paymentMethod,
+          isValid: Boolean(amount > 0),
+        };
+      }
+
+      // 2. EXPENSES & CASHBOOK
+      if (category === 'expenses') {
+        const date = cleanDate(row[keyToHeader.transaction_date || '']);
+        const vendor = String(row[keyToHeader.vendor || ''] || '').trim();
+        const amount = cleanNumber(row[keyToHeader.amount || '']);
+        const cat = String(row[keyToHeader.category || ''] || '').trim() || 'Operating Expenses';
+        const paymentMethod = cleanPaymentMethod(row[keyToHeader.payment_method || '']);
+
+        return {
+          _id: index,
+          transaction_date: date,
+          vendor: vendor || `Expense #${index + 1}`,
+          type: 'operating_expense',
+          amount: amount || 0,
+          category: cat,
+          payment_method: paymentMethod,
+          isValid: Boolean(amount > 0),
+        };
+      }
+
+      // 3. INVENTORY
       if (category === 'inventory') {
         const name = String(row[keyToHeader.name || ''] || '').trim();
         const barcode = String(row[keyToHeader.barcode || ''] || '').trim();
@@ -758,23 +869,37 @@ export default function MigratePage() {
         };
       }
 
-      // 8. TRANSACTIONS
+      // 10. GENERAL LEDGER CASHBOOK / MIXED TRANSACTIONS
       if (category === 'transactions') {
         const date = cleanDate(row[keyToHeader.transaction_date || '']);
         const vendor = String(row[keyToHeader.vendor || ''] || '').trim();
         const rawType = String(row[keyToHeader.type || ''] || '').toLowerCase();
-        const type = rawType.includes('rev') || rawType.includes('inc') || rawType.includes('sale') ? 'revenue' : 'operating_expense';
         const amount = cleanNumber(row[keyToHeader.amount || '']);
         const cat = String(row[keyToHeader.category || ''] || '').trim() || 'General Operations';
+        const paymentMethod = cleanPaymentMethod(row[keyToHeader.payment_method || '']);
+
+        let type = 'operating_expense';
+        if (rawType.includes('rev') || rawType.includes('inc') || rawType.includes('sale') || rawType.includes('credit')) {
+          type = 'revenue';
+        } else if (rawType.includes('cogs') || rawType.includes('cost of good') || rawType.includes('purchase')) {
+          type = 'cost_of_goods';
+        } else if (rawType.includes('asset')) {
+          type = 'fixed_asset';
+        } else if (rawType.includes('liability')) {
+          type = 'short_term_liability';
+        } else if (cat.toLowerCase().includes('sale') || cat.toLowerCase().includes('revenue') || vendor.toLowerCase().includes('sale')) {
+          type = 'revenue';
+        }
 
         return {
           _id: index,
           transaction_date: date,
           vendor: vendor || `Entry #${index + 1}`,
           type,
-          amount: amount || 0,
+          amount: Math.abs(amount) || 0,
           category: cat,
-          isValid: Boolean(vendor && amount > 0),
+          payment_method: paymentMethod,
+          isValid: Boolean(amount !== 0),
         };
       }
 
@@ -785,6 +910,8 @@ export default function MigratePage() {
   // Total Summary Stats
   const validCount = parsedRecords.filter((r) => r.isValid).length;
   const totalValuation = parsedRecords.reduce((sum, r: any) => {
+    if (category === 'sales') return sum + (r.amount || 0);
+    if (category === 'expenses') return sum + (r.amount || 0);
     if (category === 'inventory') return sum + (r.quantity || 0) * (r.unit_price || 0);
     if (category === 'invoices') return sum + (r.amount || 0);
     if (category === 'assets') return sum + (r.cost || 0);
@@ -827,7 +954,89 @@ export default function MigratePage() {
     try {
       const chunkSize = 50;
 
-      // 1. INVENTORY
+      // 1. SALES & REVENUE RECORDS
+      if (category === 'sales') {
+        const payload = validRecords.map((r: any) => ({
+          id: generateUUID(),
+          business_id: businessId,
+          transaction_date: r.transaction_date || new Date().toISOString().split('T')[0],
+          vendor: r.vendor || 'Sales Revenue',
+          type: 'revenue',
+          category: r.category || 'Sales',
+          amount: Number(r.amount || 0),
+          payment_method: cleanPaymentMethod(r.payment_method),
+          created_at: new Date().toISOString(),
+        }));
+
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const { error } = await supabase.from('transactions').insert(chunk);
+          if (error) console.warn('Supabase sales insert notice (saving locally):', error.message);
+          setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
+        }
+
+        // Save into local cached transactions so Sales Stream, Dashboard & Bookkeeping display immediately!
+        try {
+          const currentCached = getCachedTransactions(businessId);
+          setCachedTransactions([...payload, ...currentCached], businessId);
+          window.dispatchEvent(new Event('ams:transactions-updated'));
+        } catch (_e) {}
+
+        logAuditEvent({
+          businessId: businessId,
+          actionType: 'CREATE',
+          entityType: 'transaction',
+          entityId: `mig_sales_${Date.now()}`,
+          entityName: `${validRecords.length} Imported Sales Transactions`,
+          description: `Imported ${validRecords.length} sales revenue entries totaling ${currency} ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+          newValue: { count: validRecords.length, totalAmount: totalValuation },
+        });
+
+        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Sales Revenue Transactions' });
+      }
+
+      // 2. EXPENSES & CASHBOOK
+      if (category === 'expenses') {
+        const payload = validRecords.map((r: any) => ({
+          id: generateUUID(),
+          business_id: businessId,
+          transaction_date: r.transaction_date || new Date().toISOString().split('T')[0],
+          vendor: r.vendor || 'Operating Expense',
+          type: 'operating_expense',
+          category: r.category || 'Operating Expenses',
+          amount: Number(r.amount || 0),
+          payment_method: cleanPaymentMethod(r.payment_method),
+          created_at: new Date().toISOString(),
+        }));
+
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const { error } = await supabase.from('transactions').insert(chunk);
+          if (error) console.warn('Supabase expense insert notice (saving locally):', error.message);
+          setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
+        }
+
+        // Save into local cached transactions so Bookkeeping & P&L display immediately!
+        try {
+          const currentCached = getCachedTransactions(businessId);
+          setCachedTransactions([...payload, ...currentCached], businessId);
+          window.dispatchEvent(new Event('ams:transactions-updated'));
+        } catch (_e) {}
+
+        logAuditEvent({
+          businessId: businessId,
+          actionType: 'CREATE',
+          entityType: 'transaction',
+          entityId: `mig_exp_${Date.now()}`,
+          entityName: `${validRecords.length} Imported Operating Expenses`,
+          description: `Imported ${validRecords.length} operating expense records totaling ${currency} ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+          newValue: { count: validRecords.length, totalAmount: totalValuation },
+        });
+
+        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Operating Expense Entries' });
+      }
+
+      // 3. INVENTORY
       if (category === 'inventory') {
         const payload = validRecords.map((r: any) => ({
           id: generateUUID(),
@@ -912,13 +1121,14 @@ export default function MigratePage() {
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Inventory Items' });
       }
 
-      // 2. INVOICES
+      // 4. INVOICES
       if (category === 'invoices') {
         const payload = validRecords.map((r: any, idx: number) => ({
           id: generateUUID(),
           business_id: businessId,
           invoice_number: r.invoice_number || `INV-${1000 + idx}`,
           customer_name: r.customer_name || 'Customer',
+          customer_phone: r.customer_phone || null,
           customer_email: r.customer_email || null,
           amount: Number(r.amount || 0),
           due_date: r.due_date || new Date().toISOString().split('T')[0],
@@ -942,10 +1152,70 @@ export default function MigratePage() {
           window.dispatchEvent(new Event('ams:invoices-updated'));
         } catch (_e) {}
 
+        // For paid invoices, auto-create revenue transactions so Dashboard P&L, Sales stream, and Cashbook reflect funds!
+        const paidInvoices = payload.filter((inv) => inv.status === 'paid');
+        if (paidInvoices.length > 0) {
+          const paidTxs = paidInvoices.map((inv) => ({
+            id: generateUUID(),
+            business_id: businessId,
+            transaction_date: inv.due_date || new Date().toISOString().split('T')[0],
+            vendor: `Invoice Payment: ${inv.customer_name} (${inv.invoice_number})`,
+            type: 'revenue',
+            category: 'Sales',
+            amount: Number(inv.amount || 0),
+            payment_method: 'cash',
+            created_at: new Date().toISOString(),
+          }));
+
+          for (let i = 0; i < paidTxs.length; i += chunkSize) {
+            const chunk = paidTxs.slice(i, i + chunkSize);
+            try {
+              await supabase.from('transactions').insert(chunk);
+            } catch (_e) {}
+          }
+
+          try {
+            const currentCachedTxs = getCachedTransactions(businessId);
+            setCachedTransactions([...paidTxs, ...currentCachedTxs], businessId);
+            window.dispatchEvent(new Event('ams:transactions-updated'));
+          } catch (_e) {}
+        }
+
+        // Auto-sync customer accounts directory from invoices
+        try {
+          const existingCust = getCachedCustomers(businessId);
+          const custMap = new Map();
+          existingCust.forEach((c) => custMap.set(c.customer_name, c));
+          payload.forEach((inv) => {
+            const name = inv.customer_name;
+            const amt = Number(inv.amount || 0);
+            const isPaid = inv.status === 'paid';
+            const cur = custMap.get(name) || {
+              customer_name: name,
+              customer_email: inv.customer_email || null,
+              customer_phone: inv.customer_phone || null,
+              total_invoiced: 0,
+              total_paid: 0,
+              total_outstanding: 0,
+              invoice_count: 0,
+              last_invoice_date: inv.due_date,
+            };
+            cur.invoice_count += 1;
+            cur.total_invoiced += amt;
+            if (isPaid) cur.total_paid += amt;
+            else cur.total_outstanding += amt;
+            if (inv.customer_phone && !cur.customer_phone) cur.customer_phone = inv.customer_phone;
+            if (inv.customer_email && !cur.customer_email) cur.customer_email = inv.customer_email;
+            custMap.set(name, cur);
+          });
+          setCachedCustomers(Array.from(custMap.values()), businessId);
+          window.dispatchEvent(new Event('ams:customers-updated'));
+        } catch (_e) {}
+
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Invoices' });
       }
 
-      // 3. FIXED ASSETS
+      // 5. FIXED ASSETS
       if (category === 'assets') {
         const payload = validRecords.map((r: any) => ({
           id: generateUUID(),
@@ -977,7 +1247,7 @@ export default function MigratePage() {
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Fixed Assets' });
       }
 
-      // 4. CUSTOMERS & RECEIVABLES
+      // 6. CUSTOMERS & RECEIVABLES
       if (category === 'customers') {
         const customerList = validRecords.map((r: any) => ({
           customer_name: r.name,
@@ -990,10 +1260,10 @@ export default function MigratePage() {
           last_invoice_date: new Date().toISOString().split('T')[0],
         }));
 
-        // If customers have outstanding debt, insert receivable entries
-        const debtPayload = validRecords
-          .filter((r: any) => Number(r.balance || 0) > 0)
-          .map((r: any) => ({
+        // If customers have outstanding debt, insert receivable entries into transactions AND invoices
+        const debtorsWithBalance = validRecords.filter((r: any) => Number(r.balance || 0) > 0);
+        if (debtorsWithBalance.length > 0) {
+          const debtPayload = debtorsWithBalance.map((r: any) => ({
             id: generateUUID(),
             business_id: businessId,
             transaction_date: new Date().toISOString().split('T')[0],
@@ -1005,16 +1275,41 @@ export default function MigratePage() {
             created_at: new Date().toISOString(),
           }));
 
-        if (debtPayload.length > 0) {
+          const debtInvoices = debtorsWithBalance.map((r: any, idx: number) => ({
+            id: generateUUID(),
+            business_id: businessId,
+            invoice_number: `INV-OPEN-${1000 + idx}`,
+            customer_name: r.name,
+            customer_phone: r.phone || null,
+            customer_email: r.email || null,
+            amount: Number(r.balance || 0),
+            due_date: new Date().toISOString().split('T')[0],
+            status: 'sent' as const,
+            description: `Opening Receivable Balance: ${r.name}${r.notes ? ` (${r.notes})` : ''}`,
+            created_at: new Date().toISOString(),
+          }));
+
           for (let i = 0; i < debtPayload.length; i += chunkSize) {
             const chunk = debtPayload.slice(i, i + chunkSize);
             const { error } = await supabase.from('transactions').insert(chunk);
             if (error) console.warn('Receivable insert notice (saving locally):', error.message);
           }
+
+          for (let i = 0; i < debtInvoices.length; i += chunkSize) {
+            const chunk = debtInvoices.slice(i, i + chunkSize);
+            try {
+              await supabase.from('invoices').insert(chunk);
+            } catch (_e) {}
+          }
+
           try {
             const currentCachedTxs = getCachedTransactions(businessId);
             setCachedTransactions([...debtPayload, ...currentCachedTxs], businessId);
             window.dispatchEvent(new Event('ams:transactions-updated'));
+
+            const currentCachedInvs = getCachedInvoices(businessId);
+            setCachedInvoices([...debtInvoices, ...currentCachedInvs], businessId);
+            window.dispatchEvent(new Event('ams:invoices-updated'));
           } catch (_e) {}
         }
 
@@ -1027,37 +1322,6 @@ export default function MigratePage() {
         } catch (_e) {}
 
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Customer Accounts' });
-      }
-
-      // 5. TRANSACTIONS (GENERAL LEDGER)
-      if (category === 'transactions') {
-        const payload = validRecords.map((r: any) => ({
-          id: generateUUID(),
-          business_id: businessId,
-          transaction_date: r.transaction_date || new Date().toISOString().split('T')[0],
-          vendor: r.vendor || 'Transaction',
-          type: r.type === 'revenue' ? 'revenue' : 'operating_expense',
-          category: r.category || 'General Operations',
-          amount: Number(r.amount || 0),
-          payment_method: 'cash',
-          created_at: new Date().toISOString(),
-        }));
-
-        for (let i = 0; i < payload.length; i += chunkSize) {
-          const chunk = payload.slice(i, i + chunkSize);
-          const { error } = await supabase.from('transactions').insert(chunk);
-          if (error) console.warn('Supabase tx insert notice (saving locally):', error.message);
-          setImportProgress(Math.min(95, Math.round(((i + chunkSize) / payload.length) * 100)));
-        }
-
-        // Update local offline transactions cache
-        try {
-          const currentCached = getCachedTransactions(businessId);
-          setCachedTransactions([...payload, ...currentCached], businessId);
-          window.dispatchEvent(new Event('ams:transactions-updated'));
-        } catch (_e) {}
-
-        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Ledger Transactions' });
       }
 
       // 6. SUPPLIERS & VENDOR PAYABLES (CREDITORS) + INVENTORY GOODS
@@ -1286,7 +1550,7 @@ export default function MigratePage() {
         setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Staff Members & Payroll' });
       }
 
-      // 9. HISTORICAL TRANSACTIONS & EXPENSES
+      // 10. GENERAL LEDGER CASHBOOK / MIXED TRANSACTIONS
       if (category === 'transactions') {
         const payload = validRecords.map((r: any) => ({
           id: generateUUID(),
@@ -1296,7 +1560,7 @@ export default function MigratePage() {
           type: r.type || 'operating_expense',
           category: r.category || 'General Operations',
           amount: Number(r.amount || 0),
-          payment_method: r.payment_method || 'cash',
+          payment_method: cleanPaymentMethod(r.payment_method),
           created_at: new Date().toISOString(),
         }));
 
@@ -1320,12 +1584,12 @@ export default function MigratePage() {
           actionType: 'CREATE',
           entityType: 'transaction',
           entityId: `mig_batch_${Date.now()}`,
-          entityName: `${validRecords.length} Imported Transactions/Expenses`,
-          description: `Imported ${validRecords.length} historical expenses/transactions totaling ${currency} ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+          entityName: `${validRecords.length} Imported Ledger Entries`,
+          description: `Imported ${validRecords.length} general ledger cashbook entries totaling ${currency} ${totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
           newValue: { count: validRecords.length, totalAmount: totalValuation },
         });
 
-        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'Historical Expenses & Ledger Entries' });
+        setImportSuccessStats({ total: validRecords.length, value: totalValuation, entity: 'General Ledger Entries' });
       }
 
       setImportProgress(100);
@@ -1341,7 +1605,21 @@ export default function MigratePage() {
     let sampleData: any[] = [];
     let tFileName = 'AMS_Template.xlsx';
 
-    if (type === 'inventory') {
+    if (type === 'sales') {
+      tFileName = 'AMS_Sales_Records_Template.xlsx';
+      sampleData = [
+        { 'Sale Date': '2026-08-01', 'Customer / Item Description': 'Walk-in Retail Cash Sale', Amount: 350.00, 'Payment Method': 'cash', Category: 'Direct Sales' },
+        { 'Sale Date': '2026-08-01', 'Customer / Item Description': 'Wholesale Order - Kofi Stores', Amount: 4200.00, 'Payment Method': 'bank', Category: 'Wholesale' },
+        { 'Sale Date': '2026-08-02', 'Customer / Item Description': 'POS Order #8892 - Supermarket Goods', Amount: 890.00, 'Payment Method': 'bank', Category: 'POS Sales' },
+      ];
+    } else if (type === 'expenses') {
+      tFileName = 'AMS_Expenses_Template.xlsx';
+      sampleData = [
+        { 'Expense Date': '2026-08-02', 'Payee / Particulars': 'Electricity Company of Ghana (ECG)', Amount: 850.00, 'Payment Method': 'bank', Category: 'Utilities' },
+        { 'Expense Date': '2026-08-03', 'Payee / Particulars': 'Office Stationery & Receipt Rolls', Amount: 240.00, 'Payment Method': 'cash', Category: 'Office Supplies' },
+        { 'Expense Date': '2026-08-04', 'Payee / Particulars': 'Shop Rent Monthly Advance', Amount: 3000.00, 'Payment Method': 'bank', Category: 'Rent & Rates' },
+      ];
+    } else if (type === 'inventory') {
       tFileName = 'AMS_Inventory_Template.xlsx';
       sampleData = [
         { 'Item Name': 'Basmati Rice 5kg', Barcode: '8901234567890', Quantity: 50, 'Unit Cost': 85.00, 'Selling Price': 110.00 },
@@ -1410,7 +1688,7 @@ export default function MigratePage() {
             <h1 className="text-2xl font-black text-textPrimary tracking-tight">Universal Data Migration Engine</h1>
           </div>
           <p className="text-xs text-textSecondary mt-1">
-            Intelligently reads, categorizes, and ingests <strong>Invoices</strong>, <strong>Fixed Assets</strong>, <strong>Stock</strong>, <strong>Suppliers</strong>, <strong>Payroll</strong>, and <strong>Customer Debt Books</strong> into their exact sections in AMS.
+            Intelligently reads, categorizes, and ingests <strong>Sales Records</strong>, <strong>Expenses</strong>, <strong>Invoices</strong>, <strong>Fixed Assets</strong>, <strong>Stock</strong>, <strong>Suppliers</strong>, <strong>Payroll</strong>, and <strong>Customer Debt Books</strong> into their exact sections in AMS.
           </p>
         </div>
 
@@ -1517,6 +1795,26 @@ export default function MigratePage() {
           </div>
 
           <div className="flex flex-wrap gap-3 pt-2">
+            {category === 'sales' && (
+              <>
+                <Link href="/sales" className="px-4 py-2 text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl transition shadow">
+                  View in Sales Register &rarr;
+                </Link>
+                <Link href="/dashboard" className="px-4 py-2 text-xs font-black bg-surface2 hover:bg-surface0 border border-border text-textPrimary rounded-xl transition shadow">
+                  View Revenue on Dashboard &rarr;
+                </Link>
+              </>
+            )}
+            {category === 'expenses' && (
+              <>
+                <Link href="/bookkeeping" className="px-4 py-2 text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl transition shadow">
+                  View in Bookkeeping &rarr;
+                </Link>
+                <Link href="/dashboard" className="px-4 py-2 text-xs font-black bg-surface2 hover:bg-surface0 border border-border text-textPrimary rounded-xl transition shadow">
+                  View Expenses on Dashboard &rarr;
+                </Link>
+              </>
+            )}
             {category === 'inventory' && (
               <Link href="/inventory" className="px-4 py-2 text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl transition shadow">
                 View in Inventory &rarr;
@@ -1607,7 +1905,7 @@ export default function MigratePage() {
               Drop your spreadsheet here — AMS will auto-detect its category
             </h3>
             <p className="text-xs text-textSecondary mt-1">
-              Supports <strong>Invoices</strong>, <strong>Fixed Assets</strong>, <strong>Stock</strong>, <strong>Suppliers</strong>, <strong>Payroll</strong>, and <strong>Customer Debt Books</strong> (.xlsx, .csv, .xls)
+              Supports <strong>Sales Logs</strong>, <strong>Expenses</strong>, <strong>Invoices</strong>, <strong>Stock &amp; Inventory</strong>, <strong>Fixed Assets</strong>, <strong>Suppliers</strong>, <strong>Payroll</strong>, and <strong>Customer Debt Books</strong> (.xlsx, .csv, .xls)
             </p>
           </div>
 
@@ -1719,6 +2017,24 @@ export default function MigratePage() {
                 <thead className="bg-surface2 text-textSecondary uppercase text-[10px] font-black tracking-wider sticky top-0">
                   <tr>
                     <th className="p-3">Status</th>
+                    {category === 'sales' && (
+                      <>
+                        <th className="p-3">Sale Date</th>
+                        <th className="p-3">Customer / Item Description</th>
+                        <th className="p-3">Sales Category</th>
+                        <th className="p-3">Payment Method</th>
+                        <th className="p-3 text-right">Sale Amount</th>
+                      </>
+                    )}
+                    {category === 'expenses' && (
+                      <>
+                        <th className="p-3">Expense Date</th>
+                        <th className="p-3">Payee / Vendor</th>
+                        <th className="p-3">Expense Category</th>
+                        <th className="p-3">Payment Method</th>
+                        <th className="p-3 text-right">Expense Amount</th>
+                      </>
+                    )}
                     {category === 'inventory' && (
                       <>
                         <th className="p-3">Item Name</th>
@@ -1809,6 +2125,34 @@ export default function MigratePage() {
                           </span>
                         )}
                       </td>
+
+                      {category === 'sales' && (
+                        <>
+                          <td className="p-3 text-textSecondary">{r.transaction_date}</td>
+                          <td className="p-3 text-textPrimary font-bold">{r.vendor}</td>
+                          <td className="p-3 text-textSecondary">{r.category}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 text-[10px] font-bold bg-surface2 text-textSecondary rounded uppercase">
+                              {r.payment_method === 'bank' ? '🏦 MoMo/Bank' : '💵 Cash'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-black text-emerald-400">+{currency} {Number(r.amount).toFixed(2)}</td>
+                        </>
+                      )}
+
+                      {category === 'expenses' && (
+                        <>
+                          <td className="p-3 text-textSecondary">{r.transaction_date}</td>
+                          <td className="p-3 text-textPrimary font-bold">{r.vendor}</td>
+                          <td className="p-3 text-textSecondary">{r.category}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 text-[10px] font-bold bg-surface2 text-textSecondary rounded uppercase">
+                              {r.payment_method === 'bank' ? '🏦 MoMo/Bank' : '💵 Cash'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-black text-rose-400">-{currency} {Number(r.amount).toFixed(2)}</td>
+                        </>
+                      )}
 
                       {category === 'inventory' && (
                         <>

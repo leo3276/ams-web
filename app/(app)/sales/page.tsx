@@ -456,12 +456,20 @@ export default function RecordSalePage() {
             Use handheld USB/Bluetooth barcode guns, scan SKU, or select items to auto-decrement stock and log revenue.
           </p>
         </div>
-        <Link
-          href="/inventory"
-          className="text-xs font-semibold px-4 py-2 rounded-xl border border-border bg-white hover:bg-gray-50 transition self-start sm:self-auto shadow-xs"
-        >
-          📦 View Inventory Catalog
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Link
+            href="/migrate"
+            className="text-xs font-semibold px-3.5 py-2 rounded-xl border border-border bg-white hover:bg-gray-50 transition shadow-xs flex items-center gap-1.5 text-textPrimary"
+          >
+            <span>⚡</span> Import Sales
+          </Link>
+          <Link
+            href="/inventory"
+            className="text-xs font-semibold px-3.5 py-2 rounded-xl border border-border bg-white hover:bg-gray-50 transition shadow-xs flex items-center gap-1.5 text-textPrimary"
+          >
+            <span>📦</span> Inventory
+          </Link>
+        </div>
       </div>
 
       {/* Scanned Feedback Notification */}

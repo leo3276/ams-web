@@ -5,6 +5,26 @@ const https = require('https');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+let logFile = null;
+try {
+  logFile = path.join(app.getPath('userData'), 'ams-debug.log');
+  fs.appendFileSync(logFile, `\n[${new Date().toISOString()}] === AMS Software starting (v${app.getVersion()}) ===\n`);
+} catch (_e) {}
+
+function log(msg) {
+  if (logFile) {
+    try { fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`); } catch(_e) {}
+  }
+  console.log(msg);
+}
+
+process.on('uncaughtException', (err) => {
+  log('CRITICAL Uncaught Exception: ' + (err?.stack || err));
+});
+process.on('unhandledRejection', (reason) => {
+  log('CRITICAL Unhandled Rejection: ' + (reason?.stack || reason));
+});
+
 let autoUpdater = null;
 try {
   autoUpdater = require('electron-updater').autoUpdater;
@@ -44,27 +64,31 @@ function startLocalServer() {
         : path.join(app.getAppPath(), 'out');
 
       localServer = http.createServer((req, res) => {
-        let reqUrl = req.url || '/';
-        let reqPath = decodeURIComponent(reqUrl.split('?')[0]);
+        try {
+          let reqUrl = req.url || '/';
+          let reqPath = decodeURIComponent(reqUrl.split('?')[0]);
 
-        if (reqPath === '/' || reqPath === '') {
-          reqPath = '/dashboard.html';
-        }
+          if (reqPath === '/' || reqPath === '') {
+            reqPath = '/dashboard.html';
+          }
 
-        let filePath = path.join(publicDir, reqPath);
+          let filePath = path.join(publicDir, reqPath);
 
-        // If direct file does not exist, check variations
-        if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-          if (fs.existsSync(filePath + '.html')) {
-            filePath = filePath + '.html';
-          } else if (fs.existsSync(path.join(filePath, 'index.html'))) {
-            filePath = path.join(filePath, 'index.html');
-          } else {
+          // If direct file does not exist, check variations safely
+          try {
+            if (!fs.existsSync(filePath) || (fs.statSync(filePath) && fs.statSync(filePath).isDirectory())) {
+              if (fs.existsSync(filePath + '.html')) {
+                filePath = filePath + '.html';
+              } else if (fs.existsSync(path.join(filePath, 'index.html'))) {
+                filePath = path.join(filePath, 'index.html');
+              } else {
+                filePath = path.join(publicDir, 'dashboard.html');
+              }
+            }
+          } catch (_statErr) {
             filePath = path.join(publicDir, 'dashboard.html');
           }
-        }
 
-        try {
           const ext = path.extname(filePath).toLowerCase();
           const contentType = MIME_TYPES[ext] || 'application/octet-stream';
           const content = fs.readFileSync(filePath);
@@ -75,6 +99,7 @@ function startLocalServer() {
           });
           res.end(content);
         } catch (err) {
+          log('HTTP server request notice for ' + req.url + ': ' + (err?.message || err));
           res.writeHead(404);
           res.end('Asset not found');
         }
@@ -82,14 +107,17 @@ function startLocalServer() {
 
       const FIXED_PORT = 32800;
       localServer.listen(FIXED_PORT, '127.0.0.1', () => {
-        serverPort = FIXED_PORT;
+        serverPort = localServer.address().port;
         resolve(serverPort);
       });
 
       localServer.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-          serverPort = FIXED_PORT;
-          resolve(serverPort);
+          log('Port 32800 in use, binding to ephemeral port...');
+          localServer.listen(0, '127.0.0.1', () => {
+            serverPort = localServer.address().port;
+            resolve(serverPort);
+          });
         } else {
           reject(err);
         }
@@ -144,14 +172,23 @@ async function createWindow() {
     }
   } else {
     try {
+      log('Starting local static server for production window...');
       const port = await startLocalServer();
+      log(`Local static server started on port ${port}. Loading URL...`);
       await mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard`);
+      log('mainWindow.loadURL completed successfully.');
     } catch (err) {
-      console.error('Failed to load production window:', err.message);
+      log('Failed to load production window via HTTP, attempting direct loadFile: ' + (err?.stack || err));
+      try {
+        const publicDir = path.join(app.getAppPath(), 'out');
+        await mainWindow.loadFile(path.join(publicDir, 'dashboard.html'));
+        log('mainWindow.loadFile completed successfully.');
+      } catch (fileErr) {
+        log('Failed direct loadFile: ' + (fileErr?.stack || fileErr));
+      }
     }
   }
 
-  // Intercept external links to open in the user's default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (
       url.startsWith('https:') ||
@@ -163,7 +200,12 @@ async function createWindow() {
     return { action: 'allow' };
   });
 
+  mainWindow.webContents.on('did-fail-load', (e, code, desc, url) => {
+    log(`mainWindow did-fail-load: code=${code}, desc=${desc}, url=${url}`);
+  });
+
   mainWindow.on('closed', () => {
+    log('mainWindow "closed" event fired');
     mainWindow = null;
   });
 }
@@ -452,10 +494,12 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  log('window-all-closed fired. localServer exists: ' + !!localServer);
   if (localServer) {
     localServer.close();
   }
   if (process.platform !== 'darwin') {
+    log('Calling app.quit() from window-all-closed');
     app.quit();
   }
 });

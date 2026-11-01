@@ -418,7 +418,7 @@ export function getWhatsAppPurchaseOrderLink(po: PurchaseOrder, businessName: st
     itemList += `${idx + 1}. ${item.productName} - ${item.quantityOrdered} ${item.unit} @ ${currency} ${item.estimatedUnitCost.toLocaleString()} = ${currency} ${item.totalCost.toLocaleString()}\n`;
   });
 
-  const message = `📋 *OFFICIAL PURCHASE ORDER* - ${businessName}
+  const message = `*OFFICIAL PURCHASE ORDER* - ${businessName}
 *PO Number:* ${po.poNumber}
 *Date:* ${po.createdAt.slice(0, 10)}
 *Supplier:* ${po.supplierName}
@@ -427,10 +427,10 @@ Dear Supplier,
 Please supply the following stock items to our store:
 
 ${itemList}
-💰 *Total Estimated Value:* ${currency} ${po.totalAmount.toLocaleString()}
-📅 *Expected Delivery:* ${po.expectedDeliveryDate || 'Immediate'}
-💳 *Payment Terms:* ${po.paymentTerms}
-📍 *Delivery Address:* ${po.deliveryAddress || 'Store Receiving Dock'}
+*Total Estimated Value:* ${currency} ${po.totalAmount.toLocaleString()}
+*Expected Delivery:* ${po.expectedDeliveryDate || 'Immediate'}
+*Payment Terms:* ${po.paymentTerms}
+*Delivery Address:* ${po.deliveryAddress || 'Store Receiving Dock'}
 
 Thank you for your partnership.
 *${businessName} Procurement Desk*`;
@@ -444,26 +444,26 @@ export function getWhatsAppSupplierRemittanceLink(voucher: SupplierPaymentVouche
   const recipient = cleanPhone.startsWith('0') ? `233${cleanPhone.slice(1)}` : cleanPhone;
 
   const whtText = voucher.withholdingTaxAmount > 0
-    ? `\n⚖️ *Withholding Tax (${voucher.withholdingTaxRate}%):* -${currency} ${voucher.withholdingTaxAmount.toLocaleString()}`
+    ? `\n*Withholding Tax (${voucher.withholdingTaxRate}%):* -${currency} ${voucher.withholdingTaxAmount.toLocaleString()}`
     : '';
 
-  const refText = voucher.paymentReference ? `\n🔖 *Transaction Ref:* ${voucher.paymentReference}` : '';
+  const refText = voucher.paymentReference ? `\n*Transaction Ref:* ${voucher.paymentReference}` : '';
 
   const debtStatus = voucher.remainingBalanceOwed > 0
     ? `Remaining Balance Owed: ${currency} ${voucher.remainingBalanceOwed.toLocaleString()}`
     : 'Account Status: FULLY SETTLED ✓';
 
-  const message = `💸 *SUPPLIER PAYMENT ADVICE & VOUCHER* - ${businessName}
+  const message = `*SUPPLIER PAYMENT ADVICE & VOUCHER* - ${businessName}
 *Voucher Number:* ${voucher.voucherNumber}
 *Date:* ${voucher.paymentDate}
 *Supplier:* ${voucher.supplierName}
 
 We have successfully disbursed payment for your supply account:
 
-💰 *Gross Settled:* ${currency} ${voucher.amountPaid.toLocaleString()}${whtText}
-💵 *Net Disbursed:* ${currency} ${voucher.netAmountDisbursed.toLocaleString()}
-💳 *Payment Channel:* ${voucher.paymentMethod.toUpperCase()} (${voucher.paidFromAccount})${refText}
-📊 *${debtStatus}*
+*Gross Settled:* ${currency} ${voucher.amountPaid.toLocaleString()}${whtText}
+*Net Disbursed:* ${currency} ${voucher.netAmountDisbursed.toLocaleString()}
+*Payment Channel:* ${voucher.paymentMethod.toUpperCase()} (${voucher.paidFromAccount})${refText}
+*${debtStatus}*
 
 Thank you for your continued business.
 *${businessName} Accounts Office*`;

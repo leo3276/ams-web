@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Transaction, TransactionType, TRANSACTION_TYPE_OPTIONS } from '@/lib/types';
 import { printBookkeepingLedgerPDF } from '@/lib/pdfGenerator';
+import { Icon } from '@/components/Icons';
 import {
   getCachedBusiness,
   setCachedBusiness,
@@ -330,7 +331,7 @@ export default function BookkeepingPage() {
     const activeBid = businessId || getCachedBusiness()?.id || 'default_biz';
     if (rows.length === 0) return;
     const confirmPrompt = prompt(
-      `⚠️ CAUTION: Are you sure you want to delete ALL ${rows.length} transactions from the ledger?\n\nThis will clear the active ledger but the deletion will be permanently recorded in the Audit Trail.\n\nType "DELETE ALL" to confirm:`
+      `CAUTION: Are you sure you want to delete ALL ${rows.length} transactions from the ledger?\n\nThis will clear the active ledger but the deletion will be permanently recorded in the Audit Trail.\n\nType "DELETE ALL" to confirm:`
     );
     if (confirmPrompt !== 'DELETE ALL') return;
 
@@ -440,7 +441,7 @@ export default function BookkeepingPage() {
             onClick={() => setNotification(null)}
             className="ml-4 font-bold opacity-60 hover:opacity-100"
           >
-            ✕
+            <Icon name="x" size={13} />
           </button>
         </div>
       )}
@@ -449,7 +450,7 @@ export default function BookkeepingPage() {
             href="/migrate"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface2 text-textPrimary hover:bg-surface0 transition text-xs font-bold shadow-xs"
           >
-            <span>⚡</span> Import Spreadsheet
+            <Icon name="zap" size={14} /> Import Spreadsheet
           </Link>
           {realRows.length > 0 && (
             <button
@@ -457,7 +458,7 @@ export default function BookkeepingPage() {
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-danger/30 text-danger bg-dangerBg/40 hover:bg-dangerBg transition text-xs font-bold shadow-xs"
               title="Delete all transactions (Audit Log preserved)"
             >
-              🗑️ Delete All ({realRows.length})
+              <Icon name="trash" size={13} /> Delete All ({realRows.length})
             </button>
           )}
           <button
@@ -476,13 +477,13 @@ export default function BookkeepingPage() {
             }
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-textPrimary text-white hover:opacity-90 transition text-sm font-bold shadow-xs"
           >
-            📄 Export Stylish PDF
+            <Icon name="file" size={14} /> Export Stylish PDF
           </button>
           <button
             onClick={exportLedgerCSV}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-surface2 text-sm text-textPrimary hover:bg-surface1 transition font-medium"
           >
-            📥 CSV
+            <Icon name="download" size={14} /> CSV
           </button>
         </div>
       </div>
@@ -538,7 +539,7 @@ export default function BookkeepingPage() {
           <button
             onClick={() => setTypeFilter('deposit')}
             className={`px-3 py-1 text-xs rounded-full font-medium transition ${
-              typeFilter === 'deposit' ? 'bg-emerald-600 text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
+              typeFilter === 'deposit' ? 'bg-slate-900 text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
             }`}
           >
             Deposits
@@ -546,7 +547,7 @@ export default function BookkeepingPage() {
           <button
             onClick={() => setTypeFilter('cost_of_goods')}
             className={`px-3 py-1 text-xs rounded-full font-medium transition ${
-              typeFilter === 'cost_of_goods' ? 'bg-textPrimary text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
+              typeFilter === 'cost_of_goods' ? 'bg-slate-900 text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
             }`}
           >
             Cost of Goods
@@ -554,7 +555,7 @@ export default function BookkeepingPage() {
           <button
             onClick={() => setTypeFilter('operating_expense')}
             className={`px-3 py-1 text-xs rounded-full font-medium transition ${
-              typeFilter === 'operating_expense' ? 'bg-danger text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
+              typeFilter === 'operating_expense' ? 'bg-slate-900 text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
             }`}
           >
             OpEx / Expenses
@@ -596,7 +597,7 @@ export default function BookkeepingPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-7 pr-3 py-1.5 text-xs rounded-lg border border-border bg-surface2 focus:outline-none focus:border-accent"
             />
-            <span className="absolute left-2.5 top-2 text-textMuted text-xs">🔍</span>
+            <span className="absolute left-2.5 top-2 text-textMuted"><Icon name="search" size={14} /></span>
           </div>
         </div>
       </div>
@@ -785,8 +786,8 @@ export default function BookkeepingPage() {
                         className="w-full px-2 py-1 rounded text-xs focus:outline-none focus:bg-accentBg font-medium text-textPrimary"
                       />
                       {row.created_at && (
-                        <span className="block text-[10.5px] text-textMuted px-1 mt-0.5 font-mono">
-                          🕒 {new Date(row.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        <span className="block text-[10.5px] text-textMuted px-1 mt-0.5 font-mono flex items-center gap-1">
+                          <Icon name="clock" size={10} className="inline" /> {new Date(row.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                         </span>
                       )}
                     </td>
@@ -924,7 +925,7 @@ export default function BookkeepingPage() {
                         className="text-textMuted hover:text-danger text-xs p-1"
                         title="Delete transaction"
                       >
-                        🗑️
+                        <Icon name="trash" size={13} />
                       </button>
                     </td>
                   </tr>
@@ -936,7 +937,7 @@ export default function BookkeepingPage() {
       </div>
 
       <p className="text-xs text-textMuted mt-4">
-        💡 <span className="font-semibold text-textSecondary">Tip:</span> Fast keyboard entry: type in the top row and press Tab to move across columns. Transactions automatically commit to your database as soon as you finish editing a field.
+        <span className="font-semibold text-textSecondary">Tip:</span> Fast keyboard entry: type in the top row and press Tab to move across columns. Transactions automatically commit to your database as soon as you finish editing a field.
       </p>
 
       {/* Transaction Delete Confirmation Modal */}
@@ -945,7 +946,7 @@ export default function BookkeepingPage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                🗑️
+                <Icon name="trash" size={17} />
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Transaction</h3>

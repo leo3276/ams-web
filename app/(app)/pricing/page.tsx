@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Icon } from '@/components/Icons';
 
 type BillingCycle = 'monthly' | 'annual';
 
@@ -106,7 +107,9 @@ export default function PricingPage() {
 
         {/* 100% Free Until 2027 Announcement Banner */}
         <div className="max-w-2xl mx-auto mt-4 p-4 rounded-2xl bg-purple-50 border border-purple-200 text-left flex items-start gap-3">
-          <span className="text-2xl flex-shrink-0">🎁</span>
+          <span className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+            <Icon name="card" size={17} />
+          </span>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
@@ -217,7 +220,9 @@ export default function PricingPage() {
 
       {/* Security Guarantee Strip */}
       <div className="bg-white border border-zinc-200 rounded-2xl p-6 text-center space-y-2">
-        <h4 className="text-sm font-semibold text-zinc-900">🔒 Bank-Grade Encryption &amp; Security</h4>
+        <h4 className="text-sm font-semibold text-zinc-900 flex items-center justify-center gap-1.5">
+          <Icon name="lock" size={14} /> Bank-Grade Encryption &amp; Security
+        </h4>
         <p className="text-xs text-zinc-500 max-w-lg mx-auto">
           All subscriptions and transaction data are protected by 256-bit SSL encryption. Zero card details stored on our servers.
         </p>

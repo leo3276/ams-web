@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { InventoryItem, Invoice, InvoiceStatus } from '@/lib/types';
 import { printInvoicePDF } from '@/lib/pdfGenerator';
+import { Icon } from '@/components/Icons';
 import { useArchetype } from '@/lib/ArchetypeContext';
 import {
   getCachedBusiness,
@@ -403,7 +404,7 @@ function InvoicesPageContent() {
     const activeBid = businessId || getCachedBusiness()?.id || 'default_biz';
     if (invoices.length === 0) return;
     const confirmPrompt = prompt(
-      `⚠️ CAUTION: Are you sure you want to delete ALL ${invoices.length} invoices?\n\nThis will clear the active invoices list but the records will be permanently preserved in the Audit Trail.\n\nType "DELETE ALL" to confirm:`
+      `CAUTION: Are you sure you want to delete ALL ${invoices.length} invoices?\n\nThis will clear the active invoices list but the records will be permanently preserved in the Audit Trail.\n\nType "DELETE ALL" to confirm:`
     );
     if (confirmPrompt !== 'DELETE ALL') return;
 
@@ -464,7 +465,7 @@ function InvoicesPageContent() {
             onClick={() => setNotification(null)}
             className="ml-4 text-sm font-black opacity-60 hover:opacity-100"
           >
-            ✕
+            <Icon name="x" size={14} />
           </button>
         </div>
       )}
@@ -473,7 +474,9 @@ function InvoicesPageContent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">📄</span>
+            <span className="w-10 h-10 rounded-xl bg-accentBg border border-border flex items-center justify-center text-textPrimary shrink-0">
+              <Icon name="receipt" size={20} />
+            </span>
             <h1 className="text-2xl font-bold text-textPrimary tracking-tight">
               Invoices &amp; Billing
             </h1>
@@ -490,7 +493,7 @@ function InvoicesPageContent() {
               className="flex items-center gap-1 px-3 py-2 rounded-xl border border-danger/30 text-danger bg-dangerBg/40 hover:bg-dangerBg text-xs font-extrabold transition shadow-sm"
               title="Delete all invoices (Audit Log preserved)"
             >
-              <span>🗑️</span> Delete All ({invoices.length})
+              <Icon name="trash" size={13} /> Delete All ({invoices.length})
             </button>
           )}
 
@@ -504,38 +507,38 @@ function InvoicesPageContent() {
       </div>
 
       {/* KPI Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <div className="bg-surface1 p-4 rounded-2xl border border-border shadow-xs">
-          <p className="text-[11px] font-bold text-textSecondary uppercase tracking-wider">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Total Invoiced
           </p>
-          <p className="text-2xl font-black text-textPrimary font-mono mt-1">
-            {currency} {totalBilled.toLocaleString()}
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1.5">
+            {currency} {totalBilled.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-textMuted mt-0.5">{invoices.length} total invoices issued</p>
+          <p className="text-[11px] text-slate-500 mt-1">{invoices.length} total invoices issued</p>
         </div>
 
-        <div className="bg-surface1 p-4 rounded-2xl border border-border shadow-xs">
-          <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Total Paid
           </p>
-          <p className="text-2xl font-black text-emerald-700 font-mono mt-1">
-            {currency} {totalPaid.toLocaleString()}
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1.5">
+            {currency} {totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">
-            {invoices.filter((i) => i.status === 'paid').length} cleared invoices
+          <p className="text-[11px] text-slate-500 mt-1">
+            {invoices.filter((i) => i.status === 'paid').length} settled invoices
           </p>
         </div>
 
-        <div className="bg-surface1 p-4 rounded-2xl border border-border shadow-xs">
-          <p className="text-[11px] font-bold text-danger uppercase tracking-wider">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Outstanding Receivables
           </p>
-          <p className="text-2xl font-black text-danger font-mono mt-1">
-            {currency} {totalUnpaid.toLocaleString()}
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1.5">
+            {currency} {totalUnpaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-danger font-semibold mt-0.5">
-            {invoices.filter((i) => i.status !== 'paid').length} pending payment
+          <p className="text-[11px] text-slate-500 mt-1">
+            {invoices.filter((i) => i.status !== 'paid').length} open debtor bills
           </p>
         </div>
       </div>
@@ -550,7 +553,7 @@ function InvoicesPageContent() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary"
           />
-          <span className="absolute left-2.5 top-2.5 text-xs text-textMuted">🔍</span>
+          <span className="absolute left-2.5 top-2.5 text-textMuted"><Icon name="search" size={14} /></span>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -574,7 +577,6 @@ function InvoicesPageContent() {
       <div className="bg-surface1 rounded-2xl border border-border overflow-hidden shadow-xs">
         {filteredInvoices.length === 0 ? (
           <div className="p-12 text-center">
-            <span className="text-4xl mb-2 inline-block">🧾</span>
             <h3 className="text-base font-bold text-textPrimary mb-1">No Invoices Found</h3>
             <p className="text-xs text-textSecondary mb-4 max-w-sm mx-auto">
               Click New Invoice to create and send your first sales invoice.
@@ -612,7 +614,7 @@ function InvoicesPageContent() {
                       <td className="py-3.5 px-4">
                         <p className="font-bold text-textPrimary">{inv.customer_name}</p>
                         {inv.customer_phone && (
-                          <p className="text-[10px] text-textMuted font-mono">📱 {inv.customer_phone}</p>
+                          <p className="text-[10px] text-textMuted font-mono">{inv.customer_phone}</p>
                         )}
                       </td>
 
@@ -630,10 +632,10 @@ function InvoicesPageContent() {
 
                       <td className="py-3.5 px-4">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          className={`px-2.5 py-0.5 rounded-md text-[10px] font-semibold uppercase ${
                             isPaid
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : 'bg-amber-100 text-amber-800 border border-amber-300'
+                              ? 'bg-slate-100 text-slate-800 border border-slate-200'
+                              : 'bg-slate-50 text-slate-600 border border-slate-200'
                           }`}
                         >
                           {inv.status}
@@ -645,7 +647,7 @@ function InvoicesPageContent() {
                           {!isPaid && (
                             <button
                               onClick={() => setPaymentModalInvoice(inv)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 shadow-xs"
+                              className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-semibold hover:bg-slate-800 shadow-xs"
                             >
                               ✓ Record Payment
                             </button>
@@ -655,10 +657,9 @@ function InvoicesPageContent() {
                             href={whatsappLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-bold transition flex items-center gap-1 shadow-xs"
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/70 text-[11px] font-semibold transition flex items-center gap-1"
                             title={isPaid ? 'Send Receipt on WhatsApp' : 'Send Arrears Reminder on WhatsApp'}
                           >
-                            <span>💬</span>
                             <span className="hidden sm:inline">{isPaid ? 'Receipt' : 'Reminder'}</span>
                           </a>
 
@@ -667,7 +668,7 @@ function InvoicesPageContent() {
                             className="px-2 py-1 rounded-lg border border-border text-textSecondary hover:text-textPrimary hover:bg-surface2 text-[11px] font-semibold"
                             title="Preview PDF"
                           >
-                            📄 PDF
+                            PDF
                           </button>
 
                           <button
@@ -675,7 +676,7 @@ function InvoicesPageContent() {
                             className="text-textMuted hover:text-danger text-xs p-1"
                             title="Delete invoice"
                           >
-                            🗑️
+                            <Icon name="trash" size={13} />
                           </button>
                         </div>
                       </td>
@@ -694,14 +695,14 @@ function InvoicesPageContent() {
           <div className="bg-surface1 rounded-2xl max-w-2xl w-full p-6 border border-border shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🧾</span>
+                <Icon name="receipt" size={16} className="text-textSecondary" />
                 <h3 className="text-base font-bold text-textPrimary">Create New Invoice</h3>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-textSecondary hover:text-textPrimary font-bold text-lg"
               >
-                ✕
+                <Icon name="x" size={15} />
               </button>
             </div>
 
@@ -784,7 +785,7 @@ function InvoicesPageContent() {
                   <button
                     type="button"
                     onClick={addLineItem}
-                    className="text-xs font-bold text-purple-600 hover:underline"
+                    className="text-xs font-semibold text-slate-800 hover:underline"
                   >
                     + Add Line Item
                   </button>
@@ -825,7 +826,7 @@ function InvoicesPageContent() {
                           onClick={() => removeLineItem(line.id)}
                           className="text-danger hover:opacity-80 p-1 text-xs"
                         >
-                          ✕
+                          <Icon name="x" size={13} />
                         </button>
                       )}
                     </div>
@@ -872,34 +873,34 @@ function InvoicesPageContent() {
                 onClick={() => setPaymentModalInvoice(null)}
                 className="text-textSecondary hover:text-textPrimary font-bold text-lg"
               >
-                ✕
+                <Icon name="x" size={15} />
               </button>
             </div>
 
-            <div className="bg-surface2 p-4 rounded-xl border border-border space-y-1">
-              <p className="text-xs text-textSecondary">Customer: <strong className="text-textPrimary">{paymentModalInvoice.customer_name}</strong></p>
-              <p className="text-xs text-textSecondary">Invoice Number: <strong className="text-textPrimary font-mono">{paymentModalInvoice.invoice_number}</strong></p>
-              <p className="text-base font-black text-emerald-700 font-mono pt-1">
-                Amount: {currency} {paymentModalInvoice.amount.toLocaleString()}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
+              <p className="text-xs text-slate-500">Customer: <strong className="text-slate-900">{paymentModalInvoice.customer_name}</strong></p>
+              <p className="text-xs text-slate-500">Invoice Number: <strong className="text-slate-900 font-mono">{paymentModalInvoice.invoice_number}</strong></p>
+              <p className="text-base font-bold text-slate-900 font-mono pt-1">
+                Amount: {currency} {paymentModalInvoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </p>
             </div>
 
-            <p className="text-xs text-textSecondary">
+            <p className="text-xs text-slate-500">
               Select payment method to mark this invoice as paid and record funds in your ledger:
             </p>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={() => handleMarkPaid(paymentModalInvoice, 'cash')}
-                className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition flex items-center justify-center gap-1.5 shadow-sm"
+                className="py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-xs"
               >
-                <span>💵 Paid in Cash</span>
+                <Icon name="cash" size={13} /> Paid in Cash
               </button>
               <button
                 onClick={() => handleMarkPaid(paymentModalInvoice, 'bank')}
-                className="py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold transition flex items-center justify-center gap-1.5 shadow-sm"
+                className="py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold transition flex items-center justify-center gap-1.5"
               >
-                <span>📱 Paid via MoMo / Bank</span>
+                <Icon name="phone" size={13} /> Paid via MoMo / Bank
               </button>
             </div>
           </div>
@@ -916,14 +917,14 @@ function InvoicesPageContent() {
                   onClick={() => printInvoicePDF(previewInvoice, { name: businessName, currency })}
                   className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-textPrimary text-white hover:opacity-90 flex items-center gap-1 shadow-sm"
                 >
-                  📄 Export PDF / Print
+                  Export PDF / Print
                 </button>
               </div>
               <button
                 onClick={() => setPreviewInvoice(null)}
                 className="text-textSecondary hover:text-textPrimary font-bold text-lg"
               >
-                ✕
+                <Icon name="x" size={15} />
               </button>
             </div>
 
@@ -985,7 +986,7 @@ function InvoicesPageContent() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-gray-200">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
-                🗑️
+                <Icon name="trash" size={17} />
               </div>
               <div>
                 <h3 className="text-base font-bold text-gray-900">Delete Invoice</h3>

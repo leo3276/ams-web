@@ -299,8 +299,8 @@ export function printInvoicePDF(
           <div>
             <div style="font-size:9.5px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Billed To:</div>
             <div style="font-size:15px;font-weight:800;color:#0F172A;">${invoice.customer_name}</div>
-            ${invoice.customer_phone ? `<div style="font-size:11px;color:#475569;margin-top:2px;">📱 ${invoice.customer_phone}</div>` : ''}
-            ${invoice.customer_email ? `<div style="font-size:11px;color:#475569;">✉️ ${invoice.customer_email}</div>` : ''}
+            ${invoice.customer_phone ? `<div style="font-size:11px;color:#475569;margin-top:2px;">${invoice.customer_phone}</div>` : ''}
+            ${invoice.customer_email ? `<div style="font-size:11px;color:#475569;">${invoice.customer_email}</div>` : ''}
           </div>
           <div style="text-align:right;">
             <div style="font-size:9.5px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Payment Status:</div>
@@ -619,8 +619,8 @@ export function printCustomerStatementPDF(
           <div>
             <div style="font-size:9.5px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Customer Account:</div>
             <div style="font-size:16px;font-weight:800;color:#0F172A;">${customer.customer_name}</div>
-            ${customer.phone ? `<div style="font-size:11px;color:#475569;margin-top:2px;">📱 ${customer.phone}</div>` : ''}
-            ${customer.email ? `<div style="font-size:11px;color:#475569;">✉️ ${customer.email}</div>` : ''}
+            ${customer.phone ? `<div style="font-size:11px;color:#475569;margin-top:2px;">${customer.phone}</div>` : ''}
+            ${customer.email ? `<div style="font-size:11px;color:#475569;">${customer.email}</div>` : ''}
           </div>
           <div style="text-align:right;">
             <div style="font-size:9.5px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Current Outstanding Balance:</div>
@@ -795,7 +795,7 @@ export function printTrialBalancePDF(
         </table>
 
         <div style="background-color:#F8FAFC;padding:10px 14px;border-radius:8px;border:1px solid #E2E8F0;font-size:11px;color:#334155;">
-          Trial Balance Reconciliation: <strong>${isBalanced ? '✓ Balanced (Debits = Credits)' : '⚠ Discrepancy detected (review adjustments)'}</strong>
+          Trial Balance Reconciliation: <strong>${isBalanced ? '✓ Balanced (Debits = Credits)' : 'Discrepancy detected (review adjustments)'}</strong>
         </div>
 
         <div class="footer">
@@ -1178,10 +1178,10 @@ export function printSupplierDebtBookPDF(
     .reduce((sum, s) => sum + Number(s.balance_owed || 0), 0);
 
   const debtTypeLabels: Record<string, string> = {
-    inventory: '📦 Inventory Goods on Credit',
-    cash_loan: '💵 Cash Loan / Borrowing',
-    fixed_asset: '🚜 Equipment / Asset Financing',
-    service_expense: '💡 Service / OpEx on Credit',
+    inventory: 'Inventory Goods on Credit',
+    cash_loan: 'Cash Loan / Borrowing',
+    fixed_asset: 'Equipment / Asset Financing',
+    service_expense: 'Service / OpEx on Credit',
   };
 
   const html = `

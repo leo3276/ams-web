@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Transaction } from '@/lib/types';
 import { useArchetype } from '@/lib/ArchetypeContext';
+import { Icon } from '@/components/Icons';
 import {
   getCachedBusiness,
   setCachedBusiness,
@@ -16,6 +17,8 @@ import {
   setCachedInvoices,
   getCachedSuppliers,
   setCachedSuppliers,
+  getCachedCustomers,
+  reconcileCustomerDebtors,
   resolveActiveBusiness,
 } from '@/lib/offlineStore';
 
@@ -135,10 +138,10 @@ export default function DashboardPage() {
           isInflow = true;
           if (isBank) initBank += amt;
           else initCash += amt;
-        } else if (t.type === 'operating_expense' || t.type === 'cost_of_goods' || t.type === 'drawings' || t.type === 'return') {
+        } else if (t.type === 'operating_expense' || t.type === 'cost_of_goods' || t.type === 'drawings' || t.type === 'return' || t.type === 'fixed_asset') {
           isInflow = false;
-          if (isBank) initBank = Math.max(0, initBank - amt);
-          else initCash = Math.max(0, initCash - amt);
+          if (isBank) initBank -= amt;
+          else initCash -= amt;
         }
 
         if (t.type === 'revenue') rev += amt;
@@ -235,6 +238,8 @@ export default function DashboardPage() {
       let periodReturns = 0;
       let periodOtherRev = 0;
       let periodOpex = 0;
+      let fixedAssetsPurchased = 0;
+      let computedAccumulatedDeprec = 0;
 
       // Chronological sort (oldest to newest)
       const sortedAllTxs = [...allTxs].sort((a: any, b: any) => {
@@ -265,10 +270,12 @@ export default function DashboardPage() {
         if (isOpeningBalance) {
           isInflow = true;
           if (t.type === 'current_asset' && (t.vendor?.toLowerCase().includes('inventory') || t.vendor?.toLowerCase().includes('stock') || t.category?.toLowerCase().includes('stock') || t.category?.toLowerCase().includes('inventory'))) {
-            periodOpeningStock += amt;
+            periodOpeningStock = Math.max(periodOpeningStock, amt);
             isInflow = false; // non-cash opening inventory asset
           } else if (t.type === 'fixed_asset') {
-            // Fixed asset opening balance (non-cash)
+            fixedAssetsPurchased += amt;
+            const depRate = Number(t.depreciation_rate || 0);
+            if (depRate > 0) computedAccumulatedDeprec += amt * (depRate > 1 ? depRate / 100 : depRate);
             isInflow = false;
           } else {
             // Cash / Bank Opening Balance
@@ -297,23 +304,28 @@ export default function DashboardPage() {
             }
           }
           isInflow = false;
-          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
-          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
+          if (isBank) { deltaBank = -amt; runningB -= amt; }
+          else { deltaCash = -amt; runningC -= amt; }
         } else if (t.type === 'return' || (t.category && t.category.toLowerCase().includes('customer sales return')) || (t.vendor && t.vendor.toLowerCase().startsWith('customer refund:'))) {
           // Customer Sales Return: Subtracted from Gross Sales to arrive at Net Sales, reduces Cash/Bank
           if (inPeriod) periodReturns += amt;
           isInflow = false;
-          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
-          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
+          if (isBank) { deltaBank = -amt; runningB -= amt; }
+          else { deltaCash = -amt; runningC -= amt; }
         } else if (t.type === 'operating_expense') {
           if (inPeriod) periodOpex += amt;
           isInflow = false;
-          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
-          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
+          if (isBank) { deltaBank = -amt; runningB -= amt; }
+          else { deltaCash = -amt; runningC -= amt; }
         } else if (['drawings', 'fixed_asset'].includes(t.type)) {
+          if (t.type === 'fixed_asset') {
+            fixedAssetsPurchased += amt;
+            const depRate = Number(t.depreciation_rate || 0);
+            if (depRate > 0) computedAccumulatedDeprec += amt * (depRate > 1 ? depRate / 100 : depRate);
+          }
           isInflow = false;
-          if (isBank) { deltaBank = -amt; runningB = Math.max(0, runningB - amt); }
-          else { deltaCash = -amt; runningC = Math.max(0, runningC - amt); }
+          if (isBank) { deltaBank = -amt; runningB -= amt; }
+          else { deltaCash = -amt; runningC -= amt; }
         } else if (t.type === 'current_asset') {
           const catLower = (t.category || '').toLowerCase().trim();
           const venLower = (t.vendor || '').toLowerCase().trim();
@@ -323,7 +335,7 @@ export default function DashboardPage() {
           const isCashCategory = !isStockCategory && !isDebtorCategory && !isBankCategory;
 
           if (isStockCategory) {
-            periodOpeningStock += amt;
+            periodOpeningStock = Math.max(periodOpeningStock, amt);
             isInflow = false;
           } else if (isDebtorCategory) {
             isInflow = false; // Non-cash asset entry
@@ -354,7 +366,7 @@ export default function DashboardPage() {
       // Newest entries first for live feed
       setLiveEntries([...processedEntries].reverse());
 
-      // Invoices & Receivables (Debtors)
+      // Invoices & Receivables (Debtors - Reconciled without Double-Counting)
       const remoteInvs = invRes.data ?? [];
       const localInvs = getCachedInvoices(business.id);
       const invoicesMap = new Map();
@@ -363,15 +375,13 @@ export default function DashboardPage() {
       const allInvoices = Array.from(invoicesMap.values());
       setCachedInvoices(allInvoices as any, business.id);
 
-      const invoiceDebtorsTotal = allInvoices
-        .filter((inv: any) => inv.status !== 'paid' && inv.status !== 'cancelled')
-        .reduce((sum: number, inv: any) => sum + Number(inv.amount || 0), 0);
-
-      const debtorTxsTotal = allTxs
-        .filter((t: any) => t.type === 'current_asset' && ((t.category || '').toLowerCase().includes('debtor') || (t.category || '').toLowerCase().includes('receivable') || (t.vendor || '').toLowerCase().includes('debtor')))
-        .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-
-      const finalDebtors = invoiceDebtorsTotal + debtorTxsTotal;
+      const reconciledDebtors = reconcileCustomerDebtors(
+        allInvoices as any,
+        allTxs,
+        getCachedCustomers(business.id)
+      );
+      const finalDebtors = reconciledDebtors.totalDebtors;
+      const invoiceDebtorsTotal = reconciledDebtors.invoiceDebtorsTotal;
 
       const cachedSups = getCachedSuppliers(business.id);
       const supsMap = new Map<string, any>();
@@ -456,7 +466,12 @@ export default function DashboardPage() {
       const netBank = runningB + tradePayablesLoanBankInflow;
       const finalInventoryValue = totalInvVal;
       const finalCurrentAssets = netCash + netBank + finalDebtors + finalInventoryValue;
-      const finalShortTerm = tradePayablesCurrentLiabilities;
+      const finalFixedCost = fixedAssetsPurchased + tradePayablesFixedAsset;
+      const rawBs = bsRes.data?.[0] || {};
+      const accumulatedDeprec = Math.max(Number(rawBs.accumulated_depreciation || 0), Math.round(computedAccumulatedDeprec * 100) / 100);
+      const finalFixedNbv = Math.max(0, finalFixedCost - accumulatedDeprec);
+      const finalTotalAssets = finalCurrentAssets + finalFixedNbv;
+      const finalShortTerm = tradePayablesCurrentLiabilities + accruedPayroll;
       const finalLongTerm = tradePayablesFixedAsset + tradePayablesLongTermLoan;
 
       // P&L Formula:
@@ -485,7 +500,7 @@ export default function DashboardPage() {
         currentAssetsOther: finalInventoryValue,
         totalCurrentAssets: finalCurrentAssets,
         totalLiabilities: finalShortTerm + finalLongTerm,
-        totalEquity: finalCurrentAssets - (finalShortTerm + finalLongTerm),
+        totalEquity: finalTotalAssets - (finalShortTerm + finalLongTerm),
       });
 
       setUncollectedInvoicesAmount(invoiceDebtorsTotal);
@@ -575,38 +590,38 @@ export default function DashboardPage() {
   const marginPct = (pnl?.revenue || 0) > 0 ? (grossProfit / (pnl?.revenue || 1)) * 100 : 0;
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-8">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">{archetype.icon}</span>
-            <p className="text-xs font-bold text-accentText uppercase tracking-wider">{businessName}</p>
+          <div className="flex items-center gap-2 mb-1.5">
+            <Icon name={archetype.icon} size={15} className="text-slate-500" />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{businessName}</p>
             {isEducation && (
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                 {schoolSettings.academicYear} · {schoolSettings.currentTerm}
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-textPrimary">{archetype.vocabulary.dashboardTitle || 'Executive Financial Dashboard'}</h1>
-          <p className="text-xs text-textSecondary mt-0.5">{archetype.vocabulary.dashboardSubtitle || `Real-time liquidity and live ledger for ${periodLabel}`}</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{archetype.vocabulary.dashboardTitle || 'Executive Financial Dashboard'}</h1>
+          <p className="text-xs text-slate-500 mt-1">{archetype.vocabulary.dashboardSubtitle || `Real-time liquidity and live ledger for ${periodLabel}`}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Link
             href="/sales"
-            className="px-3.5 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5"
           >
-            <span>{isEducation ? '🎓' : '🛒'}</span> {isEducation ? 'Record Fee Inflow' : 'Record Sale'}
+            <Icon name={isEducation ? 'book' : 'cart'} size={14} /> {isEducation ? 'Record Fee Inflow' : 'Record Sale'}
           </Link>
           <Link
             href="/invoices"
-            className="px-3.5 py-2 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition shadow-sm flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-1.5"
           >
-            <span>{isEducation ? '⚡' : '+'}</span> {isEducation ? 'Issue Term Bills' : 'Issue Invoice'}
+            <Icon name={isEducation ? 'zap' : 'receipt'} size={14} /> {isEducation ? 'Issue Term Bills' : 'Issue Invoice'}
           </Link>
           <Link
             href="/bookkeeping"
-            className="px-3.5 py-2 rounded-lg border border-border bg-surface2 text-textPrimary text-xs font-bold hover:bg-surface1 transition flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-1.5"
           >
             <span>+</span> Add Entry
           </Link>
@@ -614,220 +629,209 @@ export default function DashboardPage() {
       </div>
 
       {/* ======================================================== */}
-      {/* 1. SAFE-TO-SPEND LIQUIDITY HERO RADAR                    */}
+      {/* 1. SAFE-TO-SPEND LIQUIDITY HERO                          */}
       {/* ======================================================== */}
-      <div className="bg-gradient-to-br from-surface1 to-surface2 border border-border rounded-xl p-5 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-textSecondary">Safe-to-Spend Liquidity</span>
-              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-successBg text-success">
-                Shielded Cash
+            <div className="flex items-center gap-2.5 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Safe-to-Spend Liquidity</span>
+              <span className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200/80">
+                Available Working Cash
               </span>
             </div>
-            <p className="text-3xl font-extrabold text-textPrimary">
+            <p className="text-3xl font-bold text-slate-900 tracking-tight">
               {currency} {liquidity.safeToSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-xs text-textMuted mt-1">
-              Actual available capital after reserving {currency} {liquidity.taxReserve.toFixed(0)} for taxes &amp; {currency} {liquidity.weeklyOpBuffer.toFixed(0)} for 7-day operating overhead.
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              Net liquid capital after setting aside {currency} {liquidity.taxReserve.toFixed(0)} for tax provisions and {currency} {liquidity.weeklyOpBuffer.toFixed(0)} for 7-day operating overhead.
             </p>
           </div>
 
           {/* Runway Card */}
-          <div className="bg-surface2 border border-border rounded-lg p-3.5 flex items-center gap-4 shrink-0">
-            <div className="w-12 h-12 rounded-full bg-accentBg text-accentText flex items-center justify-center text-xl font-black">
-              ⏳
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex items-center gap-4 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center flex-shrink-0">
+              <Icon name="clock" size={18} />
             </div>
             <div>
-              <p className="text-[11px] font-bold uppercase text-textMuted">Cash Runway</p>
-              <p className="text-xl font-extrabold text-textPrimary">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Cash Runway</p>
+              <p className="text-lg font-bold text-slate-900 mt-0.5">
                 {liquidity.runwayDays >= 999 ? '∞ Unlimited' : `${liquidity.runwayDays} Days`}
               </p>
-              <p className="text-[11px] text-textSecondary">At current daily burn rate</p>
+              <p className="text-[11px] text-slate-500">At current daily burn rate</p>
             </div>
           </div>
         </div>
 
         {/* CASH & BANK EXPLICIT BREAKDOWN CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
           {/* Cash in Hand */}
           <div
             onClick={() => setActiveLedgerTab('cash')}
-            className={`cursor-pointer flex items-center justify-between p-3 rounded-xl border transition ${
-              activeLedgerTab === 'cash' ? 'bg-amber-500/10 border-amber-500 shadow-xs' : 'bg-surface2/80 border-border hover:bg-surface2'
+            className={`cursor-pointer flex items-center justify-between p-4 rounded-xl border transition ${
+              activeLedgerTab === 'cash'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/70 text-slate-900'
             }`}
           >
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs">💵</span>
-                <span className="text-[11px] font-bold uppercase text-textSecondary">Cash in Hand (Drawer)</span>
+                <Icon name="cash" size={14} className={activeLedgerTab === 'cash' ? 'text-slate-300' : 'text-slate-500'} />
+                <span className={`text-[11px] font-semibold uppercase tracking-wider ${activeLedgerTab === 'cash' ? 'text-slate-300' : 'text-slate-500'}`}>
+                  Cash in Hand
+                </span>
               </div>
-              <p className="font-black text-textPrimary text-base mt-0.5">
+              <p className="font-bold text-lg mt-1">
                 {currency} {liquidity.cash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
-              <p className="text-[10px] text-textMuted mt-0.5">{cashEntriesCount} cash entries</p>
+              <p className={`text-[11px] mt-0.5 ${activeLedgerTab === 'cash' ? 'text-slate-300' : 'text-slate-500'}`}>
+                {cashEntriesCount} cash entries
+              </p>
             </div>
-            <span className="text-xs font-bold text-accentText bg-accentBg px-2 py-1 rounded-md">
-              Filter ▾
+            <span className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border ${
+              activeLedgerTab === 'cash' ? 'bg-white/10 text-white border-white/20' : 'bg-white text-slate-600 border-slate-200'
+            }`}>
+              Filter
             </span>
           </div>
 
           {/* Bank & MoMo */}
           <div
             onClick={() => setActiveLedgerTab('bank')}
-            className={`cursor-pointer flex items-center justify-between p-3 rounded-xl border transition ${
-              activeLedgerTab === 'bank' ? 'bg-blue-500/10 border-blue-500 shadow-xs' : 'bg-surface2/80 border-border hover:bg-surface2'
+            className={`cursor-pointer flex items-center justify-between p-4 rounded-xl border transition ${
+              activeLedgerTab === 'bank'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/70 text-slate-900'
             }`}
           >
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs">🏦</span>
-                <span className="text-[11px] font-bold uppercase text-textSecondary">Bank &amp; MoMo Account</span>
+                <Icon name="bank" size={14} className={activeLedgerTab === 'bank' ? 'text-slate-300' : 'text-slate-500'} />
+                <span className={`text-[11px] font-semibold uppercase tracking-wider ${activeLedgerTab === 'bank' ? 'text-slate-300' : 'text-slate-500'}`}>
+                  Bank &amp; MoMo
+                </span>
               </div>
-              <p className="font-black text-textPrimary text-base mt-0.5">
+              <p className="font-bold text-lg mt-1">
                 {currency} {liquidity.bank.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
-              <p className="text-[10px] text-textMuted mt-0.5">{bankEntriesCount} bank/momo entries</p>
+              <p className={`text-[11px] mt-0.5 ${activeLedgerTab === 'bank' ? 'text-slate-300' : 'text-slate-500'}`}>
+                {bankEntriesCount} bank/momo entries
+              </p>
             </div>
-            <span className="text-xs font-bold text-accentText bg-accentBg px-2 py-1 rounded-md">
-              Filter ▾
+            <span className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border ${
+              activeLedgerTab === 'bank' ? 'bg-white/10 text-white border-white/20' : 'bg-white text-slate-600 border-slate-200'
+            }`}>
+              Filter
             </span>
           </div>
 
           {/* Combined Total Liquid Cash & Bank */}
           <div
             onClick={() => setActiveLedgerTab('all')}
-            className={`cursor-pointer flex items-center justify-between p-3 rounded-xl border transition ${
-              activeLedgerTab === 'all' ? 'bg-emerald-500/10 border-emerald-500 shadow-xs' : 'bg-surface2/80 border-border hover:bg-surface2'
+            className={`cursor-pointer flex items-center justify-between p-4 rounded-xl border transition ${
+              activeLedgerTab === 'all'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/70 text-slate-900'
             }`}
           >
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs">💰</span>
-                <span className="text-[11px] font-bold uppercase text-textSecondary">Total Cash &amp; Bank</span>
+                <Icon name="coin" size={14} className={activeLedgerTab === 'all' ? 'text-slate-300' : 'text-slate-500'} />
+                <span className={`text-[11px] font-semibold uppercase tracking-wider ${activeLedgerTab === 'all' ? 'text-slate-300' : 'text-slate-500'}`}>
+                  Total Cash &amp; Bank
+                </span>
               </div>
-              <p className="font-black text-emerald-600 dark:text-emerald-400 text-base mt-0.5">
+              <p className="font-bold text-lg mt-1">
                 {currency} {liquidity.totalCashBank.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
-              <p className="text-[10px] text-textMuted mt-0.5">{liveEntries.length} total ledger entries</p>
+              <p className={`text-[11px] mt-0.5 ${activeLedgerTab === 'all' ? 'text-slate-300' : 'text-slate-500'}`}>
+                {liveEntries.length} total ledger entries
+              </p>
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-1 rounded-md">
-              Combined ✓
+            <span className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border ${
+              activeLedgerTab === 'all' ? 'bg-white/10 text-white border-white/20' : 'bg-white text-slate-600 border-slate-200'
+            }`}>
+              All
             </span>
           </div>
         </div>
 
         {/* Tied Working Capital */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <Link
-            href="/invoices"
-            className="flex items-center justify-between bg-surface2/40 hover:bg-surface2 p-2.5 rounded-lg border border-border/60 transition group cursor-pointer"
+            href="/customers"
+            className="flex items-center justify-between bg-slate-50/60 hover:bg-slate-100/70 p-3.5 rounded-xl border border-slate-200 transition group cursor-pointer"
           >
             <div>
-              <span className="text-textMuted group-hover:text-textPrimary transition">Uncollected Customer Invoices:</span>
-              <p className="font-bold text-danger text-sm">{currency} {uncollectedInvoicesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <span className="text-slate-500 group-hover:text-slate-800 transition">Debtors (Accounts Receivable):</span>
+              <p className="font-bold text-slate-900 text-sm mt-0.5">{currency} {uncollectedInvoicesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
-            <span className="text-xs font-bold text-danger bg-dangerBg px-2 py-0.5 rounded">
-              {overdueInvoicesCount > 0 ? `${overdueInvoicesCount} overdue` : 'Trade Receivables →'}
+            <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
+              {overdueInvoicesCount > 0 ? `${overdueInvoicesCount} overdue` : 'View Debtors →'}
             </span>
           </Link>
 
           <Link
             href="/inventory"
-            className="flex items-center justify-between bg-surface2/40 hover:bg-surface2 p-2.5 rounded-lg border border-border/60 transition group cursor-pointer"
+            className="flex items-center justify-between bg-slate-50/60 hover:bg-slate-100/70 p-3.5 rounded-xl border border-slate-200 transition group cursor-pointer"
           >
             <div>
-              <span className="text-textMuted group-hover:text-textPrimary transition">Tied Inventory Valuation:</span>
-              <p className="font-bold text-textPrimary text-sm">{currency} {inventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <span className="text-slate-500 group-hover:text-slate-800 transition">Closing Stock Valuation:</span>
+              <p className="font-bold text-slate-900 text-sm mt-0.5">{currency} {inventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
-            <span className="text-xs font-bold text-accentText bg-accentBg px-2 py-0.5 rounded flex items-center gap-1">
-              <span>📦</span> View Stock →
+            <span className="text-xs font-medium text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+              View Stock →
             </span>
           </Link>
-        </div>
-      </div>
-
-      {/* ======================================================== */}
-      {/* 1.5 MOBILE COMPANION APP RECOMMENDATION (OCR & REMOTE)  */}
-      {/* ======================================================== */}
-      <div className="bg-surface2 border border-border rounded-xl p-5 shadow-sm relative overflow-hidden">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-accentText/10 text-accentText flex items-center justify-center text-2xl flex-shrink-0">
-              📱
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-accentText/10 text-accentText">
-                  Mobile Companion
-                </span>
-                <span className="text-[10px] font-bold text-success flex items-center gap-1">
-                  ● Live Sync
-                </span>
-              </div>
-              <h3 className="text-base font-bold text-textPrimary mt-1">
-                Install AMS on Your Phone for Instant AI OCR &amp; Remote Assessment
-              </h3>
-              <p className="text-xs text-textSecondary mt-0.5 max-w-2xl leading-relaxed">
-                Take AMS everywhere: Snap paper receipts &amp; supplier waybills with your camera for instant AI ledger extraction, and monitor live shop sales, cashier drawers, and stock levels even when away from your store.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <div className="px-3 py-2 rounded-lg bg-surface1 border border-border text-[11px] font-medium text-textSecondary">
-              📸 <strong className="text-textPrimary">Camera OCR</strong> + 🛡️ <strong className="text-textPrimary">Remote Assessment</strong>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* ======================================================== */}
       {/* 2. CORE MONTHLY KPI GRID                                 */}
       {/* ======================================================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Link
           href="/bookkeeping"
-          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+          className="bg-white hover:bg-slate-50/80 rounded-2xl p-5 border border-slate-200 shadow-xs transition group cursor-pointer"
         >
-          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Monthly Revenue</p>
-          <p className="text-2xl font-black text-textPrimary">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Revenue</p>
+          <p className="text-2xl font-bold text-slate-900 tracking-tight">
             {currency} {(pnl?.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-success font-medium mt-1">Inflows this period →</p>
+          <p className="text-[11px] text-slate-500 mt-1.5">Total inflows this period →</p>
         </Link>
 
         <Link
           href="/inventory"
-          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+          className="bg-white hover:bg-slate-50/80 rounded-2xl p-5 border border-slate-200 shadow-xs transition group cursor-pointer"
         >
-          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Cost of Goods (COGS)</p>
-          <p className="text-2xl font-black text-textPrimary">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Cost of Goods (COGS)</p>
+          <p className="text-2xl font-bold text-slate-900 tracking-tight">
             {currency} {(pnl?.costOfGoods || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-textMuted group-hover:text-textSecondary mt-1">Direct production / stock cost →</p>
+          <p className="text-[11px] text-slate-500 mt-1.5">Direct stock &amp; purchase cost →</p>
         </Link>
 
         <Link
           href="/bookkeeping"
-          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+          className="bg-white hover:bg-slate-50/80 rounded-2xl p-5 border border-slate-200 shadow-xs transition group cursor-pointer"
         >
-          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Operating Expenses</p>
-          <p className="text-2xl font-black text-textPrimary">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Operating Expenses</p>
+          <p className="text-2xl font-bold text-slate-900 tracking-tight">
             {currency} {(pnl?.operatingExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-textMuted group-hover:text-textSecondary mt-1">Rent, utilities, fuel, overhead →</p>
+          <p className="text-[11px] text-slate-500 mt-1.5">Rent, utilities, overhead &amp; depreciation →</p>
         </Link>
 
         <Link
           href="/reports"
-          className="bg-surface2 hover:bg-surface1 rounded-xl p-4 border border-border shadow-sm transition group cursor-pointer"
+          className="bg-white hover:bg-slate-50/80 rounded-2xl p-5 border border-slate-200 shadow-xs transition group cursor-pointer"
         >
-          <p className="text-xs font-semibold text-textSecondary group-hover:text-textPrimary uppercase tracking-wider mb-1">Net Profit</p>
-          <p className={`text-2xl font-black ${(pnl?.netProfit || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Net Profit</p>
+          <p className={`text-2xl font-bold tracking-tight ${(pnl?.netProfit || 0) >= 0 ? 'text-slate-900' : 'text-red-600'}`}>
             {currency} {(pnl?.netProfit || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-textMuted group-hover:text-textSecondary mt-1">{marginPct.toFixed(1)}% gross margin (View P&amp;L) →</p>
+          <p className="text-[11px] text-slate-500 mt-1.5">{marginPct.toFixed(1)}% gross margin (View P&amp;L) →</p>
         </Link>
       </div>
 
@@ -836,106 +840,97 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Live Entries Stream Table */}
-        <div className="lg:col-span-2 bg-surface2 border border-border rounded-xl p-5 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border">
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-t-0 border-b border-slate-100">
             <div>
-              <h2 className="text-base font-bold text-textPrimary flex items-center gap-2">
-                <span>⚡ Live Cash &amp; Bank Entries</span>
-                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-accentText/10 text-accentText">
-                  Real-Time Stream
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                Recent Ledger Activity
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600">
+                  Live Stream
                 </span>
               </h2>
-              <p className="text-xs text-textSecondary mt-0.5">
-                Showing every transaction with its running balance impact on Cash &amp; Bank
+              <p className="text-xs text-slate-500 mt-0.5">
+                Chronological cashbook entries with running Cash and Bank balances
               </p>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 bg-surface1 p-1 rounded-lg border border-border">
+            <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
               <button
                 onClick={() => setActiveLedgerTab('all')}
-                className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition ${
                   activeLedgerTab === 'all'
-                    ? 'bg-textPrimary text-surface0 shadow-xs'
-                    : 'text-textSecondary hover:text-textPrimary'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 All ({liveEntries.length})
               </button>
               <button
                 onClick={() => setActiveLedgerTab('cash')}
-                className={`px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center gap-1 ${
                   activeLedgerTab === 'cash'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-textSecondary hover:text-textPrimary'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>💵</span> Cash ({cashEntriesCount})
+                Cash ({cashEntriesCount})
               </button>
               <button
                 onClick={() => setActiveLedgerTab('bank')}
-                className={`px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition flex items-center gap-1 ${
                   activeLedgerTab === 'bank'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-textSecondary hover:text-textPrimary'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>🏦</span> Bank ({bankEntriesCount})
+                Bank ({bankEntriesCount})
               </button>
             </div>
           </div>
 
           {filteredEntries.length === 0 ? (
             <div className="py-12 text-center space-y-2">
-              <p className="text-2xl">📋</p>
-              <p className="text-xs text-textMuted italic">
+              <p className="text-xs text-slate-400">
                 {activeLedgerTab === 'cash'
                   ? 'No cash drawer transactions recorded yet.'
                   : activeLedgerTab === 'bank'
                   ? 'No bank or MoMo transactions recorded yet.'
-                  : 'No transactions recorded yet. Click "+ Add Entry" to record your first sale or expense!'}
+                  : 'No transactions recorded yet. Click "+ Add Entry" to record your first sale or expense.'}
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-border overflow-x-auto">
+            <div className="divide-y divide-slate-100 overflow-x-auto">
               {filteredEntries.slice(0, 10).map((t) => {
                 const isBank = t.payment_method === 'bank';
                 const runningBal = isBank ? t.runningBank : t.runningCash;
 
                 return (
-                  <div key={t.id} className="py-3 flex items-center justify-between gap-3 text-xs hover:bg-surface1/50 px-2 rounded-lg transition">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shrink-0 shadow-xs ${
-                        t.isInflow
-                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/80 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40'
-                          : 'bg-rose-50 text-rose-600 border border-rose-200/80 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40'
-                      }`}>
+                  <div key={t.id} className="py-3.5 flex items-center justify-between gap-3 text-xs hover:bg-slate-50/70 px-2.5 rounded-xl transition">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 bg-slate-100 text-slate-700 border border-slate-200/80">
                         {t.isInflow ? '↓' : '↑'}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-textPrimary truncate text-xs">{t.vendor}</p>
-                        <div className="flex items-center gap-1.5 text-[11px] text-textSecondary mt-0.5 flex-wrap">
+                        <p className="font-semibold text-slate-900 truncate text-xs">{t.vendor}</p>
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5 flex-wrap">
                           <span>{t.transaction_date}</span>
                           <span>·</span>
-                          <span className="font-medium text-textMuted">{TYPE_LABELS[t.type] || t.type}</span>
+                          <span>{TYPE_LABELS[t.type] || t.type}</span>
                           <span>·</span>
-                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] border ${
-                            isBank
-                              ? 'bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40'
-                              : 'bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
-                          }`}>
-                            {isBank ? '🏦 BANK / MOMO' : '💵 CASH'}
+                          <span className="px-1.5 py-0.5 rounded font-medium text-[10px] bg-slate-100 text-slate-600">
+                            {isBank ? 'Bank / MoMo' : 'Cash'}
                           </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <p className={`font-black text-sm ${t.isInflow ? 'text-success' : 'text-textPrimary'}`}>
+                      <p className={`font-bold text-sm ${t.isInflow ? 'text-slate-900' : 'text-slate-600'}`}>
                         {t.isInflow ? '+' : '-'} {currency} {Number(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-[10px] text-textMuted mt-0.5">
-                        {isBank ? 'Bank Bal:' : 'Cash Bal:'} <strong className="text-textSecondary">{currency} {runningBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {isBank ? 'Bank Bal:' : 'Cash Bal:'} <strong className="text-slate-600">{currency} {runningBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                       </p>
                     </div>
                   </div>
@@ -944,73 +939,87 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="pt-2 flex items-center justify-between border-t border-border text-xs">
-            <span className="text-textMuted">Showing {Math.min(10, filteredEntries.length)} of {filteredEntries.length} live entries</span>
-            <Link href="/bookkeeping" className="font-bold text-accentText hover:underline flex items-center gap-1">
-              Open Full Double-Entry General Ledger →
+          <div className="pt-3 flex items-center justify-between border-t border-slate-100 text-xs">
+            <span className="text-slate-400">Showing {Math.min(10, filteredEntries.length)} of {filteredEntries.length} entries</span>
+            <Link href="/bookkeeping" className="font-semibold text-slate-800 hover:underline flex items-center gap-1">
+              Open General Ledger →
             </Link>
           </div>
         </div>
 
         {/* Action Hub & Quick Shortcuts */}
         <div className="space-y-4">
-          <div className="bg-surface2 border border-border rounded-xl p-5 shadow-sm space-y-3">
-            <h2 className="text-base font-bold text-textPrimary">Quick Hubs</h2>
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+            <h2 className="text-base font-bold text-slate-900">Accounting Modules</h2>
+
+            <Link
+              href="/customers"
+              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/70 transition group"
+            >
+              <div className="flex items-center gap-3">
+                <Icon name="users" size={16} className="text-slate-500" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-900">Customers &amp; Debtors</p>
+                  <p className="text-[11px] text-slate-500">Accounts receivable &amp; debtor balances</p>
+                </div>
+              </div>
+              <span className="text-xs text-slate-400">→</span>
+            </Link>
 
             <Link
               href="/invoices"
-              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface1 hover:bg-accentBg transition group"
+              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/70 transition group"
             >
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">🧾</span>
+              <div className="flex items-center gap-3">
+                <Icon name="receipt" size={16} className="text-slate-500" />
                 <div>
-                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Invoices &amp; Receivables</p>
-                  <p className="text-[11px] text-textMuted">Send invoices &amp; chase unpaid debt</p>
+                  <p className="text-xs font-semibold text-slate-900">Invoices &amp; Billing</p>
+                  <p className="text-[11px] text-slate-500">Issue invoices &amp; record payments</p>
                 </div>
               </div>
-              <span className="text-xs text-textMuted">→</span>
+              <span className="text-xs text-slate-400">→</span>
             </Link>
 
             <Link
               href="/suppliers"
-              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface1 hover:bg-accentBg transition group"
+              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/70 transition group"
             >
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">🏭</span>
+              <div className="flex items-center gap-3">
+                <Icon name="factory" size={16} className="text-slate-500" />
                 <div>
-                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Creditor Debt Book</p>
-                  <p className="text-[11px] text-textMuted">Suppliers, short-term bills &amp; settlements</p>
+                  <p className="text-xs font-semibold text-slate-900">Suppliers &amp; Creditors</p>
+                  <p className="text-[11px] text-slate-500">Accounts payable &amp; vendor bills</p>
                 </div>
               </div>
-              <span className="text-xs text-textMuted">→</span>
+              <span className="text-xs text-slate-400">→</span>
             </Link>
 
             <Link
               href="/inventory"
-              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface1 hover:bg-accentBg transition group"
+              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/70 transition group"
             >
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">📦</span>
+              <div className="flex items-center gap-3">
+                <Icon name="package" size={16} className="text-slate-500" />
                 <div>
-                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Inventory &amp; Stock</p>
-                  <p className="text-[11px] text-textMuted">Stock valuation, restock alerts &amp; margins</p>
+                  <p className="text-xs font-semibold text-slate-900">Inventory &amp; Stock</p>
+                  <p className="text-[11px] text-slate-500">Stock valuation, costs &amp; margins</p>
                 </div>
               </div>
-              <span className="text-xs text-textMuted">→</span>
+              <span className="text-xs text-slate-400">→</span>
             </Link>
 
             <Link
               href="/reports"
-              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface1 hover:bg-accentBg transition group"
+              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/70 transition group"
             >
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">📈</span>
+              <div className="flex items-center gap-3">
+                <Icon name="trending" size={16} className="text-slate-500" />
                 <div>
-                  <p className="text-xs font-bold text-textPrimary group-hover:text-accentText">Financial Reports</p>
-                  <p className="text-[11px] text-textMuted">P&amp;L, Balance Sheet &amp; Cash Flow PDF</p>
+                  <p className="text-xs font-semibold text-slate-900">Financial Statements</p>
+                  <p className="text-[11px] text-slate-500">P&amp;L, Balance Sheet, Cash Flow &amp; Trial Balance</p>
                 </div>
               </div>
-              <span className="text-xs text-textMuted">→</span>
+              <span className="text-xs text-slate-400">→</span>
             </Link>
           </div>
         </div>
@@ -1018,82 +1027,82 @@ export default function DashboardPage() {
 
       {/* Migration Welcome Modal */}
       {showMigrationModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface1 border border-border max-w-lg w-full rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 max-w-lg w-full rounded-2xl p-6 shadow-xl space-y-5">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xl font-black">
-                  🚀
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center">
+                  <Icon name="upload" size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-textPrimary">Welcome to AMS!</h3>
-                  <p className="text-xs text-textSecondary">Your professional business workstation</p>
+                  <h3 className="text-base font-bold text-slate-900">Welcome to AMS</h3>
+                  <p className="text-xs text-slate-500">Financial &amp; accounting workstation</p>
                 </div>
               </div>
               <button
                 onClick={handleDismissModal}
-                className="text-textSecondary hover:text-textPrimary p-1 rounded-lg transition"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition"
               >
-                ✕
+                <Icon name="x" size={16} />
               </button>
             </div>
 
-            <div className="space-y-3 bg-surface2/60 border border-border p-4 rounded-2xl">
-              <p className="text-xs text-textPrimary font-bold">
-                Do you have existing spreadsheets or paper records?
+            <div className="space-y-3 bg-slate-50 border border-slate-200 p-4 rounded-xl">
+              <p className="text-xs text-slate-900 font-semibold">
+                Have existing spreadsheets or accounting records?
               </p>
-              <p className="text-xs text-textSecondary leading-relaxed">
-                You don't need to manually re-type your business. Our <strong>Universal Data Migration Engine</strong> imports everything in under 60 seconds:
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Our <strong>Data Migration Engine</strong> senses and imports Excel, CSV, and JSON files of any structure directly into your ledgers:
               </p>
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
-                  <span className="text-base">📦</span>
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <div className="bg-white border border-slate-200 p-2.5 rounded-lg flex items-center gap-2">
+                  <Icon name="package" size={14} className="text-slate-500" />
                   <div>
-                    <p className="text-[11px] font-bold text-textPrimary">Products &amp; Stock</p>
-                    <p className="text-[10px] text-textSecondary">Prices &amp; quantities</p>
+                    <p className="text-[11px] font-semibold text-slate-900">Inventory &amp; Stock</p>
+                    <p className="text-[10px] text-slate-500">Costs, prices &amp; quantities</p>
                   </div>
                 </div>
 
-                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
-                  <span className="text-base">👥</span>
+                <div className="bg-white border border-slate-200 p-2.5 rounded-lg flex items-center gap-2">
+                  <Icon name="users" size={14} className="text-slate-500" />
                   <div>
-                    <p className="text-[11px] font-bold text-textPrimary">Customer Books</p>
-                    <p className="text-[10px] text-textSecondary">Debts &amp; WhatsApp</p>
+                    <p className="text-[11px] font-semibold text-slate-900">Customer Debtors</p>
+                    <p className="text-[10px] text-slate-500">Receivables &amp; contacts</p>
                   </div>
                 </div>
 
-                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
-                  <span className="text-base">🧾</span>
+                <div className="bg-white border border-slate-200 p-2.5 rounded-lg flex items-center gap-2">
+                  <Icon name="receipt" size={14} className="text-slate-500" />
                   <div>
-                    <p className="text-[11px] font-bold text-textPrimary">Invoices</p>
-                    <p className="text-[10px] text-textSecondary">Past bills &amp; status</p>
+                    <p className="text-[11px] font-semibold text-slate-900">Invoices &amp; Sales</p>
+                    <p className="text-[10px] text-slate-500">Billing &amp; revenue logs</p>
                   </div>
                 </div>
 
-                <div className="bg-surface0 border border-border p-2.5 rounded-xl flex items-center gap-2">
-                  <span className="text-base">🏢</span>
+                <div className="bg-white border border-slate-200 p-2.5 rounded-lg flex items-center gap-2">
+                  <Icon name="briefcase" size={14} className="text-slate-500" />
                   <div>
-                    <p className="text-[11px] font-bold text-textPrimary">Fixed Assets</p>
-                    <p className="text-[10px] text-textSecondary">Equipment &amp; vehicles</p>
+                    <p className="text-[11px] font-semibold text-slate-900">Assets &amp; Balances</p>
+                    <p className="text-[10px] text-slate-500">Equipment &amp; trial balance</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
               <Link
                 href="/migrate"
                 onClick={handleDismissModal}
-                className="w-full sm:flex-1 py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl transition text-center shadow-lg flex items-center justify-center gap-1.5"
+                className="w-full sm:flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl transition text-center flex items-center justify-center gap-1.5"
               >
-                <span>⚡</span> Import My Existing Files Now
+                <Icon name="upload" size={14} /> Import Existing Data
               </Link>
               <button
                 onClick={handleDismissModal}
-                className="w-full sm:w-auto py-3 px-4 bg-surface2 hover:bg-surface0 border border-border text-textSecondary hover:text-textPrimary font-bold text-xs rounded-xl transition text-center"
+                className="w-full sm:w-auto py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition text-center"
               >
-                Explore Dashboard First
+                Continue to Dashboard
               </button>
             </div>
           </div>

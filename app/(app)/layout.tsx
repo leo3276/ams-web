@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { RoleProvider, useUserRole, UserRole } from '@/lib/RoleContext';
 import { ArchetypeProvider } from '@/lib/ArchetypeContext';
+import { Icon } from '@/components/Icons';
 import { getCachedBusiness, getOfflineTransactionQueue, flushOfflineTransactionsToSupabase, clearAllLocalBusinessData } from '@/lib/offlineStore';
 import WebWalkthroughModal, { WEB_WALKTHROUGH_STORAGE_KEY } from '@/components/WebWalkthroughModal';
 
@@ -118,20 +119,20 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   // PURE COMMERCIAL & RETAIL NAVIGATION
   const navItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: '📊', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Record Sale (POS)', href: '/sales', icon: '🛒', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Invoices & Receipts', href: '/invoices', icon: '🧾', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Customers & Debt', href: '/customers', icon: '👥', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Customer Returns & Payouts', href: '/refunds', icon: '💵', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Inventory & Stock', href: '/inventory', icon: '📦', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Daily Bookkeeping', href: '/bookkeeping', icon: '📋', roles: ['owner', 'employee', 'accountant'] },
-    { label: 'Suppliers & Debt', href: '/suppliers', icon: '🏭', roles: ['owner', 'accountant'] },
-    { label: 'Data Migration', href: '/migrate', icon: '⚡', roles: ['owner', 'accountant'] },
-    { label: 'Team & Staff', href: '/team', icon: '🧑‍🤝‍🧑', roles: ['owner'] },
-    { label: 'Financial Reports', href: '/reports', icon: '📈', roles: ['owner', 'accountant'] },
-    { label: 'Audit Trail', href: '/audit-logs', icon: '🛡️', roles: ['owner', 'accountant'] },
-    { label: 'Accountant Portal', href: '/accountant', icon: '💼', roles: ['owner', 'accountant'] },
-    { label: 'Tax Preparation', href: '/tax', icon: '🏛️', roles: ['owner', 'accountant'] },
+    { label: 'Dashboard', href: '/dashboard', icon: 'grid', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Record Sale (POS)', href: '/sales', icon: 'cart', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Invoices & Receipts', href: '/invoices', icon: 'receipt', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Customers & Debt', href: '/customers', icon: 'users', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Customer Returns & Payouts', href: '/refunds', icon: 'cash', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Inventory & Stock', href: '/inventory', icon: 'package', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Daily Bookkeeping', href: '/bookkeeping', icon: 'clipboard', roles: ['owner', 'employee', 'accountant'] },
+    { label: 'Suppliers & Debt', href: '/suppliers', icon: 'factory', roles: ['owner', 'accountant'] },
+    { label: 'Data Migration', href: '/migrate', icon: 'zap', roles: ['owner', 'accountant'] },
+    { label: 'Team & Staff', href: '/team', icon: 'user', roles: ['owner'] },
+    { label: 'Financial Reports', href: '/reports', icon: 'trending', roles: ['owner', 'accountant'] },
+    { label: 'Audit Trail', href: '/audit-logs', icon: 'shield', roles: ['owner', 'accountant'] },
+    { label: 'Accountant Portal', href: '/accountant', icon: 'briefcase', roles: ['owner', 'accountant'] },
+    { label: 'Tax Preparation', href: '/tax', icon: 'bank', roles: ['owner', 'accountant'] },
   ];
 
   const visibleNavItems = navItems.filter((item) => item.roles.includes(role));
@@ -163,7 +164,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Store Mode Indicator (Clean & Static) */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 mb-3 w-full">
-          <span className="text-sm">🛒</span>
+          <Icon name="cart" size={14} className="text-slate-500" />
           <span className="truncate text-xs font-medium text-slate-800 flex-1">Retail &amp; Wholesale Hub</span>
         </div>
 
@@ -182,10 +183,9 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             {/* Small Guide Pill (like mobile header) */}
             <button
               onClick={() => setShowWalkthrough(true)}
-              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/70 transition flex items-center gap-1"
               title="Open full 18-module app guide"
             >
-              <span>✨</span>
               <span>Guide</span>
             </button>
 
@@ -219,20 +219,20 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Navigation Links */}
-        <nav className="flex flex-col gap-0.5 flex-1 overflow-y-auto pr-1">
+        <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1">
           {visibleNavItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition ${
                   active
                     ? 'bg-slate-900 text-white font-semibold shadow-xs'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                 }`}
               >
-                <span className="text-sm shrink-0 opacity-80">{item.icon}</span>
+                <Icon name={item.icon} size={14} className={active ? 'opacity-90' : 'opacity-65'} />
                 <span className="truncate">{item.label}</span>
               </Link>
             );
@@ -246,7 +246,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             className="flex items-center justify-between px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition font-medium"
           >
             <div className="flex items-center gap-2">
-              <span>⚙️</span>
+              <Icon name="sliders" size={13} className="text-slate-500" />
               <span>Settings</span>
             </div>
             <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200/60">
@@ -257,7 +257,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             onClick={handleSignOut}
             className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition font-medium text-left"
           >
-            <span>🚪</span>
+            <Icon name="logout" size={13} />
             <span>Sign Out</span>
           </button>
         </div>
@@ -283,7 +283,6 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             onClick={() => setShowWalkthrough(true)}
             className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1"
           >
-            <span>✨</span>
             <span>Guide</span>
           </button>
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 uppercase">
@@ -293,7 +292,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
           >
-            ☰
+            <Icon name="menu" size={15} />
           </button>
         </div>
       </header>
@@ -304,10 +303,10 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
           <div className="w-64 bg-white h-full p-4 flex flex-col justify-between shadow-2xl animate-fadeIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <span className="text-xs font-bold text-slate-900">Navigation Menu</span>
-              <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 font-bold p-1">✕</button>
+              <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 font-bold p-1"><Icon name="x" size={14} /></button>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-3 space-y-1">
+            <div className="flex-1 overflow-y-auto py-3 space-y-1.5">
               {visibleNavItems.map((item) => {
                 const active = pathname === item.href;
                 return (
@@ -321,7 +320,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                         : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <span className="text-sm">{item.icon}</span>
+                    <Icon name={item.icon} size={14} className="opacity-75" />
                     <span className="truncate">{item.label}</span>
                   </Link>
                 );
@@ -334,7 +333,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full text-center py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-800"
               >
-                ⚙️ Profile &amp; Settings
+                Profile &amp; Settings
               </Link>
               <button
                 onClick={handleSignOut}
@@ -367,7 +366,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
                     : 'text-slate-500 hover:bg-slate-50 font-medium'
                 }`}
               >
-                <span className="text-sm leading-none mb-0.5">{item.icon}</span>
+                <Icon name={item.icon} size={15} className={active ? '' : 'opacity-70'} />
                 <span className="text-[10px] whitespace-nowrap">{item.label}</span>
               </Link>
             );
@@ -377,7 +376,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             onClick={() => setMobileMenuOpen(true)}
             className="flex flex-col items-center justify-center min-w-[56px] px-2 py-1 rounded-lg text-center shrink-0 text-slate-500 hover:bg-slate-50 font-medium"
           >
-            <span className="text-sm leading-none mb-0.5">☰</span>
+            <Icon name="menu" size={15} className="mb-0.5" />
             <span className="text-[10px] whitespace-nowrap">More</span>
           </button>
         </div>

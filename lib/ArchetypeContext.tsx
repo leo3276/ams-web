@@ -235,16 +235,16 @@ export function ArchetypeProvider({ children }: { children: React.ReactNode }) {
       ? `Remaining ${schoolSettings.currentTerm} Balance: ${params.currency} ${params.outstandingBalance.toLocaleString()}`
       : 'Term Fees Status: FULLY CLEARED ✓';
 
-    const message = `🎓 *OFFICIAL FEE RECEIPT* - ${params.businessName}
+    const message = `*OFFICIAL FEE RECEIPT* - ${params.businessName}
 
 Dear Parent/Guardian,
 
 We have successfully received payment for:
-🧑‍🎓 *Student:* ${params.studentName}
-📚 *Class:* ${params.classGrade}
-📅 *Academic Year:* ${schoolSettings.academicYear} (${schoolSettings.currentTerm})
-💰 *Amount Paid:* ${params.currency} ${params.amountPaid.toLocaleString()}
-📊 ${balanceText}
+*Student:* ${params.studentName}
+*Class:* ${params.classGrade}
+*Academic Year:* ${schoolSettings.academicYear} (${schoolSettings.currentTerm})
+*Amount Paid:* ${params.currency} ${params.amountPaid.toLocaleString()}
+${balanceText}
 
 Thank you for your partnership and support.
 *${params.businessName} Accounts Office*`;
@@ -268,19 +268,19 @@ Thank you for your partnership and support.
     const dueText = params.dueDate ? `Due Date: ${params.dueDate}` : 'Kindly settle at your earliest convenience.';
     const momoText = schoolSettings.momoNumber
       ? `
-📱 *MoMo Pay:* ${schoolSettings.momoNumber} (${schoolSettings.momoAccountName || params.businessName})`
+*MoMo Pay:* ${schoolSettings.momoNumber} (${schoolSettings.momoAccountName || params.businessName})`
       : '';
 
-    const message = `🎓 *TERM FEE STATEMENT* - ${params.businessName}
+    const message = `*TERM FEE STATEMENT* - ${params.businessName}
 
 Dear Parent/Guardian,
 
 This is a friendly statement regarding:
-🧑‍🎓 *Student:* ${params.studentName}
-📚 *Class:* ${params.classGrade}
-📅 *Term:* ${schoolSettings.currentTerm} (${schoolSettings.academicYear})
-⚠️ *Outstanding Fee Balance:* ${params.currency} ${params.outstandingBalance.toLocaleString()}
-📅 ${dueText}${momoText}
+*Student:* ${params.studentName}
+*Class:* ${params.classGrade}
+*Term:* ${schoolSettings.currentTerm} (${schoolSettings.academicYear})
+*Outstanding Fee Balance:* ${params.currency} ${params.outstandingBalance.toLocaleString()}
+${dueText}${momoText}
 
 Payments can be made directly at the school accounts office or via Mobile Money above.
 

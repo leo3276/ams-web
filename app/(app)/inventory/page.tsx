@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { InventoryItem } from '@/lib/types';
 import { useArchetype } from '@/lib/ArchetypeContext';
 import { printInventoryValuationPDF } from '@/lib/pdfGenerator';
+import { Icon } from '@/components/Icons';
 
 interface Row extends Partial<InventoryItem> {
   _localId: string;
@@ -934,20 +935,20 @@ export default function InventoryPage() {
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-danger/30 text-danger bg-dangerBg/40 hover:bg-dangerBg transition text-xs font-bold shadow-xs"
               title="Delete all items (Audit Log preserved)"
             >
-              🗑️ Delete All ({realRows.length})
+              <Icon name="trash" size={13} /> Delete All ({realRows.length})
             </button>
           )}
           <Link
             href="/migrate"
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-surface2 border border-border text-textPrimary hover:bg-surface0 text-sm transition font-bold shadow-xs"
           >
-            <span>⚡</span> Import Excel / CSV
+            <Icon name="zap" size={13} /> Import Excel / CSV
           </Link>
           <Link
             href="/sales"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition font-bold shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-sm hover:bg-slate-800 transition font-semibold shadow-xs"
           >
-            <span>🛒</span> Record Sale
+            <Icon name="cart" size={13} /> Record Sale
           </Link>
           <button
             onClick={() =>
@@ -964,13 +965,13 @@ export default function InventoryPage() {
             }
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-textPrimary text-white hover:opacity-90 transition text-sm font-bold shadow-xs"
           >
-            📄 Export Stylish PDF
+            Export Stylish PDF
           </button>
           <button
             onClick={exportCSV}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-surface2 text-sm text-textPrimary hover:bg-surface1 transition font-medium"
           >
-            📥 CSV
+            <Icon name="download" size={13} /> CSV
           </button>
         </div>
       </div>
@@ -990,7 +991,7 @@ export default function InventoryPage() {
             onClick={() => setToastNotify(null)}
             className="text-sm font-bold opacity-70 hover:opacity-100 ml-4"
           >
-            ✕
+            <Icon name="x" size={14} />
           </button>
         </div>
       )}
@@ -998,7 +999,7 @@ export default function InventoryPage() {
       {bulkSuccessToast && !toastNotify && (
         <div className="p-3.5 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-between mb-6">
           <span>{bulkSuccessToast}</span>
-          <button onClick={() => setBulkSuccessToast(null)} className="text-emerald-700 font-bold hover:text-emerald-950">✕</button>
+          <button onClick={() => setBulkSuccessToast(null)} className="text-emerald-700 font-bold hover:text-emerald-950"><Icon name="x" size={14} /></button>
         </div>
       )}
 
@@ -1039,7 +1040,7 @@ export default function InventoryPage() {
               disabled={applyingBulkMargin || realRows.length === 0}
               className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition disabled:opacity-50 shadow-xs flex items-center gap-1.5"
             >
-              <span>⚡</span> {applyingBulkMargin ? 'Recalculating Prices…' : `Apply +${globalMargin}% To All Items`}
+              <Icon name="zap" size={13} /> {applyingBulkMargin ? 'Recalculating Prices…' : `Apply +${globalMargin}% To All Items`}
             </button>
           </div>
         </div>
@@ -1146,7 +1147,7 @@ export default function InventoryPage() {
                 onClick={() => setSearchTerm('')}
                 className="absolute right-2 top-1.5 text-xs text-textMuted hover:text-textPrimary"
               >
-                ✕
+                <Icon name="x" size={12} />
               </button>
             )}
           </div>
@@ -1158,7 +1159,7 @@ export default function InventoryPage() {
             }}
             className="flex items-center gap-1.5 bg-surface1 border border-border px-2 py-1 rounded-lg shadow-sm"
           >
-            <span className="text-xs" title="USB / Bluetooth Barcode Laser Scanner Active">🔫</span>
+            <span className="text-xs" title="USB / Bluetooth Barcode Laser Scanner Active"><Icon name="search" size={12} /></span>
             <input
               type="text"
               placeholder="Scan Barcode / SKU..."
@@ -1292,8 +1293,8 @@ export default function InventoryPage() {
                     className="mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-border/80 bg-surface1 text-textSecondary focus:outline-none"
                     title="Source account to pay for this inventory purchase"
                   >
-                    <option value="cash">Paid via Cash 💵</option>
-                    <option value="bank">Paid via Bank/MoMo 📱</option>
+                    <option value="cash">Paid via Cash</option>
+                    <option value="bank">Paid via Bank/MoMo</option>
                   </select>
                 )}
               </td>
@@ -1419,7 +1420,7 @@ export default function InventoryPage() {
                         className="text-textMuted hover:text-danger text-xs p-1"
                         title="Delete item"
                       >
-                        🗑️
+                        <Icon name="trash" size={13} />
                       </button>
                     </td>
                   </tr>
@@ -1431,7 +1432,7 @@ export default function InventoryPage() {
       </div>
 
       <p className="text-xs text-textMuted mt-4">
-        💡 <span className="font-semibold text-textSecondary">Tip:</span> Increasing an item&apos;s quantity prompts for payment method (Cash/Bank) and automatically logs the expense in your ledger. Handheld USB/Bluetooth barcode laser scanners are active across the entire screen.
+        <span className="font-semibold text-textSecondary">Tip:</span> Increasing an item&apos;s quantity prompts for payment method (Cash/Bank) and automatically logs the expense in your ledger. Handheld USB/Bluetooth barcode laser scanners are active across the entire screen.
       </p>
 
       {/* ======================================================== */}
@@ -1451,7 +1452,7 @@ export default function InventoryPage() {
                 onClick={() => setScannedItem(null)}
                 className="text-textMuted hover:text-textPrimary text-lg font-bold"
               >
-                ✕
+                <Icon name="x" size={16} />
               </button>
             </div>
 
@@ -1508,8 +1509,8 @@ export default function InventoryPage() {
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
                   className="w-full px-3 py-2 bg-surface0 border border-border rounded-lg font-medium text-xs text-textPrimary focus:outline-none"
                 >
-                  <option value="cash">Cash 💵</option>
-                  <option value="bank">MoMo / Bank 📱</option>
+                  <option value="cash">Cash</option>
+                  <option value="bank">MoMo / Bank</option>
                 </select>
               </div>
             </div>
@@ -1529,7 +1530,7 @@ export default function InventoryPage() {
                 disabled={actionProcessing || (scannedItem.quantity ?? 0) <= 0}
                 className="py-3 px-4 bg-success hover:opacity-90 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
               >
-                {actionProcessing ? 'Processing…' : '🟢 Record Quick Sale'}
+                {actionProcessing ? 'Processing…' : 'Record Quick Sale'}
               </button>
 
               <button
@@ -1537,7 +1538,7 @@ export default function InventoryPage() {
                 disabled={actionProcessing}
                 className="py-3 px-4 bg-accentText hover:opacity-90 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
               >
-                {actionProcessing ? 'Processing…' : '📦 Restock (+Stock)'}
+                {actionProcessing ? 'Processing…' : 'Restock (+Stock)'}
               </button>
             </div>
           </div>
@@ -1550,7 +1551,7 @@ export default function InventoryPage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                🗑️
+                <Icon name="trash" size={17} />
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Product</h3>
@@ -1590,7 +1591,7 @@ export default function InventoryPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                ⚠️
+                <Icon name="alert" size={17} />
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">Clear Active Catalog</h3>

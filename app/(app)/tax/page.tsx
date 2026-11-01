@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Icon } from '@/components/Icons';
 import { estimateGhanaTax, BusinessType } from '@/lib/ghanaTax';
 import { printTaxSummaryPDF } from '@/lib/pdfGenerator';
 import { getCachedTransactions, getCachedBusiness, resolveActiveBusiness } from '@/lib/offlineStore';
@@ -229,13 +230,13 @@ export default function TaxPage() {
             }
             className="px-3.5 py-2 text-xs font-bold rounded-lg bg-textPrimary text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
           >
-            📄 Export Stylish Tax PDF
+            <Icon name="file" size={14} /> Export Stylish Tax PDF
           </button>
           <button
             onClick={() => setIsEditingConfig(!isEditingConfig)}
             className="px-3.5 py-2 text-xs font-bold rounded-lg bg-accent text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
           >
-            ⚙️ {isEditingConfig ? 'Cancel Edit' : 'Edit Tax Profile'}
+            <Icon name="sliders" size={14} /> {isEditingConfig ? 'Cancel Edit' : 'Edit Tax Profile'}
           </button>
         </div>
       </div>
@@ -321,15 +322,15 @@ export default function TaxPage() {
 
           {/* Filing Deadline Countdown */}
           <div className="bg-surface2 border border-border rounded-lg p-3.5 flex items-center gap-4 shrink-0">
-            <div className="w-12 h-12 rounded-full bg-accentBg text-accentText flex items-center justify-center text-xl font-black">
-              🏛️
+            <div className="w-12 h-12 rounded-full bg-accentBg text-accentText flex items-center justify-center">
+              <Icon name="bank" size={20} />
             </div>
             <div>
               <p className="text-[11px] font-bold uppercase text-textMuted">Next Filing Deadline</p>
               <p className="text-base font-bold text-textPrimary">{nextFilingDate || 'Not Scheduled'}</p>
               {daysToFiling != null && (
                 <p className={`text-xs font-bold mt-0.5 ${daysToFiling <= 7 ? 'text-danger' : 'text-accentText'}`}>
-                  {daysToFiling < 0 ? `🚨 Overdue by ${Math.abs(daysToFiling)} days` : `⏳ ${daysToFiling} days remaining`}
+                  {daysToFiling < 0 ? `Overdue by ${Math.abs(daysToFiling)} days` : `${daysToFiling} days remaining`}
                 </p>
               )}
             </div>
@@ -444,7 +445,7 @@ export default function TaxPage() {
       </div>
 
       <p className="text-xs text-textMuted leading-relaxed">
-        💡 <span className="font-semibold text-textSecondary">Disclaimer:</span> Tax calculations follow mid-2026 Ghana Revenue Authority (GRA) published statutory rate schedules (Corporate 25% Flat or Progressive Individual Income Tax + 3% VAT Flat Scheme + 1% COVID-19 Health Recovery Levy). Actual tax liabilities may vary based on specific capital allowances, personal tax reliefs, and withheld taxes. Always verify with your licensed CPA before official filing.
+        <span className="font-semibold text-textSecondary">Disclaimer:</span> Tax calculations follow mid-2026 Ghana Revenue Authority (GRA) published statutory rate schedules (Corporate 25% Flat or Progressive Individual Income Tax + 3% VAT Flat Scheme + 1% COVID-19 Health Recovery Levy). Actual tax liabilities may vary based on specific capital allowances, personal tax reliefs, and withheld taxes. Always verify with your licensed CPA before official filing.
       </p>
     </div>
   );

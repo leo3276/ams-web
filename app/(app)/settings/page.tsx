@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useUserRole } from '@/lib/RoleContext';
 import { getCachedBusiness, setCachedBusiness, resolveActiveBusiness } from '@/lib/offlineStore';
 import { logAuditEvent } from '@/lib/auditLogger';
+import { Icon } from '@/components/Icons';
 import Link from 'next/link';
 
 interface FAQItem {
@@ -258,11 +259,11 @@ export default function SettingsPage() {
         </span>
       </div>
 
-      {/* 🤖 MINIMALIST AI ASSISTANT SEARCH BAR */}
+      {/* MINIMALIST AI ASSISTANT SEARCH BAR */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm">🤖</span>
+            <Icon name="search" size={14} className="text-slate-500" />
             <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Help &amp; Knowledge Assistant</h2>
           </div>
           <span className="text-[10px] font-semibold text-slate-400">Search 18 Business Engines</span>
@@ -276,13 +277,13 @@ export default function SettingsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-8 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition"
           />
-          <span className="absolute left-3 top-3 text-xs text-slate-400">🔍</span>
+          <span className="absolute left-3 top-3 text-slate-400"><Icon name="search" size={14} /></span>
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-700"
             >
-              ✕
+              <Icon name="x" size={13} />
             </button>
           )}
         </div>
@@ -433,10 +434,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* 📊 AUTOMATED EXECUTIVE ASSESSMENT & PERIODIC REPORT DISPATCH */}
+        {/* AUTOMATED EXECUTIVE ASSESSMENT & PERIODIC REPORT DISPATCH */}
         <div className="pt-4 border-t border-slate-100 space-y-4">
           <div className="flex items-center gap-2">
-            <span className="text-lg">📢</span>
+            <Icon name="chart" size={16} className="text-slate-600" />
             <div>
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Automated Owner Assessment &amp; Reporting Schedule
@@ -455,9 +456,9 @@ export default function SettingsPage() {
                 onChange={(e) => setReportFrequency(e.target.value as any)}
                 className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white"
               >
-                <option value="monthly">🗓️ Every Month (End of Month Summary)</option>
-                <option value="quarterly">📊 Every Quarter (3 Months Evaluation)</option>
-                <option value="yearly">🏆 Every Year (Annual Business Audit)</option>
+                <option value="monthly">Every Month (End of Month Summary)</option>
+                <option value="quarterly">Every Quarter (3 Months Evaluation)</option>
+                <option value="yearly">Every Year (Annual Business Audit)</option>
               </select>
             </div>
 
@@ -486,7 +487,7 @@ export default function SettingsPage() {
 
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1 text-slate-600">
             <p className="font-bold text-slate-900 flex items-center gap-1.5">
-              <span>⚡</span> Automatic Period Roll-Over Guarantee:
+              <Icon name="zap" size={13} /> Automatic Period Roll-Over Guarantee:
             </p>
             <p>
               When your {reportFrequency === 'yearly' ? 'Year' : reportFrequency === 'quarterly' ? 'Quarter' : 'Month'} closes, AMS evaluates your remaining shelf inventory as the period’s <strong>Closing Stock</strong>, and rolls that value automatically into the new period as your fresh <strong>Opening Stock</strong> without requiring manual recalculation.
@@ -508,7 +509,9 @@ export default function SettingsPage() {
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-2.5">
-            <span className="text-xl">💻</span>
+            <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+              <Icon name="sliders" size={16} />
+            </span>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Workstation &amp; App Version</h2>
               <p className="text-[11px] text-slate-500">Silent auto-updates powered by GitHub Releases</p>
@@ -524,7 +527,7 @@ export default function SettingsPage() {
                 onClick={handleRestartToUpdate}
                 className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition animate-pulse flex items-center gap-1.5"
               >
-                <span>🚀</span> Restart to Apply v{updateReady}
+                <Icon name="zap" size={13} /> Restart to Apply v{updateReady}
               </button>
             ) : (
               <button
@@ -533,7 +536,6 @@ export default function SettingsPage() {
                 disabled={checkingUpdate}
                 className="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition disabled:opacity-50 flex items-center gap-1.5"
               >
-                <span>{checkingUpdate ? '⏳' : '🔄'}</span>
                 {checkingUpdate ? 'Checking…' : 'Check for Updates'}
               </button>
             )}

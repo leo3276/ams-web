@@ -13,10 +13,15 @@ export interface CachedBusiness {
   user_id?: string;
   business_type?: string;
   tax_id?: string;
+  taxId?: string;
   next_tax_filing_date?: string | null;
   tax_filing_frequency?: string;
   industry?: string;
   fiscal_year_start?: string;
+  phone?: string;
+  address?: string;
+  owner_pin?: string;
+  accountant_pin?: string;
 }
 
 export interface OfflinePendingTransaction {
@@ -221,6 +226,11 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
           user_id: found.user_id || activeUserId || undefined,
           business_type: found.business_type || cachedBiz.business_type || 'sole_proprietorship',
           tax_id: found.tax_id || cachedBiz.tax_id || '',
+          taxId: found.tax_id || cachedBiz.tax_id || '',
+          phone: found.phone || cachedBiz.phone || undefined,
+          address: found.address || cachedBiz.address || undefined,
+          owner_pin: cachedBiz.owner_pin || undefined,
+          accountant_pin: cachedBiz.accountant_pin || undefined,
           next_tax_filing_date: found.next_tax_filing_date || cachedBiz.next_tax_filing_date || null,
           tax_filing_frequency: found.tax_filing_frequency || cachedBiz.tax_filing_frequency || 'quarterly',
           industry: found.industry || cachedBiz.industry || 'Commercial Enterprise',
@@ -253,6 +263,11 @@ export async function resolveActiveBusiness(userId?: string): Promise<CachedBusi
           user_id: match.user_id || activeUserId,
           business_type: match.business_type || 'sole_proprietorship',
           tax_id: match.tax_id || '',
+          taxId: match.tax_id || '',
+          phone: match.phone || cachedBiz?.phone || undefined,
+          address: match.address || cachedBiz?.address || undefined,
+          owner_pin: cachedBiz?.owner_pin || undefined,
+          accountant_pin: cachedBiz?.accountant_pin || undefined,
           next_tax_filing_date: match.next_tax_filing_date || null,
           tax_filing_frequency: match.tax_filing_frequency || 'quarterly',
           industry: match.industry || 'Commercial Enterprise',
@@ -378,7 +393,188 @@ export function migrateLegacyCacheToBusiness(targetBid: string) {
         localStorage.removeItem('ams:cache_invoices_default_biz');
       }
     }
+
+    // 5. Customers
+    const defaultCustRaw = localStorage.getItem('ams:cache_customers_default_biz');
+    if (defaultCustRaw) {
+      const defaultCusts = JSON.parse(defaultCustRaw);
+      if (Array.isArray(defaultCusts) && defaultCusts.length > 0) {
+        const currentTargetCusts = getCachedCustomers(targetBid);
+        const custMap = new Map<string, CustomerSummary>();
+        currentTargetCusts.forEach((c) => custMap.set((c.customer_name || '').toLowerCase().trim(), c));
+        defaultCusts.forEach((c: CustomerSummary) => {
+          const k = (c.customer_name || '').toLowerCase().trim();
+          if (k && !custMap.has(k)) custMap.set(k, c);
+        });
+        setCachedCustomers(Array.from(custMap.values()), targetBid);
+        localStorage.removeItem('ams:cache_customers_default_biz');
+      }
+    }
   } catch (_e) {}
+}
+
+/**
+ * Reconciles Customer Debtors across Invoices, Bookkeeping Ledger Transactions, and Cached Customer Directory.
+ * Prevents 200% double-counting when an imported or manual debtor exists in both `invoices` and `transactions`.
+ */
+export function reconcileCustomerDebtors(
+  invoices: Invoice[],
+  transactions: any[],
+  cachedCustomers: CustomerSummary[] = []
+): {
+  totalDebtors: number;
+  invoiceDebtorsTotal: number;
+  unlinkedLedgerDebtorsTotal: number;
+  customerSummaries: CustomerSummary[];
+} {
+  const customerMap = new Map<string, CustomerSummary>();
+
+  // 1. Seed with cached customers (base directory info; financial totals will be recomputed cleanly below)
+  cachedCustomers.forEach((c: any) => {
+    const key = (c.customer_name || '').trim().toLowerCase();
+    if (!key) return;
+    customerMap.set(key, {
+      customer_name: c.customer_name.trim(),
+      customer_email: c.customer_email || null,
+      customer_phone: c.customer_phone || null,
+      invoice_count: 0,
+      total_invoiced: 0,
+      total_paid: 0,
+      total_outstanding: 0,
+      last_invoice_date: c.last_invoice_date || new Date().toISOString().slice(0, 10),
+    });
+  });
+
+  // 2. Process all invoices (Primary source of truth for billed / paid / unpaid receivables)
+  let invoiceDebtorsTotal = 0;
+  const customersWithOpenInvoices = new Set<string>();
+
+  invoices.forEach((inv) => {
+    if (inv.status === ('cancelled' as any)) return;
+    const rawName = (inv.customer_name || 'Walk-in Customer').trim();
+    const key = rawName.toLowerCase();
+    const amt = Number(inv.amount || 0);
+    const isPaid = inv.status === 'paid';
+    if (!isPaid && amt > 0) {
+      invoiceDebtorsTotal += amt;
+      customersWithOpenInvoices.add(key);
+    }
+
+    const existing = customerMap.get(key);
+    const invDate = inv.due_date || (inv.created_at ? inv.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10));
+
+    if (existing) {
+      existing.invoice_count += 1;
+      existing.total_invoiced += amt;
+      if (isPaid) {
+        existing.total_paid += amt;
+      } else {
+        existing.total_outstanding += amt;
+      }
+      if (!existing.customer_email && inv.customer_email) existing.customer_email = inv.customer_email;
+      if (!existing.customer_phone && inv.customer_phone) existing.customer_phone = inv.customer_phone;
+      if (!existing.last_invoice_date || invDate > existing.last_invoice_date) existing.last_invoice_date = invDate;
+    } else {
+      customerMap.set(key, {
+        customer_name: rawName,
+        customer_email: inv.customer_email || null,
+        customer_phone: inv.customer_phone || null,
+        invoice_count: 1,
+        total_invoiced: amt,
+        total_paid: isPaid ? amt : 0,
+        total_outstanding: isPaid ? 0 : amt,
+        last_invoice_date: invDate,
+      });
+    }
+  });
+
+  // 3. Process standalone Debtor entries in `transactions` (`type === 'current_asset'` and category/vendor indicates Debtor)
+  // ONLY include if not already represented by an open invoice for that same customer (eliminates 2x double-counting!)
+  let unlinkedLedgerDebtorsTotal = 0;
+
+  transactions.forEach((t: any) => {
+    if (t.type !== 'current_asset') return;
+    const cat = (t.category || '').toLowerCase();
+    const ven = (t.vendor || '').trim();
+    const venLower = ven.toLowerCase();
+
+    const isDebtorTx =
+      cat.includes('debtor') ||
+      cat.includes('receivable') ||
+      venLower.startsWith('debtor:') ||
+      venLower.startsWith('customer debt:');
+
+    if (!isDebtorTx) return;
+
+    const amt = Number(t.amount || 0);
+    if (amt <= 0) return;
+
+    const cleanCustomerName = ven
+      .replace(/^debtor:\s*/i, '')
+      .replace(/^customer debt:\s*/i, '')
+      .replace(/^accounts receivable:\s*/i, '')
+      .trim() || 'General Debtor';
+    const key = cleanCustomerName.toLowerCase();
+
+    // If this customer already has an open invoice from migration or billing, do NOT double count the mirror transaction!
+    if (customersWithOpenInvoices.has(key)) {
+      return;
+    }
+
+    unlinkedLedgerDebtorsTotal += amt;
+    const txDate = t.transaction_date || new Date().toISOString().slice(0, 10);
+    const existing = customerMap.get(key);
+
+    if (existing) {
+      existing.invoice_count = Math.max(1, existing.invoice_count);
+      existing.total_invoiced += amt;
+      existing.total_outstanding += amt;
+      if (!existing.last_invoice_date || txDate > existing.last_invoice_date) existing.last_invoice_date = txDate;
+    } else {
+      customerMap.set(key, {
+        customer_name: cleanCustomerName,
+        customer_email: null,
+        customer_phone: null,
+        invoice_count: 1,
+        total_invoiced: amt,
+        total_paid: 0,
+        total_outstanding: amt,
+        last_invoice_date: txDate,
+      });
+    }
+  });
+
+  // 4. Finally, if a cached customer had an outstanding_balance in cache ONLY (no invoice or tx yet), preserve it
+  cachedCustomers.forEach((c: any) => {
+    const key = (c.customer_name || '').trim().toLowerCase();
+    if (!key) return;
+    const current = customerMap.get(key);
+    const rawInvoiced = Number(c.total_invoiced ?? c.total_billed ?? c.outstanding_balance ?? 0);
+    const rawPaid = Number(c.total_paid ?? 0);
+    const rawOwed = Number(c.total_outstanding ?? c.outstanding_balance ?? Math.max(0, rawInvoiced - rawPaid));
+
+    if (current && current.total_invoiced === 0 && (rawInvoiced > 0 || rawOwed > 0)) {
+      current.invoice_count = Math.max(1, Number(c.invoice_count || 1));
+      current.total_invoiced = Math.max(rawInvoiced, rawOwed + rawPaid);
+      current.total_paid = rawPaid;
+      current.total_outstanding = rawOwed;
+      if (rawOwed > 0) {
+        unlinkedLedgerDebtorsTotal += rawOwed;
+      }
+    }
+  });
+
+  const totalDebtors = invoiceDebtorsTotal + unlinkedLedgerDebtorsTotal;
+  const customerSummaries = Array.from(customerMap.values()).sort(
+    (a, b) => b.total_outstanding - a.total_outstanding || b.total_invoiced - a.total_invoiced
+  );
+
+  return {
+    totalDebtors,
+    invoiceDebtorsTotal,
+    unlinkedLedgerDebtorsTotal,
+    customerSummaries,
+  };
 }
 
 /**

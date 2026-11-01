@@ -17,6 +17,7 @@ import {
 } from '@/lib/customerPayoutStore';
 import { InventoryItem } from '@/lib/types';
 import { printRefundsAndBuyBacksPDF } from '@/lib/pdfGenerator';
+import { Icon } from '@/components/Icons';
 
 export default function RefundsAndPayoutsPage() {
   const { role } = useUserRole();
@@ -268,7 +269,9 @@ export default function RefundsAndPayoutsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <span className="text-2xl">💵</span>
+            <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+              <Icon name="cash" size={20} />
+            </span>
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                 Customer Payouts, Refunds &amp; Trade-In Desk
@@ -291,21 +294,21 @@ export default function RefundsAndPayoutsPage() {
             }
             className="px-3.5 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
-            <span>📄 Export Stylish PDF</span>
+            <span>Export Stylish PDF</span>
           </button>
 
           <button
             onClick={handleOpenRefundModal}
             className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
-            <span>🔄 Process Return / Refund</span>
+            <span>Process Return / Refund</span>
           </button>
 
           <button
             onClick={handleOpenBuyBackModal}
             className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
-            <span>💵 Buy Stock from Customer</span>
+            <span>Buy Stock from Customer</span>
           </button>
         </div>
       </div>
@@ -318,7 +321,7 @@ export default function RefundsAndPayoutsPage() {
           }`}
         >
           <span>{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="font-bold ml-2">✕</button>
+          <button onClick={() => setNotification(null)} className="font-bold ml-2"><Icon name="x" size={14} /></button>
         </div>
       )}
 
@@ -367,7 +370,7 @@ export default function RefundsAndPayoutsPage() {
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <span>🔄 Customer Returns &amp; Refunds</span>
+          <Icon name="refresh" size={14} /> Customer Returns &amp; Refunds
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
             {refunds.length}
           </span>
@@ -381,7 +384,7 @@ export default function RefundsAndPayoutsPage() {
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <span>💵 Customer Stock Buy-Backs &amp; Trade-Ins</span>
+          <Icon name="cash" size={14} /> Customer Stock Buy-Backs &amp; Trade-Ins
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
             {buybacks.length}
           </span>
@@ -408,7 +411,6 @@ export default function RefundsAndPayoutsPage() {
 
           {refunds.length === 0 ? (
             <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
-              <span className="text-3xl mb-2 inline-block">🔄</span>
               <h3 className="text-sm font-bold text-slate-900 mb-1">No Refunds Processed Yet</h3>
               <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
                 When a customer returns an item, process the return here to refund cash/MoMo and restock inventory.
@@ -461,7 +463,7 @@ export default function RefundsAndPayoutsPage() {
                               rel="noopener noreferrer"
                               className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px] hover:bg-emerald-100 transition inline-block"
                             >
-                              📱 Send WhatsApp Slip
+                              Send WhatsApp Slip
                             </a>
                           </td>
                         </tr>
@@ -495,7 +497,6 @@ export default function RefundsAndPayoutsPage() {
 
           {buybacks.length === 0 ? (
             <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
-              <span className="text-3xl mb-2 inline-block">💵</span>
               <h3 className="text-sm font-bold text-slate-900 mb-1">No Customer Stock Purchased Yet</h3>
               <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
                 Buy trade-ins, phones, scrap, or bulk produce from customers, issue purchase vouchers, and add directly to your store inventory.
@@ -547,7 +548,7 @@ export default function RefundsAndPayoutsPage() {
                         rel="noopener noreferrer"
                         className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-xs hover:bg-emerald-100 transition inline-flex items-center gap-1"
                       >
-                        <span>📱 WhatsApp Voucher</span>
+                        <span>WhatsApp Voucher</span>
                       </a>
                     </div>
                   </div>
@@ -569,7 +570,7 @@ export default function RefundsAndPayoutsPage() {
                 <h3 className="text-base font-bold text-slate-900">Process Customer Return &amp; Refund</h3>
                 <p className="text-xs text-slate-500">Issues cash/MoMo refund and restocks eligible items to inventory.</p>
               </div>
-              <button onClick={() => setShowRefundModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+              <button onClick={() => setShowRefundModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1"><Icon name="x" size={15} /></button>
             </div>
 
             <form onSubmit={handleSaveRefund} className="space-y-4">
@@ -674,9 +675,9 @@ export default function RefundsAndPayoutsPage() {
                           onChange={(e) => handleRefundItemChange(idx, 'condition', e.target.value)}
                           className="w-full px-2 py-1.5 rounded border border-slate-200 bg-white font-medium"
                         >
-                          <option value="resellable">✓ Resellable (Restock)</option>
-                          <option value="damaged">⚠️ Damaged (Write-off)</option>
-                          <option value="expired">⌛ Expired</option>
+                          <option value="resellable">Resellable (Restock)</option>
+                          <option value="damaged">Damaged (Write-off)</option>
+                          <option value="expired">Expired</option>
                         </select>
                       </div>
 
@@ -690,7 +691,7 @@ export default function RefundsAndPayoutsPage() {
                           onClick={() => handleRemoveRefundItem(idx)}
                           className="text-red-500 hover:text-red-700 p-1"
                         >
-                          ✕
+                          <Icon name="x" size={13} />
                         </button>
                       )}
                     </div>
@@ -758,7 +759,7 @@ export default function RefundsAndPayoutsPage() {
                 <h3 className="text-base font-bold text-slate-900">Buy Stock from Customer (Trade-In / Buy-Back)</h3>
                 <p className="text-xs text-slate-500">Purchases stock from walk-in seller and adds to store inventory.</p>
               </div>
-              <button onClick={() => setShowBuyBackModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+              <button onClick={() => setShowBuyBackModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1"><Icon name="x" size={15} /></button>
             </div>
 
             <form onSubmit={handleSaveBuyBack} className="space-y-3.5">

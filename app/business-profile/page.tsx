@@ -4,11 +4,30 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { Icon } from '@/components/Icons';
 import { ARCHETYPES, BusinessArchetypeId } from '@/lib/archetypes/config';
 import { useArchetype } from '@/lib/ArchetypeContext';
-import { setCachedBusiness, getCachedBusiness, getBusinessSecurityPin, setBusinessSecurityPin, getAccountantSecurityPin, setAccountantSecurityPin, resolveActiveBusiness } from '@/lib/offlineStore';
+import {
+  setCachedBusiness,
+  getCachedBusiness,
+  getBusinessSecurityPin,
+  setBusinessSecurityPin,
+  getAccountantSecurityPin,
+  setAccountantSecurityPin,
+  resolveActiveBusiness,
+  CachedBusiness,
+} from '@/lib/offlineStore';
 
-const CURRENCIES = ['GHS', 'USD', 'NGN', 'EUR', 'GBP', 'KES', 'ZAR'];
+const CURRENCIES = [
+  { code: 'GHS', label: 'Ghana Cedi (GH₵)', symbol: 'GH₵' },
+  { code: 'USD', label: 'US Dollar ($)', symbol: '$' },
+  { code: 'NGN', label: 'Nigerian Naira (₦)', symbol: '₦' },
+  { code: 'GBP', label: 'British Pound (£)', symbol: '£' },
+  { code: 'EUR', label: 'Euro (€)', symbol: '€' },
+  { code: 'KES', label: 'Kenyan Shilling (KSh)', symbol: 'KSh' },
+  { code: 'ZAR', label: 'South African Rand (R)', symbol: 'R' },
+];
+
 const FISCAL_STARTS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -20,11 +39,15 @@ export default function BusinessProfilePage() {
 
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [existingBusinessId, setExistingBusinessId] = useState<string | null>(null);
+  const [isOnboarding, setIsOnboarding] = useState(false);
 
   // Form State
   const [businessName, setBusinessName] = useState('');
   const [selectedArchetype, setSelectedArchetype] = useState<BusinessArchetypeId>('retail_wholesale');
   const [currency, setCurrency] = useState('GHS');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [taxId, setTaxId] = useState('');
   const [fiscalStart, setFiscalStart] = useState('January');
   const [branchSecurityPin, setBranchSecurityPin] = useState('1234');
   const [accountantPin, setAccountantPin] = useState('8888');
@@ -36,6 +59,11 @@ export default function BusinessProfilePage() {
   useEffect(() => {
     const checkAuthAndLoad = async () => {
       try {
+        const isNewOrOnboarding =
+          typeof window !== 'undefined' &&
+          (window.location.search.includes('onboarding=true') || window.location.search.includes('new=true'));
+        setIsOnboarding(isNewOrOnboarding);
+
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           router.push('/login');
@@ -47,22 +75,29 @@ export default function BusinessProfilePage() {
 
         if (b) {
           setExistingBusinessId(b.id);
-          setBusinessName(b.name || '');
+          setBusinessName(b.name && b.name !== 'My Enterprise' ? b.name : '');
           setCurrency(b.currency || 'GHS');
           setFiscalStart((b as any).fiscal_year_start || 'January');
-          setBranchSecurityPin(getBusinessSecurityPin(b.id));
+          setPhone(b.phone || localStorage.getItem(`ams:business_phone_${b.id}`) || '');
+          setAddress(b.address || localStorage.getItem(`ams:business_address_${b.id}`) || '');
+          setTaxId(b.tax_id || b.taxId || localStorage.getItem(`ams:business_tax_id_${b.id}`) || '');
+          setBranchSecurityPin(getBusinessSecurityPin(b.id) || '1234');
           const existingAccPin = getAccountantSecurityPin(b.id);
           if (existingAccPin) setAccountantPin(existingAccPin);
-          setSelectedArchetype('retail_wholesale');
-        } else {
-          setSelectedArchetype('retail_wholesale');
+
+          const storedArch = localStorage.getItem('ams:active_archetype_v1') as BusinessArchetypeId;
+          if (storedArch && storedArch in ARCHETYPES) {
+            setSelectedArchetype(storedArch);
+          } else if (b.industry && (b.industry in ARCHETYPES)) {
+            setSelectedArchetype(b.industry as BusinessArchetypeId);
+          }
         }
       } catch (_e) {}
       setCheckingAuth(false);
     };
 
     checkAuthAndLoad();
-  }, []); // Run once on mount to avoid overwriting typed input
+  }, [router]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,43 +107,62 @@ export default function BusinessProfilePage() {
 
     const cleanName = businessName.trim();
     if (!cleanName) {
-      setErrorMsg('Please enter your business or school name.');
+      setErrorMsg('Please enter your business or company name.');
       setLoading(false);
       return;
     }
 
     try {
-      const activeArch = ARCHETYPES[selectedArchetype];
-      const industryLabel = activeArch.subCategories[0] || activeArch.label;
       const currentCached = getCachedBusiness();
-      let savedBizId = existingBusinessId || currentCached?.id || 'default_biz';
+      let savedBizId = existingBusinessId || currentCached?.id || `biz_${Date.now()}`;
 
-      // 1. Always update local storage, PINs & Known Businesses registry for this branch
+      // 1. Update PINs
       setBusinessSecurityPin(savedBizId, branchSecurityPin || '1234');
       if (accountantPin) {
         setAccountantSecurityPin(savedBizId, accountantPin.trim());
       }
 
-      const updatedBusinessData = {
+      // 2. Build updated business object
+      const updatedBusinessData: CachedBusiness = {
         id: savedBizId,
         name: cleanName,
         currency,
         user_id: currentCached?.user_id || 'owner',
-        business_type: selectedArchetype,
+        business_type: 'sole_proprietorship',
+        industry: selectedArchetype,
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+        tax_id: taxId.trim() || undefined,
+        taxId: taxId.trim() || undefined,
+        fiscal_year_start: fiscalStart,
       };
 
-      setCachedBusiness(updatedBusinessData as any);
+      setCachedBusiness(updatedBusinessData);
       setExistingBusinessId(savedBizId);
+
+      // Save to localStorage keys
+      localStorage.setItem('ams:active_archetype_v1', selectedArchetype);
+      if (phone.trim()) localStorage.setItem(`ams:business_phone_${savedBizId}`, phone.trim());
+      if (address.trim()) localStorage.setItem(`ams:business_address_${savedBizId}`, address.trim());
+      if (taxId.trim()) localStorage.setItem(`ams:business_tax_id_${savedBizId}`, taxId.trim());
 
       await setArchetypeId(selectedArchetype);
 
-      // 2. Sync to Supabase in background/try-catch
+      // 3. Sync to Supabase
       try {
         const { data: userData } = await supabase.auth.getUser();
         const userId = userData.user?.id;
         if (userId) {
+          const dbPayload = {
+            name: cleanName,
+            business_type: 'sole_proprietorship',
+            industry: selectedArchetype,
+            currency,
+            tax_id: taxId.trim() || null,
+            fiscal_year_start: fiscalStart,
+          };
+
           if (savedBizId && savedBizId !== 'default_biz') {
-            // Check if business exists in DB
             const { data: existingCheck } = await supabase
               .from('businesses')
               .select('id')
@@ -116,42 +170,35 @@ export default function BusinessProfilePage() {
               .maybeSingle();
 
             if (existingCheck?.id) {
-              await supabase
-                .from('businesses')
-                .update({
-                  name: cleanName,
-                  business_type: 'sole_proprietorship',
-                  industry: industryLabel,
-                  currency,
-                  fiscal_year_start: fiscalStart,
-                })
-                .eq('id', savedBizId);
+              await supabase.from('businesses').update(dbPayload).eq('id', savedBizId);
             } else {
-              await supabase
-                .from('businesses')
-                .insert({
-                  id: savedBizId,
-                  user_id: userId,
-                  name: cleanName,
-                  business_type: 'sole_proprietorship',
-                  industry: industryLabel,
-                  currency,
-                  fiscal_year_start: fiscalStart,
-                });
+              await supabase.from('businesses').insert({
+                id: savedBizId,
+                user_id: userId,
+                ...dbPayload,
+              });
             }
           }
         }
       } catch (_supabaseErr) {
-        // Local cache handles offline mode
+        // Offline cache takes priority
       }
 
-      // Broadcast update to layout navbar and all open views
+      // Broadcast update across the entire app
       if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ams:business-updated', { detail: updatedBusinessData }));
         window.dispatchEvent(new Event('ams:business-updated'));
       }
 
       setLoading(false);
-      setSuccessMsg('✓ Business name, currency & Security PINs successfully updated!');
+      setSuccessMsg('✓ Business profile and settings updated successfully!');
+
+      // If in onboarding mode, redirect to dashboard
+      if (isOnboarding) {
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 800);
+      }
     } catch (err: any) {
       setLoading(false);
       setErrorMsg(err?.message || 'Failed to save business settings.');
@@ -166,15 +213,13 @@ export default function BusinessProfilePage() {
     );
   }
 
-  const currentArch = ARCHETYPES[selectedArchetype];
-
   return (
-    <div className="min-h-screen bg-surface2 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-surface2 py-8 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* Back Link if existing business */}
-        {existingBusinessId && (
-          <div className="mb-6">
+        {/* Back Link */}
+        {existingBusinessId && !isOnboarding && (
+          <div>
             <Link
               href="/dashboard"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-textSecondary hover:text-textPrimary transition"
@@ -184,42 +229,50 @@ export default function BusinessProfilePage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">🏢</span>
+        {/* Onboarding Welcome Banner */}
+        {isOnboarding && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-border shadow-xs flex items-start gap-3.5">
+            <span className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center text-textPrimary shrink-0 mt-0.5">
+              <Icon name="briefcase" size={18} />
+            </span>
+            <div className="space-y-1">
+              <h2 className="text-sm font-bold text-textPrimary">Welcome to AMS! Set up your business profile</h2>
+              <p className="text-xs text-textSecondary leading-relaxed">
+                Provide your company name, industry, operating currency, and contact information below so AMS recognizes your business on all invoices, receipts, and balance sheets.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Page Header */}
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-10 h-10 rounded-xl bg-surface2 border border-border flex items-center justify-center text-textPrimary shrink-0">
+              <Icon name="briefcase" size={18} />
+            </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-textPrimary tracking-tight">
-              {existingBusinessId ? 'Business Profile & Security Settings' : 'Set Up Your Business Profile'}
+              {isOnboarding ? 'Complete Business Setup' : 'Business Profile & Settings'}
             </h1>
           </div>
-          <p className="text-sm text-textSecondary max-w-2xl">
-            Manage your company identity, reporting currency, and branch security access PINs for AMS.
+          <p className="text-xs text-textSecondary max-w-2xl">
+            Configure your enterprise identity, industry archetype, currency, and security authorizations.
           </p>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-8">
+        <form onSubmit={handleSave} className="space-y-6">
           
-          {/* STEP 1: BUSINESS BASIC INFO */}
-          <div className="bg-surface1 p-6 rounded-2xl border border-border shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border">
-              <div>
-                <h2 className="text-base font-bold text-textPrimary flex items-center gap-2">
-                  <span>🏢</span> Business Information &amp; Security PINs
-                </h2>
-                <p className="text-xs text-textSecondary mt-0.5">
-                  Configure your business identity, currency, and authorization passcodes.
-                </p>
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-5 py-2 text-xs font-bold rounded-xl bg-textPrimary text-white hover:opacity-90 transition shadow-sm disabled:opacity-50 self-start sm:self-auto flex items-center gap-1.5"
-              >
-                {loading ? '⏳ Saving…' : '💾 Save Settings'}
-              </button>
+          {/* SECTION 1: BUSINESS IDENTITY & CONTACT */}
+          <div className="bg-surface1 p-5 sm:p-6 rounded-2xl border border-border shadow-xs space-y-4">
+            <div className="pb-3 border-b border-border">
+              <h2 className="text-sm font-bold text-textPrimary flex items-center gap-2">
+                <Icon name="briefcase" size={14} /> Company Identity &amp; Contact Details
+              </h2>
+              <p className="text-[11px] text-textSecondary mt-0.5">
+                These details appear on your printed invoices, delivery notes, and tax schedules.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-textSecondary mb-1.5">
                   Business / Store Name *
@@ -227,41 +280,141 @@ export default function BusinessProfilePage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Star Academy"
+                  placeholder="e.g. Mensah Trading &amp; Retail Ltd"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary font-medium"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary font-semibold"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-textSecondary mb-1.5">
-                  Operating Currency
+                  Operating Currency *
                 </label>
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary font-medium"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary font-medium"
                 >
                   {CURRENCIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c.code} value={c.code}>
+                      {c.label}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-textSecondary mb-1.5">
-                  Owner Master PIN
+                  Business Phone / WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  placeholder="+233 24 123 4567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-textSecondary mb-1.5">
+                  Tax Identification Number (TIN / Ghana Card)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. P0012345678"
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary uppercase"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-textSecondary mb-1.5">
+                  Business Location / Street Address
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Plot 14, Commercial Area, Ring Road Central, Accra"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: INDUSTRY & ARCHETYPE SELECTOR */}
+          <div className="bg-surface1 p-5 sm:p-6 rounded-2xl border border-border shadow-xs space-y-3">
+            <div>
+              <h2 className="text-sm font-bold text-textPrimary flex items-center gap-2">
+                <Icon name="sliders" size={14} /> Business Archetype &amp; Industry
+              </h2>
+              <p className="text-[11px] text-textSecondary mt-0.5">
+                Tailors AMS charts of accounts, terminology, sales interfaces, and KPI dashboards to your industry.
+              </p>
+            </div>
+
+            <div className="pt-1">
+              <select
+                value={selectedArchetype}
+                onChange={(e) => setSelectedArchetype(e.target.value as BusinessArchetypeId)}
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary font-semibold"
+              >
+                {(Object.entries(ARCHETYPES) as [BusinessArchetypeId, typeof ARCHETYPES[BusinessArchetypeId]][]).map(([id, arch]) => (
+                  <option key={id} value={id}>
+                    {arch.label} ({arch.shortName})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-textMuted mt-1.5">
+                {ARCHETYPES[selectedArchetype]?.description}
+              </p>
+            </div>
+          </div>
+
+          {/* SECTION 3: FINANCIAL YEAR & SECURITY PINS */}
+          <div className="bg-surface1 p-5 sm:p-6 rounded-2xl border border-border shadow-xs space-y-4">
+            <div className="pb-3 border-b border-border">
+              <h2 className="text-sm font-bold text-textPrimary flex items-center gap-2">
+                <Icon name="calendar" size={14} /> Accounting Year &amp; Security Passcodes
+              </h2>
+              <p className="text-[11px] text-textSecondary mt-0.5">
+                Financial reporting cycle and authorization PINs for owner actions and accountant access.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-textSecondary mb-1.5">
+                  Financial Year Start Month
+                </label>
+                <select
+                  value={fiscalStart}
+                  onChange={(e) => setFiscalStart(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs font-medium rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary"
+                >
+                  {FISCAL_STARTS.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-textMuted mt-1">Defines annual reporting cycle</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-textSecondary mb-1.5">
+                  Owner Master PIN (4-6 digits)
                 </label>
                 <input
                   type="password"
                   maxLength={6}
                   value={branchSecurityPin}
-                  onChange={(e) => setBranchSecurityPin(e.target.value)}
-                  placeholder="e.g. 1234"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary font-mono font-bold tracking-widest text-center"
+                  onChange={(e) => setBranchSecurityPin(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="1234"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary font-mono font-bold tracking-widest text-center"
                 />
-                <p className="text-[10px] text-textSecondary mt-1">Full owner master access</p>
+                <p className="text-[10px] text-textMuted mt-1">Master authority for owner logins</p>
               </div>
 
               <div>
@@ -272,70 +425,35 @@ export default function BusinessProfilePage() {
                   type="password"
                   maxLength={6}
                   value={accountantPin}
-                  onChange={(e) => setAccountantPin(e.target.value)}
-                  placeholder="e.g. 8888"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary font-mono font-bold tracking-widest text-center"
+                  onChange={(e) => setAccountantPin(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="8888"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border bg-surface2 focus:outline-none focus:border-textPrimary text-textPrimary font-mono font-bold tracking-widest text-center"
                 />
-                <p className="text-[10px] text-textSecondary mt-1">For external accountant</p>
-              </div>
-            </div>
-          </div>
-
-          {/* STEP 2: FINANCIAL YEAR & REPORTING SETTINGS */}
-          <div className="bg-surface1 p-6 rounded-2xl border border-border shadow-xs space-y-4">
-            <h2 className="text-base font-bold text-textPrimary flex items-center gap-2">
-              <span>📅</span> Accounting &amp; Financial Year
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-textSecondary mb-1.5">
-                  Financial Year Start Month
-                </label>
-                <select
-                  value={fiscalStart}
-                  onChange={(e) => setFiscalStart(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-border bg-surface2 focus:outline-none focus:border-accentText text-textPrimary font-medium"
-                >
-                  {FISCAL_STARTS.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-textSecondary mt-1">Used for P&amp;L and Annual Balance Sheet reporting</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-textSecondary mb-1.5">
-                  Tax / VAT Compliance Method
-                </label>
-                <div className="px-3.5 py-2.5 text-xs rounded-xl border border-border bg-surface2 text-textPrimary font-bold flex items-center justify-between">
-                  <span>Standard VAT (21.9% GRA Composite) + WHT</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">Active</span>
-                </div>
-                <p className="text-[10px] text-textSecondary mt-1">Ghana Revenue Authority (GRA) Compliant</p>
+                <p className="text-[10px] text-textMuted mt-1">Read-only audit &amp; journal verification</p>
               </div>
             </div>
           </div>
 
           {/* NOTICES */}
           {errorMsg && (
-            <div className="p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-semibold">
-              ⚠️ {errorMsg}
+            <div className="p-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs font-semibold flex items-center gap-2">
+              <Icon name="alert" size={14} className="shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-4 rounded-xl bg-successBg border border-success/30 text-success text-sm font-bold">
-              ✓ {successMsg}
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+              {successMsg}
             </div>
           )}
 
           {/* SUBMIT BUTTON */}
-          <div className="flex items-center justify-end gap-3 pt-4">
-            {existingBusinessId && (
+          <div className="flex items-center justify-end gap-3 pt-2">
+            {existingBusinessId && !isOnboarding && (
               <Link
                 href="/dashboard"
-                className="px-5 py-2.5 text-xs font-semibold rounded-xl border border-border text-textSecondary hover:bg-surface1 transition"
+                className="px-5 py-2.5 text-xs font-semibold rounded-xl border border-border text-textSecondary hover:bg-surface2 transition"
               >
                 Cancel
               </Link>
@@ -343,16 +461,16 @@ export default function BusinessProfilePage() {
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-3 text-sm font-extrabold rounded-xl bg-textPrimary text-white hover:opacity-90 transition shadow-md disabled:opacity-50 flex items-center gap-2"
+              className="px-8 py-3 text-sm font-bold rounded-xl bg-textPrimary text-white hover:opacity-90 transition shadow-sm disabled:opacity-50 flex items-center gap-2"
             >
               {loading ? (
                 <>
-                  <span className="animate-spin text-xs">⏳</span>
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>Saving Settings…</span>
                 </>
               ) : (
                 <>
-                  <span>✓ Save Business Settings</span>
+                  <span>{isOnboarding ? 'Complete Setup & Launch Dashboard →' : 'Save Business Settings'}</span>
                 </>
               )}
             </button>

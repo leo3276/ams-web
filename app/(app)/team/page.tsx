@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUserRole, UserRole, StaffMember } from '@/lib/RoleContext';
 import { useArchetype } from '@/lib/ArchetypeContext';
+import { Icon } from '@/components/Icons';
 
 export default function TeamManagementPage() {
   const { archetype, isEducation } = useArchetype();
@@ -35,8 +36,8 @@ export default function TeamManagementPage() {
   if (!isOwner) {
     return (
       <div className="max-w-xl mx-auto text-center py-16 bg-white rounded-2xl border border-border p-8 mt-10">
-        <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-          🔒
+        <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Icon name="lock" size={22} />
         </div>
         <h1 className="text-xl font-bold text-textPrimary mb-2">Owner Access Required</h1>
         <p className="text-sm text-textSecondary">
@@ -135,25 +136,25 @@ export default function TeamManagementPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-border">
-          <p className="text-xs font-semibold text-textSecondary uppercase">Total Staff Members</p>
-          <p className="text-3xl font-extrabold text-textPrimary mt-2">{staffMembers.length}</p>
-          <p className="text-xs text-textMuted mt-1">Recorded team directory</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Staff Members</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5">{staffMembers.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Recorded team directory</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-border">
-          <p className="text-xs font-semibold text-purple-700 uppercase">Cashiers / POS</p>
-          <p className="text-3xl font-extrabold text-purple-700 mt-2">{employeeCount}</p>
-          <p className="text-xs text-textMuted mt-1">POS &amp; Stock lookups</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cashiers / POS</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5">{employeeCount}</p>
+          <p className="text-xs text-slate-500 mt-1">POS &amp; Stock lookups</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-border">
-          <p className="text-xs font-semibold text-blue-700 uppercase">CPAs &amp; Accountants</p>
-          <p className="text-3xl font-extrabold text-blue-700 mt-2">{accountantCount}</p>
-          <p className="text-xs text-textMuted mt-1">Audit, P&amp;L &amp; Tax</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CPAs &amp; Accountants</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5">{accountantCount}</p>
+          <p className="text-xs text-slate-500 mt-1">Audit, P&amp;L &amp; Tax</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-border">
-          <p className="text-xs font-semibold text-emerald-700 uppercase">Monthly Payroll</p>
-          <p className="text-2xl font-extrabold text-emerald-700 mt-2">GHS {totalMonthlyPayroll.toLocaleString()}</p>
-          <p className="text-xs text-textMuted mt-1">Operating Expense</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Payroll</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5">GHS {totalMonthlyPayroll.toLocaleString()}</p>
+          <p className="text-xs text-slate-500 mt-1">Operating Expense</p>
         </div>
       </div>
 
@@ -166,7 +167,7 @@ export default function TeamManagementPage() {
 
         {staffMembers.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">👥</div>
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-textSecondary"><Icon name="users" size={18} /></div>
             <h3 className="text-sm font-bold text-textPrimary mb-1">No Staff Members Recorded Yet</h3>
             <p className="text-xs text-textSecondary max-w-sm mx-auto mb-4">
               Click &quot;Record Staff Member&quot; above to add cashiers or accountants and configure their monthly salaries.
@@ -203,12 +204,8 @@ export default function TeamManagementPage() {
                         {member.phone && <div className="text-[11px] text-textMuted">{member.phone}</div>}
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-                            isEmp ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
-                          }`}
-                        >
-                          {isEmp ? '🧑‍💼 Employee / Cashier' : '💼 CPA / Accountant'}
+                        <span className="inline-block px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                          {isEmp ? 'Employee / Cashier' : 'CPA / Accountant'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -222,9 +219,9 @@ export default function TeamManagementPage() {
                           <button
                             onClick={() => handleRecordSalary(member)}
                             disabled={payingId === member.id}
-                            className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition"
+                            className="text-xs font-semibold text-white bg-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-800 transition"
                           >
-                            {payingId === member.id ? 'Recording…' : '💰 Record Salary (Expense)'}
+                            {payingId === member.id ? 'Recording…' : 'Record Salary (Expense)'}
                           </button>
                         )}
                         <button
@@ -324,7 +321,7 @@ export default function TeamManagementPage() {
                       memberRole === 'employee' ? 'border-textPrimary bg-gray-50' : 'border-border'
                     }`}
                   >
-                    <div className="font-bold text-xs text-textPrimary">🧑‍💼 Cashier / POS</div>
+                    <div className="font-bold text-xs text-textPrimary">Cashier / POS</div>
                     <div className="text-[11px] text-textSecondary mt-0.5">Sales &amp; stock only. Profits hidden.</div>
                   </button>
 
@@ -335,7 +332,7 @@ export default function TeamManagementPage() {
                       memberRole === 'accountant' ? 'border-textPrimary bg-gray-50' : 'border-border'
                     }`}
                   >
-                    <div className="font-bold text-xs text-textPrimary">💼 CPA / Accountant</div>
+                    <div className="font-bold text-xs text-textPrimary">CPA / Accountant</div>
                     <div className="text-[11px] text-textSecondary mt-0.5">Audit hub, P&amp;L &amp; GRA tax.</div>
                   </button>
                 </div>

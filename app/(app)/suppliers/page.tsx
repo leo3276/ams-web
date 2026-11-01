@@ -41,49 +41,7 @@ import {
 } from '@/lib/supplierPipelineStore';
 import { printSupplierDebtBookPDF } from '@/lib/pdfGenerator';
 import { logAuditEvent } from '@/lib/auditLogger';
-
-const DEBT_TYPE_LABELS: Record<DebtType, { label: string; icon: string; desc: string }> = {
-  inventory: {
-    label: 'Inventory / Stock on Credit',
-    icon: '📦',
-    desc: 'Increases Inventory Asset & Current Liabilities (Accounts Payable)',
-  },
-  fixed_asset: {
-    label: 'Fixed Assets & Equipment Financing',
-    icon: '🚜',
-    desc: 'Increases Fixed Assets & Long-Term Liabilities (Equipment Financing)',
-  },
-  cash_loan: {
-    label: 'Short-Term Loan / Working Capital Borrowing',
-    icon: '💵',
-    desc: 'Inflows Cash/Bank & increases Current Liabilities (Short-Term Loan)',
-  },
-  long_term_loan: {
-    label: 'Long-Term Facility / Capital Loan',
-    icon: '🏦',
-    desc: 'Inflows Cash/Bank & increases Long-Term Liabilities (Long-Term Debt)',
-  },
-  service_expense: {
-    label: 'Service / Operating Expense on Credit',
-    icon: '💡',
-    desc: 'Increases Current Liabilities (Rent, Utilities, Logistics Accruals)',
-  },
-  raw_materials: {
-    label: 'Raw Materials / Direct Supplies',
-    icon: '🧱',
-    desc: 'Increases Current Liabilities (Trade Creditors for Production Inputs)',
-  },
-  packaging: {
-    label: 'Packaging & Consumables on Credit',
-    icon: '🛍️',
-    desc: 'Increases Current Liabilities (Packaging Supplies & Consumables)',
-  },
-  logistics_freight: {
-    label: 'Freight, Logistics & Transport on Credit',
-    icon: '🚚',
-    desc: 'Increases Current Liabilities (Carriage & Delivery Services Owed)',
-  },
-};
+import { Icon } from '@/components/Icons';
 
 export default function SuppliersPage() {
   const { role } = useUserRole();
@@ -871,7 +829,9 @@ export default function SuppliersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <span className="text-2xl">🏭</span>
+            <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+              <Icon name="factory" size={20} />
+            </span>
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                 Supplier Hub, Stock Requests &amp; Payout Desk
@@ -900,21 +860,21 @@ export default function SuppliersPage() {
             }
             className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
-            <span>📄 Export PDF</span>
+            <span>Export PDF</span>
           </button>
 
           <button
             onClick={() => handleOpenCreatePO()}
             className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
-            <span>📋 Request Stock (PO)</span>
+            <span>Request Stock (PO)</span>
           </button>
 
           <button
             onClick={() => handleOpenPayoutModal()}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
-            <span>💸 Pay Supplier Bill</span>
+            <span>Pay Supplier Bill</span>
           </button>
         </div>
       </div>
@@ -923,50 +883,50 @@ export default function SuppliersPage() {
       {notification && (
         <div
           className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between shadow-xs ${
-            notification.type === 'success' ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' : 'bg-red-50 text-red-900 border border-red-200'
+            notification.type === 'success' ? 'bg-slate-50 text-slate-900 border border-slate-200' : 'bg-red-50 text-red-900 border border-red-200'
           }`}
         >
           <span>{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="font-bold ml-2">✕</button>
+          <button onClick={() => setNotification(null)} className="font-bold ml-2"><Icon name="x" size={14} /></button>
         </div>
       )}
 
       {/* 2. KPI METRICS CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-medium text-slate-500">Total Accounts Payable (Debt)</p>
-          <p className="text-2xl font-bold text-red-600 mt-1 font-mono">
-            {currency} {totalAccountsPayable.toLocaleString()}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Accounts Payable (Creditors)</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5 font-mono">
+            {currency} {totalAccountsPayable.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-red-600 mt-0.5 font-medium">
+          <p className="text-[11px] text-slate-500 mt-1">
             {suppliers.filter((s) => Number(s.balance_owed || 0) > 0).length} suppliers owed
           </p>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-medium text-slate-500">Stock Requisitions (PO)</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1 font-mono">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Stock Requisitions (PO)</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5 font-mono">
             {purchaseOrders.length} Orders
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">
+          <p className="text-[11px] text-slate-500 mt-1">
             {purchaseOrders.filter((po) => po.status === 'sent').length} pending delivery
           </p>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-medium text-slate-500">Disbursed This Month</p>
-          <p className="text-2xl font-bold text-emerald-700 mt-1 font-mono">
-            {currency} {totalPayoutsThisMonth.toLocaleString()}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Disbursed This Month</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5 font-mono">
+            {currency} {totalPayoutsThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Across {vouchers.length} payment vouchers</p>
+          <p className="text-[11px] text-slate-500 mt-1">Across {vouchers.length} payment vouchers</p>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs font-medium text-slate-500">Active Supply Partners</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1 font-mono">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Supply Partners</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5 font-mono">
             {suppliers.length}
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Registered vendors</p>
+          <p className="text-[11px] text-slate-500 mt-1">Registered vendors</p>
         </div>
       </div>
 
@@ -980,7 +940,7 @@ export default function SuppliersPage() {
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <span>👥 Supplier Directory &amp; Debt Book</span>
+          <Icon name="users" size={14} /> Supplier Directory &amp; Debt Book
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
             {suppliers.length}
           </span>
@@ -994,7 +954,7 @@ export default function SuppliersPage() {
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <span>📋 Stock Requests &amp; POs</span>
+          <Icon name="clipboard" size={14} /> Stock Requests &amp; POs
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
             {purchaseOrders.length}
           </span>
@@ -1008,7 +968,7 @@ export default function SuppliersPage() {
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <span>🚚 Receiving Dock (GRN)</span>
+          <Icon name="truck" size={14} /> Receiving Dock (GRN)
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
             {grnList.length}
           </span>
@@ -1022,7 +982,7 @@ export default function SuppliersPage() {
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <span>💸 Direct Payout Desk &amp; Vouchers</span>
+          <Icon name="cash" size={14} /> Direct Payout Desk &amp; Vouchers
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-800">
             {vouchers.length}
           </span>
@@ -1043,7 +1003,7 @@ export default function SuppliersPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-slate-900 text-slate-900"
               />
-              <span className="absolute left-2.5 top-2.5 text-xs text-slate-400">🔍</span>
+              <span className="absolute left-2.5 top-2.5 text-slate-400"><Icon name="search" size={14} /></span>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -1072,7 +1032,6 @@ export default function SuppliersPage() {
 
           {filteredSuppliers.length === 0 ? (
             <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
-              <span className="text-3xl mb-2 inline-block">🏭</span>
               <h3 className="text-sm font-bold text-slate-900 mb-1">No Suppliers Found</h3>
               <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
                 Register your distributors, wholesalers, and credit suppliers to manage stock requests and pay bills.
@@ -1125,28 +1084,28 @@ export default function SuppliersPage() {
                                   onClick={() => handleOpenPayoutModal(s)}
                                   className="px-2.5 py-1 rounded-md bg-slate-900 text-white font-semibold text-[11px] hover:bg-slate-800 transition"
                                 >
-                                  💸 Pay
+                                  Pay
                                 </button>
                               )}
                               <button
                                 onClick={() => handleOpenCreatePO(s.id)}
                                 className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-medium text-[11px] hover:bg-slate-200 transition"
                               >
-                                📋 Request PO
+                                Request PO
                               </button>
                               <button
                                 onClick={() => handleOpenEditSupplier(s)}
                                 className="p-1 rounded text-slate-400 hover:text-slate-900"
                                 title="Edit"
                               >
-                                ✏️
+                                <Icon name="edit" size={14} />
                               </button>
                               <button
                                 onClick={() => handleDeleteSupplier(s.id, s.name)}
                                 className="p-1 rounded text-slate-400 hover:text-red-600"
                                 title="Delete"
                               >
-                                🗑️
+                                <Icon name="trash" size={14} />
                               </button>
                             </div>
                           </td>
@@ -1181,7 +1140,6 @@ export default function SuppliersPage() {
 
           {purchaseOrders.length === 0 ? (
             <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
-              <span className="text-3xl mb-2 inline-block">📋</span>
               <h3 className="text-sm font-bold text-slate-900 mb-1">No Purchase Orders Created Yet</h3>
               <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
                 Create stock requests to order goods from suppliers with 1-click WhatsApp dispatch.
@@ -1240,7 +1198,7 @@ export default function SuppliersPage() {
                           onClick={() => handleOpenGRNDock(po)}
                           className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 transition"
                         >
-                          🚚 Receive at Dock
+                          Receive at Dock
                         </button>
                       ) : (
                         <span className="text-xs font-semibold text-emerald-700">✓ Received at Dock</span>
@@ -1252,7 +1210,7 @@ export default function SuppliersPage() {
                         rel="noopener noreferrer"
                         className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-xs hover:bg-emerald-100 transition inline-flex items-center gap-1"
                       >
-                        <span>📱 WhatsApp PO</span>
+                        <span>WhatsApp PO</span>
                       </a>
                     </div>
                   </div>
@@ -1283,7 +1241,6 @@ export default function SuppliersPage() {
 
           {grnList.length === 0 ? (
             <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
-              <span className="text-3xl mb-2 inline-block">🚚</span>
               <h3 className="text-sm font-bold text-slate-900 mb-1">No Deliveries Received Yet</h3>
               <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
                 When suppliers deliver goods to your dock, receive them here to automatically increase your inventory.
@@ -1346,13 +1303,12 @@ export default function SuppliersPage() {
               onClick={() => handleOpenPayoutModal()}
               className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5"
             >
-              <span>💸 Execute Supplier Payout</span>
+              <span>Execute Supplier Payout</span>
             </button>
           </div>
 
           {vouchers.length === 0 ? (
             <div className="bg-white p-12 rounded-xl border border-slate-200 text-center">
-              <span className="text-3xl mb-2 inline-block">💸</span>
               <h3 className="text-sm font-bold text-slate-900 mb-1">No Supplier Payouts Executed Yet</h3>
               <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto">
                 Pay supplier credit bills directly via Mobile Money or Bank and generate official payment vouchers.
@@ -1407,7 +1363,7 @@ export default function SuppliersPage() {
                               rel="noopener noreferrer"
                               className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px] hover:bg-emerald-100 transition inline-block"
                             >
-                              📱 Send WhatsApp Slip
+                              Send WhatsApp Slip
                             </a>
                           </td>
                         </tr>
@@ -1429,7 +1385,7 @@ export default function SuppliersPage() {
           <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">Register Supply Partner</h3>
-              <button onClick={() => setShowAddSupplierModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+              <button onClick={() => setShowAddSupplierModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1"><Icon name="x" size={15} /></button>
             </div>
 
             <form key={`form-add-supplier-${addModalKey}`} onSubmit={handleSaveSupplier} className="space-y-3.5">
@@ -1478,14 +1434,14 @@ export default function SuppliersPage() {
                     onChange={(e) => setFormDebtType(e.target.value as DebtType)}
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-medium"
                   >
-                    <option value="inventory">📦 Inventory / Stock on Credit</option>
-                    <option value="fixed_asset">🚜 Fixed Assets &amp; Equipment Financing</option>
-                    <option value="cash_loan">💵 Short-Term Loan / Float</option>
-                    <option value="long_term_loan">🏦 Long-Term Facility / Capital Loan</option>
-                    <option value="service_expense">💡 Utility &amp; Service Operating Expense</option>
-                    <option value="raw_materials">🧱 Raw Materials / Production Inputs</option>
-                    <option value="packaging">🛍️ Packaging Supplies &amp; Consumables</option>
-                    <option value="logistics_freight">🚚 Logistics, Freight &amp; Transport</option>
+                    <option value="inventory">Inventory / Stock on Credit</option>
+                    <option value="fixed_asset">Fixed Assets &amp; Equipment Financing</option>
+                    <option value="cash_loan">Short-Term Loan / Float</option>
+                    <option value="long_term_loan">Long-Term Facility / Capital Loan</option>
+                    <option value="service_expense">Utility &amp; Service Operating Expense</option>
+                    <option value="raw_materials">Raw Materials / Production Inputs</option>
+                    <option value="packaging">Packaging Supplies &amp; Consumables</option>
+                    <option value="logistics_freight">Logistics, Freight &amp; Transport</option>
                   </select>
                 </div>
 
@@ -1497,8 +1453,8 @@ export default function SuppliersPage() {
                       onChange={(e) => setFormLoanChannel(e.target.value as 'cash' | 'bank')}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-bold bg-slate-50"
                     >
-                      <option value="cash">💵 Cash on Hand (Till)</option>
-                      <option value="bank">🏦 Bank / MoMo Account</option>
+                      <option value="cash">Cash on Hand (Till)</option>
+                      <option value="bank">Bank / MoMo Account</option>
                     </select>
                   </div>
                 ) : (
@@ -1524,7 +1480,7 @@ export default function SuppliersPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-xs font-bold text-emerald-950 uppercase flex items-center gap-1.5">
-                        📦 Inventory Goods on Credit (Auto-Restocks Inventory)
+                        Inventory Goods on Credit (Auto-Restocks Inventory)
                       </span>
                       <p className="text-[11px] text-emerald-800">
                         Items added here automatically update your Stock Levels, Inventory Value, and Accounts Payable.
@@ -1612,7 +1568,7 @@ export default function SuppliersPage() {
                             onClick={() => handleRemoveFormInventoryItem(idx)}
                             className="text-red-500 hover:text-red-700 font-bold p-1 pt-3"
                           >
-                            ✕
+                            <Icon name="x" size={13} />
                           </button>
                         )}
                       </div>
@@ -1685,7 +1641,7 @@ export default function SuppliersPage() {
           <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto animate-fadeIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">Edit Supply Partner</h3>
-              <button onClick={() => setShowEditSupplierModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+              <button onClick={() => setShowEditSupplierModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1"><Icon name="x" size={15} /></button>
             </div>
 
             <form onSubmit={handleUpdateSupplier} className="space-y-3.5">
@@ -1730,14 +1686,14 @@ export default function SuppliersPage() {
                     onChange={(e) => setEditFormDebtType(e.target.value as DebtType)}
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-medium"
                   >
-                    <option value="inventory">📦 Inventory / Stock on Credit</option>
-                    <option value="fixed_asset">🚜 Fixed Assets &amp; Equipment Financing</option>
-                    <option value="cash_loan">💵 Short-Term Loan / Float</option>
-                    <option value="long_term_loan">🏦 Long-Term Facility / Capital Loan</option>
-                    <option value="service_expense">💡 Utility &amp; Service Operating Expense</option>
-                    <option value="raw_materials">🧱 Raw Materials / Production Inputs</option>
-                    <option value="packaging">🛍️ Packaging Supplies &amp; Consumables</option>
-                    <option value="logistics_freight">🚚 Logistics, Freight &amp; Transport</option>
+                    <option value="inventory">Inventory / Stock on Credit</option>
+                    <option value="fixed_asset">Fixed Assets &amp; Equipment Financing</option>
+                    <option value="cash_loan">Short-Term Loan / Float</option>
+                    <option value="long_term_loan">Long-Term Facility / Capital Loan</option>
+                    <option value="service_expense">Utility &amp; Service Operating Expense</option>
+                    <option value="raw_materials">Raw Materials / Production Inputs</option>
+                    <option value="packaging">Packaging Supplies &amp; Consumables</option>
+                    <option value="logistics_freight">Logistics, Freight &amp; Transport</option>
                   </select>
                 </div>
 
@@ -1749,8 +1705,8 @@ export default function SuppliersPage() {
                       onChange={(e) => setEditFormLoanChannel(e.target.value as 'cash' | 'bank')}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 text-slate-900 font-bold bg-slate-50"
                     >
-                      <option value="cash">💵 Cash on Hand (Till)</option>
-                      <option value="bank">🏦 Bank / MoMo Account</option>
+                      <option value="cash">Cash on Hand (Till)</option>
+                      <option value="bank">Bank / MoMo Account</option>
                     </select>
                   </div>
                 ) : (
@@ -1819,7 +1775,7 @@ export default function SuppliersPage() {
                 <h3 className="text-base font-bold text-slate-900">Request Stock from Supplier (Purchase Order)</h3>
                 <p className="text-xs text-slate-500">Auto-fills low-stock items and sends directly to supplier WhatsApp.</p>
               </div>
-              <button onClick={() => setShowCreatePOModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+              <button onClick={() => setShowCreatePOModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1"><Icon name="x" size={15} /></button>
             </div>
 
             <form onSubmit={handleSavePO} className="space-y-4">
@@ -1856,7 +1812,7 @@ export default function SuppliersPage() {
                   onClick={handlePopulateLowStockItems}
                   className="px-3 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs hover:bg-amber-200 transition"
                 >
-                  ⚡ Auto-Add Low-Stock Items
+                  <Icon name="zap" size={13} /> Auto-Add Low-Stock Items
                 </button>
               </div>
 
@@ -1935,7 +1891,7 @@ export default function SuppliersPage() {
                           onClick={() => handleRemovePOItem(idx)}
                           className="text-red-500 hover:text-red-700 p-1"
                         >
-                          ✕
+                          <Icon name="x" size={13} />
                         </button>
                       )}
                     </div>
@@ -1978,7 +1934,7 @@ export default function SuppliersPage() {
                 <h3 className="text-base font-bold text-slate-900">Receive Stock at Dock (Goods Received Note)</h3>
                 <p className="text-xs text-slate-500">Inspect arriving deliveries and auto-increment store inventory.</p>
               </div>
-              <button onClick={() => setShowGRNModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+              <button onClick={() => setShowGRNModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1"><Icon name="x" size={15} /></button>
             </div>
 
             <form onSubmit={handleAcceptGRNShipment} className="space-y-4">
@@ -2111,7 +2067,7 @@ export default function SuppliersPage() {
                 <h3 className="text-base font-bold text-slate-900">Direct Supplier Payout Desk</h3>
                 <p className="text-xs text-slate-500">Disburse payment to supplier MoMo or Bank account.</p>
               </div>
-              <button onClick={() => setShowPayoutModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1">✕</button>
+              <button onClick={() => setShowPayoutModal(false)} className="text-slate-400 hover:text-slate-700 font-bold p-1"><Icon name="x" size={15} /></button>
             </div>
 
             <form onSubmit={handleExecuteSupplierPayout} className="space-y-3.5">
@@ -2273,7 +2229,7 @@ export default function SuppliersPage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                🗑️
+                <Icon name="trash" size={17} />
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Supplier</h3>

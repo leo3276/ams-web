@@ -5,6 +5,7 @@ import { AuditLogEntry, fetchAuditLogs, logAuditEvent, getCachedAuditLogs } from
 import { getCachedBusiness } from '@/lib/offlineStore';
 import { useUserRole } from '@/lib/RoleContext';
 import { printAuditTrailReportPDF } from '@/lib/pdfGenerator';
+import { Icon } from '@/components/Icons';
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -120,7 +121,7 @@ export default function AuditLogsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl">🛡️</span>
+            <Icon name="shield" size={16} className="text-textPrimary" />
             <span className="text-xs font-bold text-accentText uppercase tracking-wider">
               {business?.name || 'Compliance & Governance'}
             </span>
@@ -142,14 +143,14 @@ export default function AuditLogsPage() {
             disabled={filteredLogs.length === 0}
             className="px-3.5 py-2 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold hover:opacity-90 transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
           >
-            <span>📄</span> Export Stylish PDF
+            <Icon name="file" size={14} /> Export Stylish PDF
           </button>
           <button
             onClick={handleExportCSV}
             disabled={filteredLogs.length === 0}
             className="px-3.5 py-2 rounded-lg border border-border bg-surface2 text-textPrimary text-xs font-bold hover:bg-surface1 transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
           >
-            <span>📥</span> CSV
+            <Icon name="download" size={14} /> CSV
           </button>
         </div>
       </div>
@@ -229,7 +230,6 @@ export default function AuditLogsPage() {
           <div className="p-8 text-center text-xs text-textSecondary">Loading audit trail records...</div>
         ) : filteredLogs.length === 0 ? (
           <div className="p-12 text-center space-y-2">
-            <span className="text-3xl">📋</span>
             <p className="text-sm font-bold text-textPrimary">No audit records found</p>
             <p className="text-xs text-textSecondary">All subsequent system modifications will appear here in real time.</p>
           </div>

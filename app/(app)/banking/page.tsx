@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { Transaction, Invoice } from '@/lib/types';
 import { useUserRole } from '@/lib/RoleContext';
 import { logAuditEvent } from '@/lib/auditLogger';
+import { Icon } from '@/components/Icons';
 
 export default function BankingSyncPage() {
   const { role } = useUserRole();
@@ -268,7 +269,7 @@ export default function BankingSyncPage() {
     const expectedPin = pinMap[businessId] || '1234';
 
     if (payMasterPin.trim() !== expectedPin) {
-      setPayoutErrorMsg('⚠️ Unauthorized: Incorrect Owner Master PIN. Payout rejected.');
+      setPayoutErrorMsg('Unauthorized: Incorrect Owner Master PIN. Payout rejected.');
       return;
     }
 
@@ -316,7 +317,7 @@ export default function BankingSyncPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <span className="text-2xl">📱</span>
+            <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0"><Icon name="phone" size={20} /></span>
             <div>
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                 Mobile Money (MoMo) Wallet &amp; Synchronization
@@ -342,13 +343,13 @@ export default function BankingSyncPage() {
             onClick={() => fileInputRef.current?.click()}
             className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-semibold transition flex items-center gap-1.5"
           >
-            <span>📥</span> Ingest MoMo Statement
+            <Icon name="download" size={14} /> Ingest MoMo Statement
           </button>
           <Link
             href="/suppliers"
             className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
           >
-            <span>🏭</span> Pay Supplier Bill
+            <Icon name="factory" size={14} /> Pay Supplier Bill
           </Link>
           <button
             onClick={() => setShowAddAccountModal(true)}
@@ -372,7 +373,7 @@ export default function BankingSyncPage() {
             }`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xl">{acc.account_type === 'momo' ? '📱' : '🏦'}</span>
+              <span className="text-slate-600">{acc.account_type === 'momo' ? <Icon name="phone" size={18} /> : <Icon name="bank" size={18} />}</span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                 selectedAccountId === acc.id ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               }`}>
@@ -414,7 +415,7 @@ export default function BankingSyncPage() {
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <div>
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <span>⚡</span> Smart Feed Auto-Matcher &amp; Ledger Reconciliation
+              <Icon name="zap" size={14} /> Smart Feed Auto-Matcher &amp; Ledger Reconciliation
             </h2>
             <p className="text-xs text-slate-500">
               Live statement transactions compared side-by-side against internal sales &amp; expense ledgers.
@@ -497,7 +498,7 @@ export default function BankingSyncPage() {
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : 'bg-amber-50 text-amber-800 border border-amber-200'
                         }`}>
-                          {feed.status === 'matched' ? '✓ Reconciled' : '⚠️ Pending Match'}
+                          {feed.status === 'matched' ? '✓ Reconciled' : 'Pending Match'}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
@@ -527,13 +528,13 @@ export default function BankingSyncPage() {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>🏦</span> Connect Bank or MoMo Wallet
+                <Icon name="bank" size={15} /> Connect Bank or MoMo Wallet
               </h3>
               <button
                 onClick={() => setShowAddAccountModal(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold text-sm"
               >
-                ✕
+                <Icon name="x" size={14} />
               </button>
             </div>
 
@@ -646,7 +647,7 @@ export default function BankingSyncPage() {
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <span>💸</span> Issue Outgoing Payment to 3rd Party
+                  <Icon name="cash" size={15} /> Issue Outgoing Payment to 3rd Party
                 </h3>
                 <p className="text-[11px] text-slate-500">
                   Direct transfer from your linked bank/MoMo account with Owner Master PIN authorization.
@@ -656,7 +657,7 @@ export default function BankingSyncPage() {
                 onClick={() => setShowDirectPayModal(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold text-sm"
               >
-                ✕
+                <Icon name="x" size={14} />
               </button>
             </div>
 
@@ -732,7 +733,7 @@ export default function BankingSyncPage() {
               {/* SECURITY MAKER-CHECKER PIN */}
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1.5">
                 <label className="block font-bold text-amber-900 text-xs flex items-center gap-1.5">
-                  <span>🔒</span> Security Authorization: Owner Master PIN
+                  <Icon name="lock" size={13} /> Security Authorization: Owner Master PIN
                 </label>
                 <input
                   type="password"
@@ -772,7 +773,7 @@ export default function BankingSyncPage() {
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-sm"
                 >
-                  🚀 Authorize &amp; Disburse Funds
+                  <Icon name="zap" size={14} /> Authorize &amp; Disburse Funds
                 </button>
               </div>
             </form>

@@ -306,7 +306,7 @@ export function getWhatsAppRefundReceiptLink(refund: CustomerRefund, businessNam
     itemList += `${idx + 1}. ${i.productName} (${i.quantityReturned} pcs) - ${currency} ${i.refundAmount.toLocaleString()}\n`;
   });
 
-  const message = `🧾 *CUSTOMER REFUND SLIP* - ${businessName}
+  const message = `*CUSTOMER REFUND SLIP* - ${businessName}
 *Refund Number:* ${refund.refundNumber}
 *Date:* ${refund.refundDate}
 *Customer:* ${refund.customerName}
@@ -314,9 +314,9 @@ export function getWhatsAppRefundReceiptLink(refund: CustomerRefund, businessNam
 We have processed a return and refund for your account:
 
 ${itemList}
-💰 *Total Refund Payout:* ${currency} ${refund.totalRefundAmount.toLocaleString()}
-💳 *Payment Channel:* ${refund.payoutMethod.toUpperCase()}
-📝 *Reason:* ${refund.reason}
+*Total Refund Payout:* ${currency} ${refund.totalRefundAmount.toLocaleString()}
+*Payment Channel:* ${refund.payoutMethod.toUpperCase()}
+*Reason:* ${refund.reason}
 
 Thank you for shopping with us.
 *${businessName} Customer Service*`;
@@ -329,19 +329,19 @@ export function getWhatsAppBuyBackVoucherLink(buyback: CustomerBuyBackItem, busi
   const cleanPhone = (buyback.customerPhone || '').replace(/[^0-9]/g, '');
   const recipient = cleanPhone.startsWith('0') ? `233${cleanPhone.slice(1)}` : cleanPhone;
 
-  const serialText = buyback.serialNumberOrIMEI ? `\n🔢 *Serial / IMEI:* ${buyback.serialNumberOrIMEI}` : '';
+  const serialText = buyback.serialNumberOrIMEI ? `\n*Serial / IMEI:* ${buyback.serialNumberOrIMEI}` : '';
 
-  const message = `💵 *CUSTOMER TRADE-IN & PURCHASE RECEIPT* - ${businessName}
+  const message = `*CUSTOMER TRADE-IN & PURCHASE RECEIPT* - ${businessName}
 *Voucher Number:* ${buyback.voucherNumber}
 *Date:* ${buyback.purchaseDate}
 *Seller:* ${buyback.customerName}
 
 We have officially purchased the following stock from you:
 
-📦 *Item:* ${buyback.itemName} (${buyback.quantityPurchased} pcs)
-⭐ *Condition:* ${buyback.condition}${serialText}
-💰 *Purchase Payout Disbursed:* ${currency} ${buyback.totalPayoutAmount.toLocaleString()}
-💳 *Payout Channel:* ${buyback.payoutMethod.toUpperCase()}
+*Item:* ${buyback.itemName} (${buyback.quantityPurchased} pcs)
+*Condition:* ${buyback.condition}${serialText}
+*Purchase Payout Disbursed:* ${currency} ${buyback.totalPayoutAmount.toLocaleString()}
+*Payout Channel:* ${buyback.payoutMethod.toUpperCase()}
 
 Thank you for your transaction with us.
 *${businessName} Intake Desk*`;

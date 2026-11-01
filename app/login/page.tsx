@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { Icon } from '@/components/Icons';
 import { UserRole } from '@/lib/RoleContext';
 
 import { getCachedBusiness, setCachedBusiness, setCachedUser, resolveActiveBusiness } from '@/lib/offlineStore';
@@ -27,6 +28,12 @@ export default function LoginPage() {
     const activeBiz = await resolveActiveBusiness(userId);
     if ((activeBiz as any)?.business_type) {
       localStorage.setItem('ams:active_archetype_v1', (activeBiz as any).business_type);
+    }
+
+    // If business is unconfigured or has default placeholder, prompt onboarding setup
+    if (!activeBiz || !activeBiz.name || activeBiz.name === 'My Enterprise') {
+      router.push('/business-profile?onboarding=true');
+      return;
     }
 
     router.push('/dashboard');
@@ -180,9 +187,9 @@ export default function LoginPage() {
         <label className="block text-xs font-bold text-textSecondary mb-1.5">Select your role</label>
         <div className="grid grid-cols-3 gap-1.5 mb-5">
           {[
-            { key: 'owner', label: '👑 Owner', desc: 'Full access' },
-            { key: 'employee', label: '🧑‍💼 Employee', desc: 'POS & stock' },
-            { key: 'accountant', label: '💼 CPA', desc: 'Audit & tax' },
+            { key: 'owner', label: 'Owner', desc: 'Full access' },
+            { key: 'employee', label: 'Employee', desc: 'POS & stock' },
+            { key: 'accountant', label: 'CPA', desc: 'Audit & tax' },
           ].map((item) => {
             const active = selectedRole === item.key;
             return (
@@ -235,8 +242,8 @@ export default function LoginPage() {
                 className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm mb-1 focus:outline-none focus:border-textPrimary"
                 placeholder="Enter 4-6 digit Owner PIN if set"
               />
-              <p className="text-[11px] text-textMuted">
-                🔒 Leave blank if you created your account in AMS Lite.
+              <p className="text-[11px] text-textMuted flex items-center gap-1">
+                <Icon name="lock" size={11} className="inline" /> Leave blank if you created your account in AMS Lite.
               </p>
             </div>
           )}

@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { Transaction, Invoice } from '@/lib/types';
 import { estimateGhanaTax } from '@/lib/ghanaTax';
 import { printAccountantAuditPackPDF } from '@/lib/pdfGenerator';
-import { getCachedSuppliers, getCachedBusiness, getCachedTransactions, getCachedInvoices, resolveActiveBusiness } from '@/lib/offlineStore';
+import { Icon } from '@/components/Icons';
+import { getCachedSuppliers, getCachedBusiness, getCachedTransactions, getCachedInvoices, getCachedInventory, getCachedCustomers, reconcileCustomerDebtors, resolveActiveBusiness } from '@/lib/offlineStore';
 
 interface PnL {
   revenue: number;
@@ -119,7 +120,7 @@ export default function AccountantPage() {
     const { start, end, label } = currentMonthRange();
     setPeriodLabel(label);
 
-    const [pnlRes, bsRes, cfRes, tbRes, txRes, invRes, staffRes] = await Promise.all([
+    const [pnlRes, bsRes, cfRes, tbRes, txRes, invRes, staffRes, itemsRes] = await Promise.all([
       supabase.rpc('get_pnl_report', { p_business_id: targetBiz.id, p_start_date: start, p_end_date: end }),
       supabase.rpc('get_balance_sheet', { p_business_id: targetBiz.id, p_as_of_date: end }),
       supabase.rpc('get_cash_flow_statement', { p_business_id: targetBiz.id, p_start_date: start, p_end_date: end }),
@@ -127,6 +128,7 @@ export default function AccountantPage() {
       supabase.from('transactions').select('*').eq('business_id', targetBiz.id).order('transaction_date', { ascending: false }),
       supabase.from('invoices').select('*').eq('business_id', targetBiz.id).order('due_date', { ascending: true }),
       supabase.from('business_members').select('*').eq('business_id', targetBiz.id),
+      supabase.from('inventory_items').select('*').eq('business_id', targetBiz.id),
     ]);
 
     const localTxs = getCachedTransactions(targetBiz.id);
@@ -144,11 +146,27 @@ export default function AccountantPage() {
     remoteInvs.forEach((i: any) => invMap.set(i.id || i.invoice_number, i));
     const allInvs: Invoice[] = Array.from(invMap.values());
 
+    const remoteItems = itemsRes.data ?? [];
+    const localItems = getCachedInventory(targetBiz.id);
+    const itemsMap = new Map();
+    localItems.forEach((item: any) => itemsMap.set(item.id, item));
+    remoteItems.forEach((item: any) => itemsMap.set(item.id, item));
+    const allInvItems = Array.from(itemsMap.values());
+    const closingStockVal = allInvItems.reduce(
+      (sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.unit_cost ?? item.cost_price ?? 0),
+      0
+    );
+
+    const reconciledDebtors = reconcileCustomerDebtors(allInvs, allTx, getCachedCustomers(targetBiz.id));
+    const finalDebtors = reconciledDebtors.totalDebtors;
+
     setTransactions(allTx);
     setInvoices(allInvs);
 
     // 1. Calculate live Balance Sheet directly from ledger and creditor registries
     let periodRev = 0;
+    let periodReturns = 0;
+    let periodOpeningStock = 0;
     let periodCogs = 0;
     let periodOpex = 0;
 
@@ -158,74 +176,158 @@ export default function AccountantPage() {
     let bankOut = 0;
 
     let fixedAssetsPurchased = 0;
-    let currentAssetsPurchased = 0;
+    let computedAccumulatedDeprec = 0;
+    let prepaidsAndOtherCurrent = 0;
     let drawingsTotal = 0;
 
     let longTermLoansFromTxs = 0;
     let shortTermTxsPayable = 0;
 
+    let cfOperatingIn = 0;
+    let cfOperatingOut = 0;
+    let cfInvestingOut = 0;
+    let cfFinancingIn = 0;
+    let cfFinancingOut = 0;
+
     allTx.forEach((t: any) => {
       const amt = Number(t.amount || 0);
       const isBank = t.payment_method === 'bank';
       const inPeriod = t.transaction_date >= start && t.transaction_date <= end;
+      const isOpeningBalance =
+        t.category === 'Opening Balances' ||
+        t.category === 'Opening Stock' ||
+        (t.vendor && t.vendor.startsWith('Opening Balance:')) ||
+        (t.vendor && t.vendor.startsWith('Opening Stock:'));
       const isSupplierBill =
         t.type === 'short_term_liability' ||
         t.type === 'long_term_liability' ||
         (t.category && t.category.includes('Accounts Payable')) ||
         (t.vendor && t.vendor.startsWith('Supplier:'));
 
+      const catLower = (t.category || '').toLowerCase().trim();
+      const venLower = (t.vendor || '').toLowerCase().trim();
+
+      if (t.type === 'current_asset') {
+        const isStockCategory = catLower.includes('stock') || catLower.includes('inventory') || venLower.includes('stock') || venLower.includes('inventory');
+        const isDebtorCategory = catLower.includes('debtor') || catLower.includes('receivable') || venLower.includes('debtor');
+        const isPrepaidOrOther = catLower.includes('prepaid') || catLower.includes('other') || venLower.includes('prepaid');
+        const isBankCategory = !isStockCategory && !isDebtorCategory && !isPrepaidOrOther && (isBank || catLower.includes('bank') || catLower.includes('momo') || venLower.includes('bank') || venLower.includes('momo'));
+        const isCashCategory = !isStockCategory && !isDebtorCategory && !isPrepaidOrOther && !isBankCategory;
+
+        if (isStockCategory) {
+          periodOpeningStock = Math.max(periodOpeningStock, amt);
+        } else if (isDebtorCategory) {
+          // Handled via reconcileCustomerDebtors
+        } else if (isPrepaidOrOther) {
+          prepaidsAndOtherCurrent += amt;
+          if (!isOpeningBalance) {
+            if (isBank) bankOut += amt;
+            else cashOut += amt;
+            if (inPeriod) cfOperatingOut += amt;
+          }
+        } else if (isBankCategory) {
+          bankIn += amt;
+          if (inPeriod) cfFinancingIn += amt;
+        } else if (isCashCategory) {
+          cashIn += amt;
+          if (inPeriod) cfFinancingIn += amt;
+        }
+        return;
+      }
+
+      if (isOpeningBalance) {
+        if (t.type === 'fixed_asset') {
+          fixedAssetsPurchased += amt;
+          const depRate = Number(t.depreciation_rate || 0);
+          if (depRate > 0) computedAccumulatedDeprec += amt * (depRate > 1 ? depRate / 100 : depRate);
+        } else if (!isSupplierBill) {
+          if (isBank) bankIn += amt;
+          else cashIn += amt;
+          if (inPeriod) cfFinancingIn += amt;
+        }
+        return;
+      }
+
       if (t.type === 'revenue') {
-        if (inPeriod) periodRev += amt;
+        if (inPeriod) {
+          periodRev += amt;
+          cfOperatingIn += amt;
+        }
         if (isBank) bankIn += amt;
         else cashIn += amt;
+      } else if (t.type === 'deposit') {
+        if (isBank) bankIn += amt;
+        else cashIn += amt;
+        if (inPeriod) cfFinancingIn += amt;
+      } else if (t.type === 'return' || (t.category && t.category.toLowerCase().includes('customer sales return')) || (t.vendor && t.vendor.toLowerCase().startsWith('customer refund:'))) {
+        if (inPeriod) {
+          periodReturns += amt;
+          cfOperatingOut += amt;
+        }
+        if (isBank) bankOut += amt;
+        else cashOut += amt;
       } else if (t.type === 'cost_of_goods') {
-        if (inPeriod) periodCogs += amt;
+        if (inPeriod) {
+          periodCogs += amt;
+          cfOperatingOut += amt;
+        }
         if (isBank) bankOut += amt;
         else cashOut += amt;
       } else if (t.type === 'operating_expense') {
-        if (inPeriod) periodOpex += amt;
+        if (inPeriod) {
+          periodOpex += amt;
+          cfOperatingOut += amt;
+        }
         if (isBank) bankOut += amt;
         else cashOut += amt;
       } else if (t.type === 'drawings') {
         drawingsTotal += amt;
         if (isBank) bankOut += amt;
         else cashOut += amt;
+        if (inPeriod) cfFinancingOut += amt;
       } else if (t.type === 'fixed_asset') {
         fixedAssetsPurchased += amt;
+        const depRate = Number(t.depreciation_rate || 0);
+        if (depRate > 0) computedAccumulatedDeprec += amt * (depRate > 1 ? depRate / 100 : depRate);
         if (isBank) bankOut += amt;
         else cashOut += amt;
-      } else if (t.type === 'current_asset') {
-        currentAssetsPurchased += amt;
-        if (isBank) bankOut += amt;
-        else cashOut += amt;
+        if (inPeriod) cfInvestingOut += amt;
       } else if (t.type === 'long_term_liability' && !isSupplierBill) {
         longTermLoansFromTxs += amt;
         if (isBank) bankIn += amt;
         else cashIn += amt;
+        if (inPeriod) cfFinancingIn += amt;
       } else if (t.type === 'short_term_liability' && !isSupplierBill) {
         shortTermTxsPayable += amt;
         if (isBank) bankIn += amt;
         else cashIn += amt;
+        if (inPeriod) cfFinancingIn += amt;
       }
     });
 
     const cachedSups = getCachedSuppliers(targetBiz.id);
-    let tradePayablesInventory = 0;
-    let tradePayablesCashLoan = 0;
+    let tradePayablesCurrent = 0;
     let tradePayablesFixedAsset = 0;
-    let tradePayablesService = 0;
+    let tradePayablesLongTermLoan = 0;
+    let tradePayablesLoanCashIn = 0;
+    let tradePayablesLoanBankIn = 0;
 
     cachedSups.forEach((s) => {
       const bal = Number(s.balance_owed || 0);
       if (bal <= 0) return;
-      if (s.debt_type === 'cash_loan') {
-        tradePayablesCashLoan += bal;
-      } else if (s.debt_type === 'fixed_asset') {
+      const isBankChannel = s.loan_channel === 'bank';
+      if (s.debt_type === 'fixed_asset') {
         tradePayablesFixedAsset += bal;
-      } else if (s.debt_type === 'service_expense') {
-        tradePayablesService += bal;
+      } else if (s.debt_type === 'long_term_loan') {
+        tradePayablesLongTermLoan += bal;
+        if (isBankChannel) tradePayablesLoanBankIn += bal;
+        else tradePayablesLoanCashIn += bal;
+      } else if (s.debt_type === 'cash_loan') {
+        tradePayablesCurrent += bal;
+        if (isBankChannel) tradePayablesLoanBankIn += bal;
+        else tradePayablesLoanCashIn += bal;
       } else {
-        tradePayablesInventory += bal;
+        tradePayablesCurrent += bal;
       }
     });
 
@@ -237,13 +339,16 @@ export default function AccountantPage() {
       .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
     const accruedPayroll = Math.max(0, monthlyRosterPayroll - recordedSalaryTxs);
 
-    const netCash = cashIn - cashOut + tradePayablesCashLoan;
-    const netBank = bankIn - bankOut;
+    const netCash = cashIn - cashOut + tradePayablesLoanCashIn;
+    const netBank = bankIn - bankOut + tradePayablesLoanBankIn;
 
     // 2. Accurate Live P&L Statement
-    const finalRev = periodRev;
-    const finalCogs = periodCogs;
-    const finalOpex = periodOpex + tradePayablesService + accruedPayroll;
+    const finalRev = Math.max(0, periodRev - periodReturns);
+    const cogas = periodOpeningStock + periodCogs;
+    const finalCogs = (periodOpeningStock > 0 || closingStockVal > 0)
+      ? Math.max(0, cogas - closingStockVal)
+      : periodCogs;
+    const finalOpex = periodOpex + accruedPayroll;
     const finalNetProfit = finalRev - finalCogs - finalOpex;
 
     setPnl({
@@ -254,21 +359,21 @@ export default function AccountantPage() {
     });
 
     const rawBs = bsRes.data?.[0] || {};
-    const finalCurrentOther = currentAssetsPurchased + tradePayablesInventory;
+    const finalCurrentOther = finalDebtors + closingStockVal + prepaidsAndOtherCurrent;
     const finalCurrentAssets = netCash + netBank + finalCurrentOther;
 
     const finalFixedCost = fixedAssetsPurchased + tradePayablesFixedAsset;
-    const accumulatedDeprec = Number(rawBs.accumulated_depreciation || 0);
+    const accumulatedDeprec = Math.max(Number(rawBs.accumulated_depreciation || 0), Math.round(computedAccumulatedDeprec * 100) / 100);
     const finalFixedNbv = Math.max(0, finalFixedCost - accumulatedDeprec);
     const finalTotalAssets = finalCurrentAssets + finalFixedNbv;
 
-    const finalShortTerm = tradePayablesInventory + tradePayablesCashLoan + tradePayablesService + shortTermTxsPayable;
-    const finalLongTerm = tradePayablesFixedAsset + longTermLoansFromTxs;
+    const finalShortTerm = tradePayablesCurrent + shortTermTxsPayable + accruedPayroll;
+    const finalLongTerm = tradePayablesFixedAsset + tradePayablesLongTermLoan + longTermLoansFromTxs;
     const finalTotalLiab = finalShortTerm + finalLongTerm;
 
-    const ownersEquity = Number(rawBs.owners_equity || 0);
     const netProfitToDate = finalNetProfit || Number(rawBs.net_profit_to_date || 0);
     const drawingsToDate = Math.max(drawingsTotal, Number(rawBs.drawings_to_date || 0));
+    const ownersEquity = Math.round((finalTotalAssets - finalTotalLiab - netProfitToDate + drawingsToDate) * 100) / 100;
 
     setBalanceSheet({
       cash: netCash,
@@ -287,27 +392,57 @@ export default function AccountantPage() {
       drawings_to_date: drawingsToDate,
     });
 
-    if (cfRes.data?.[0]) setCashFlow(cfRes.data[0]);
+    // Live Cash Flow Statement
+    const opCf = cfOperatingIn - cfOperatingOut;
+    const invCf = -cfInvestingOut;
+    const finCf = (cfFinancingIn + tradePayablesLoanCashIn + tradePayablesLoanBankIn) - cfFinancingOut;
+    setCashFlow({
+      operating_activities: opCf,
+      investing_activities: invCf,
+      financing_activities: finCf,
+      net_cash_flow: opCf + invCf + finCf,
+    });
 
-    if (tbRes.data) {
-      const rows: TrialBalanceRow[] = [...tbRes.data];
-      if (finalShortTerm > 0 && !rows.some((r) => r.category.includes('Creditors') || r.category.includes('Accounts Payable'))) {
-        rows.push({
-          category: 'Trade Creditors (Accounts Payable)',
-          debit: 0,
-          credit: finalShortTerm,
-        });
-      }
-      setTrialBalance(rows);
-      let d = 0;
-      let c = 0;
-      rows.forEach((r) => {
-        d += Number(r.debit || 0);
-        c += Number(r.credit || 0);
-      });
-      setTotalDebits(d);
-      setTotalCredits(c);
-    }
+    // Balanced Double-Entry Trial Balance
+    const tbRows: TrialBalanceRow[] = [];
+    const pushTb = (category: string, debit: number, credit: number) => {
+      const d = Math.round(debit * 100) / 100;
+      const c = Math.round(credit * 100) / 100;
+      if (d > 0 || c > 0) tbRows.push({ category, debit: d, credit: c });
+    };
+
+    if (netCash >= 0) pushTb('Cash on Hand', netCash, 0);
+    else pushTb('Cash Overdraft / Shortfall', 0, Math.abs(netCash));
+    if (netBank >= 0) pushTb('Bank & Mobile Money Accounts', netBank, 0);
+    else pushTb('Bank Overdraft', 0, Math.abs(netBank));
+    pushTb('Debtors (Accounts Receivable)', finalDebtors, 0);
+    pushTb('Closing Stock / Inventory Valuation', closingStockVal, 0);
+    pushTb('Prepaids & Other Current Assets', prepaidsAndOtherCurrent, 0);
+    pushTb('Fixed Assets (Historical Cost)', finalFixedCost, 0);
+    pushTb('Accumulated Depreciation', 0, accumulatedDeprec);
+    pushTb('Trade Creditors (Accounts Payable)', 0, finalShortTerm);
+    pushTb('Long-Term Loans & Liabilities', 0, finalLongTerm);
+    pushTb('Owner Drawings', drawingsToDate, 0);
+    pushTb('Cost of Sales (COGS)', finalCogs, 0);
+    pushTb('Operating Expenses (OpEx)', finalOpex, 0);
+    pushTb('Sales Returns Inwards', periodReturns, 0);
+    pushTb('Gross Sales & Operating Revenue', 0, periodRev);
+
+    const dSum = tbRows.reduce((s, r) => s + r.debit, 0);
+    const cSum = tbRows.reduce((s, r) => s + r.credit, 0);
+    const capDiff = Math.round((dSum - cSum) * 100) / 100;
+    if (capDiff >= 0) pushTb("Owner's Capital & Reserves", 0, capDiff);
+    else pushTb("Owner's Capital Deficit", Math.abs(capDiff), 0);
+
+    setTrialBalance(tbRows);
+    let dTotal = 0;
+    let cTotal = 0;
+    tbRows.forEach((r) => {
+      dTotal += Number(r.debit || 0);
+      cTotal += Number(r.credit || 0);
+    });
+    setTotalDebits(Math.round(dTotal * 100) / 100);
+    setTotalCredits(Math.round(cTotal * 100) / 100);
 
     // Build period closing list
     const now = new Date();
@@ -573,7 +708,7 @@ export default function AccountantPage() {
             }
             className="px-4 py-2 text-xs font-bold rounded-lg bg-textPrimary text-white hover:opacity-90 shadow-sm flex items-center gap-1.5"
           >
-            📄 Export Stylish CPA Audit PDF
+            <Icon name="file" size={14} /> Export Stylish CPA Audit PDF
           </button>
         </div>
       </div>
@@ -628,7 +763,7 @@ export default function AccountantPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
           <div>
             <h2 className="text-base font-bold text-textPrimary flex items-center gap-2">
-              <span>📑</span> Core Financial Statements &amp; Ledger
+              <Icon name="clipboard" size={15} /> Core Financial Statements &amp; Ledger
             </h2>
             <p className="text-xs text-textSecondary">
               Live double-entry GAAP/IFRS financial statements compiled for {periodLabel}.
@@ -643,7 +778,7 @@ export default function AccountantPage() {
                 selectedStatementTab === 'pnl' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
               }`}
             >
-              📈 Profit &amp; Loss
+              <Icon name="trending" size={12} /> Profit &amp; Loss
             </button>
             <button
               onClick={() => setSelectedStatementTab('balance_sheet')}
@@ -651,7 +786,7 @@ export default function AccountantPage() {
                 selectedStatementTab === 'balance_sheet' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
               }`}
             >
-              ⚖️ Balance Sheet
+              <Icon name="briefcase" size={12} /> Balance Sheet
             </button>
             <button
               onClick={() => setSelectedStatementTab('cash_flow')}
@@ -659,7 +794,7 @@ export default function AccountantPage() {
                 selectedStatementTab === 'cash_flow' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
               }`}
             >
-              💵 Cash Flow
+              <Icon name="cash" size={12} /> Cash Flow
             </button>
             <button
               onClick={() => setSelectedStatementTab('trial_balance')}
@@ -667,7 +802,7 @@ export default function AccountantPage() {
                 selectedStatementTab === 'trial_balance' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
               }`}
             >
-              📊 Trial Balance
+              <Icon name="chart" size={12} /> Trial Balance
             </button>
           </div>
         </div>
@@ -847,7 +982,7 @@ export default function AccountantPage() {
         <div className="bg-surface2 border border-border rounded-xl p-4 text-xs space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="font-bold text-accentText flex items-center gap-1">
-              💡 Trial Balance Single-Ledger Analysis
+              Trial Balance Single-Ledger Analysis
             </span>
             <span className="font-mono font-bold text-textPrimary">Difference: {currency} {tbGap.toLocaleString()}</span>
           </div>
@@ -943,7 +1078,7 @@ export default function AccountantPage() {
                               : 'bg-surface1 text-textMuted'
                           }`}
                         >
-                          {isOverdue ? `🚨 ${r.daysOverdue}d overdue` : isToday ? '⚡ Due today' : `⏳ In ${Math.abs(r.daysOverdue)}d`}
+                          {isOverdue ? `${r.daysOverdue}d overdue` : isToday ? 'Due today' : `In ${Math.abs(r.daysOverdue)}d`}
                         </span>
                       </td>
                     </tr>
@@ -979,7 +1114,7 @@ export default function AccountantPage() {
                   p.isClosed ? 'bg-surface2 border border-border text-textSecondary' : 'bg-warning text-white'
                 }`}
               >
-                {p.isClosed ? '🔒 Locked' : '🔓 Open'}
+                {p.isClosed ? 'Locked' : 'Open'}
               </button>
             </div>
           ))}

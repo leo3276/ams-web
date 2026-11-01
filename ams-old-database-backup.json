@@ -1,0 +1,4788 @@
+{
+  "users": [
+    {
+      "id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "memoriesm415@gmail.com",
+      "email_confirmed_at": "2026-10-16T15:34:42.001737Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-10-16T15:33:59.076413Z",
+      "confirmed_at": "2026-10-16T15:34:42.001737Z",
+      "last_sign_in_at": "2026-10-16T15:34:42.030133Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "memoriesm415@gmail.com",
+        "email_verified": true,
+        "full_name": "Melody",
+        "phone_verified": false,
+        "sub": "672f7fa4-7c8d-437a-ae48-8546a7ff269c"
+      },
+      "identities": [
+        {
+          "identity_id": "f7d9ec37-e63e-486a-95ee-d9034115a1e4",
+          "id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+          "user_id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+          "identity_data": {
+            "email": "memoriesm415@gmail.com",
+            "email_verified": true,
+            "full_name": "Melody",
+            "phone_verified": false,
+            "sub": "672f7fa4-7c8d-437a-ae48-8546a7ff269c"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-10-16T15:33:59.065342Z",
+          "created_at": "2026-10-16T15:33:59.065412Z",
+          "updated_at": "2026-10-16T15:33:59.065412Z",
+          "email": "memoriesm415@gmail.com"
+        }
+      ],
+      "created_at": "2026-10-16T15:33:59.041657Z",
+      "updated_at": "2026-10-16T15:34:42.050139Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "vahodokpo73@gmail.com",
+      "email_confirmed_at": "2026-10-16T15:20:33.705646Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-10-16T15:20:01.716612Z",
+      "confirmed_at": "2026-10-16T15:20:33.705646Z",
+      "last_sign_in_at": "2026-10-16T15:30:43.883577Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "vahodokpo73@gmail.com",
+        "email_verified": true,
+        "full_name": "Prevail",
+        "phone_verified": false,
+        "sub": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e"
+      },
+      "identities": [
+        {
+          "identity_id": "3ce474e8-793a-4be3-8ec1-c93d6158c76c",
+          "id": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e",
+          "user_id": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e",
+          "identity_data": {
+            "email": "vahodokpo73@gmail.com",
+            "email_verified": true,
+            "full_name": "Prevail",
+            "owner_pin": "1234",
+            "phone_verified": false,
+            "sub": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-10-16T15:20:01.701974Z",
+          "created_at": "2026-10-16T15:20:01.702033Z",
+          "updated_at": "2026-10-16T15:20:01.702033Z",
+          "email": "vahodokpo73@gmail.com"
+        }
+      ],
+      "created_at": "2026-10-16T15:20:01.671268Z",
+      "updated_at": "2026-10-16T15:30:43.907652Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "leokofiderksen@gmail.com",
+      "phone": "",
+      "confirmation_sent_at": "2026-10-15T20:05:15.97912Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "leokofiderksen@gmail.com",
+        "email_verified": false,
+        "full_name": "Leo Kofi Derksen",
+        "owner_pin": "9276",
+        "phone_verified": false,
+        "sub": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3"
+      },
+      "identities": [
+        {
+          "identity_id": "ad6fe589-ae16-4428-ab52-c43eb2062a02",
+          "id": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3",
+          "user_id": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3",
+          "identity_data": {
+            "email": "leokofiderksen@gmail.com",
+            "email_verified": false,
+            "full_name": "Leo Kofi Derksen",
+            "owner_pin": "9276",
+            "phone_verified": false,
+            "sub": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-10-15T20:05:15.963587Z",
+          "created_at": "2026-10-15T20:05:15.963646Z",
+          "updated_at": "2026-10-15T20:05:15.963646Z",
+          "email": "leokofiderksen@gmail.com"
+        }
+      ],
+      "created_at": "2026-10-15T20:05:15.913737Z",
+      "updated_at": "2026-10-15T20:05:17.621325Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "7b13013c-8f86-409f-a5d7-2a53c6a4311b",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "lite_test_1791997176511@amslite.local",
+      "phone": "",
+      "confirmation_sent_at": "2026-10-14T16:59:37.684156Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "app_mode": "lite",
+        "email": "lite_test_1791997176511@amslite.local",
+        "email_verified": false,
+        "phone_number": "0240000000",
+        "phone_verified": false,
+        "sub": "7b13013c-8f86-409f-a5d7-2a53c6a4311b"
+      },
+      "identities": [
+        {
+          "identity_id": "b3af03a9-211e-4484-9bc8-17da1052b82b",
+          "id": "7b13013c-8f86-409f-a5d7-2a53c6a4311b",
+          "user_id": "7b13013c-8f86-409f-a5d7-2a53c6a4311b",
+          "identity_data": {
+            "app_mode": "lite",
+            "email": "lite_test_1791997176511@amslite.local",
+            "email_verified": false,
+            "phone_number": "0240000000",
+            "phone_verified": false,
+            "sub": "7b13013c-8f86-409f-a5d7-2a53c6a4311b"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-10-14T16:59:37.670646Z",
+          "created_at": "2026-10-14T16:59:37.670706Z",
+          "updated_at": "2026-10-14T16:59:37.670706Z",
+          "email": "lite_test_1791997176511@amslite.local"
+        }
+      ],
+      "created_at": "2026-10-14T16:59:37.636602Z",
+      "updated_at": "2026-10-14T16:59:39.514924Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "00a9835f-a846-48ac-8cd0-401b42fee2c7",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "prevail246@gmail.com",
+      "email_confirmed_at": "2026-10-13T22:46:27.820744Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-10-13T22:44:49.082264Z",
+      "confirmed_at": "2026-10-13T22:46:27.820744Z",
+      "last_sign_in_at": "2026-10-16T15:28:38.424091Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "prevail246@gmail.com",
+        "email_verified": true,
+        "full_name": "Mivako ltd",
+        "phone_verified": false,
+        "sub": "00a9835f-a846-48ac-8cd0-401b42fee2c7"
+      },
+      "identities": [
+        {
+          "identity_id": "bc6e4130-78e2-4c04-b04d-a905b31d0281",
+          "id": "00a9835f-a846-48ac-8cd0-401b42fee2c7",
+          "user_id": "00a9835f-a846-48ac-8cd0-401b42fee2c7",
+          "identity_data": {
+            "email": "prevail246@gmail.com",
+            "email_verified": true,
+            "full_name": "Mivako ltd",
+            "phone_verified": false,
+            "sub": "00a9835f-a846-48ac-8cd0-401b42fee2c7"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-10-13T22:43:43.976285Z",
+          "created_at": "2026-10-13T22:43:43.976343Z",
+          "updated_at": "2026-10-13T22:43:43.976343Z",
+          "email": "prevail246@gmail.com"
+        }
+      ],
+      "created_at": "2026-10-13T22:43:43.956811Z",
+      "updated_at": "2026-10-16T15:28:38.454112Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "eliyaanaa84@gmail.com",
+      "email_confirmed_at": "2026-10-09T22:16:27.833879Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-10-09T22:15:45.179519Z",
+      "confirmed_at": "2026-10-09T22:16:27.833879Z",
+      "last_sign_in_at": "2026-10-09T22:16:56.225807Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "eliyaanaa84@gmail.com",
+        "email_verified": true,
+        "full_name": "Mivako",
+        "phone_verified": false,
+        "sub": "09fe3d05-f11c-4af9-a22b-206a75970465"
+      },
+      "identities": [
+        {
+          "identity_id": "e21cc70b-8726-4417-a38d-508d8b39acd3",
+          "id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+          "user_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+          "identity_data": {
+            "email": "eliyaanaa84@gmail.com",
+            "email_verified": true,
+            "full_name": "Mivako",
+            "phone_verified": false,
+            "sub": "09fe3d05-f11c-4af9-a22b-206a75970465"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-10-09T22:15:45.16361Z",
+          "created_at": "2026-10-09T22:15:45.163668Z",
+          "updated_at": "2026-10-09T22:15:45.163668Z",
+          "email": "eliyaanaa84@gmail.com"
+        }
+      ],
+      "created_at": "2026-10-09T22:15:45.123027Z",
+      "updated_at": "2026-10-13T22:33:20.686293Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "79417bdf-3d00-4697-9b10-296ea8871b66",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "flowerindelle@gmail.com",
+      "email_confirmed_at": "2026-09-28T08:39:06.163562Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-09-28T08:38:35.456532Z",
+      "confirmed_at": "2026-09-28T08:39:06.163562Z",
+      "last_sign_in_at": "2026-09-28T08:39:06.168117Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "flowerindelle@gmail.com",
+        "email_verified": true,
+        "full_name": "flower",
+        "owner_pin": "1210",
+        "phone_verified": false,
+        "sub": "79417bdf-3d00-4697-9b10-296ea8871b66"
+      },
+      "identities": [
+        {
+          "identity_id": "eeb6660e-3ab5-436b-8887-b19f3de214e0",
+          "id": "79417bdf-3d00-4697-9b10-296ea8871b66",
+          "user_id": "79417bdf-3d00-4697-9b10-296ea8871b66",
+          "identity_data": {
+            "email": "flowerindelle@gmail.com",
+            "email_verified": true,
+            "full_name": "flower",
+            "owner_pin": "1210",
+            "phone_verified": false,
+            "sub": "79417bdf-3d00-4697-9b10-296ea8871b66"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-09-28T08:38:35.452754Z",
+          "created_at": "2026-09-28T08:38:35.452823Z",
+          "updated_at": "2026-09-28T08:38:35.452823Z",
+          "email": "flowerindelle@gmail.com"
+        }
+      ],
+      "created_at": "2026-09-28T08:38:35.447082Z",
+      "updated_at": "2026-09-28T19:57:03.116367Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "645f5197-f765-477b-b2e2-5af9c2aa4299",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "accmadesimple01@gmail.com",
+      "email_confirmed_at": "2026-09-25T07:33:00.462586Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-09-25T07:31:51.399401Z",
+      "confirmed_at": "2026-09-25T07:33:00.462586Z",
+      "last_sign_in_at": "2026-09-25T07:37:20.234421Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "accmadesimple01@gmail.com",
+        "email_verified": true,
+        "full_name": "Rejoice",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "645f5197-f765-477b-b2e2-5af9c2aa4299"
+      },
+      "identities": [
+        {
+          "identity_id": "453d460c-b39d-49b1-be17-fd043bad9207",
+          "id": "645f5197-f765-477b-b2e2-5af9c2aa4299",
+          "user_id": "645f5197-f765-477b-b2e2-5af9c2aa4299",
+          "identity_data": {
+            "email": "accmadesimple01@gmail.com",
+            "email_verified": true,
+            "full_name": "Rejoice",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "645f5197-f765-477b-b2e2-5af9c2aa4299"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-09-25T07:31:51.394776Z",
+          "created_at": "2026-09-25T07:31:51.394864Z",
+          "updated_at": "2026-09-25T07:31:51.394864Z",
+          "email": "accmadesimple01@gmail.com"
+        }
+      ],
+      "created_at": "2026-09-25T07:31:51.388548Z",
+      "updated_at": "2026-10-14T17:06:47.509Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "a6f71eab-b960-4aac-b05e-48c2667e2ee4",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "accmadeaimple01@gmail.com",
+      "phone": "",
+      "confirmation_sent_at": "2026-09-25T07:31:32.629916Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "accmadeaimple01@gmail.com",
+        "email_verified": false,
+        "full_name": "Rejoice",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "a6f71eab-b960-4aac-b05e-48c2667e2ee4"
+      },
+      "identities": [
+        {
+          "identity_id": "b7eb84a1-9f80-4acf-a5b3-d70082246349",
+          "id": "a6f71eab-b960-4aac-b05e-48c2667e2ee4",
+          "user_id": "a6f71eab-b960-4aac-b05e-48c2667e2ee4",
+          "identity_data": {
+            "email": "accmadeaimple01@gmail.com",
+            "email_verified": false,
+            "full_name": "Rejoice",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "a6f71eab-b960-4aac-b05e-48c2667e2ee4"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-09-25T07:29:52.2165Z",
+          "created_at": "2026-09-25T07:29:52.216554Z",
+          "updated_at": "2026-09-25T07:29:52.216554Z",
+          "email": "accmadeaimple01@gmail.com"
+        }
+      ],
+      "created_at": "2026-09-25T07:29:52.198398Z",
+      "updated_at": "2026-09-25T07:31:34.064078Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "elioenailderksen@gmail.com",
+      "email_confirmed_at": "2026-09-06T11:19:15.974052Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-09-06T11:17:12.522631Z",
+      "confirmed_at": "2026-09-06T11:19:15.974052Z",
+      "last_sign_in_at": "2026-09-06T11:19:15.986458Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "elioenailderksen@gmail.com",
+        "email_verified": true,
+        "full_name": "Kofi Deku",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865"
+      },
+      "identities": [
+        {
+          "identity_id": "a70ba60b-487e-4060-96d1-ade450a27f7e",
+          "id": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865",
+          "user_id": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865",
+          "identity_data": {
+            "email": "elioenailderksen@gmail.com",
+            "email_verified": true,
+            "full_name": "Kofi Deku",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-09-06T11:17:12.509501Z",
+          "created_at": "2026-09-06T11:17:12.509571Z",
+          "updated_at": "2026-09-06T11:17:12.509571Z",
+          "email": "elioenailderksen@gmail.com"
+        }
+      ],
+      "created_at": "2026-09-06T11:17:12.488495Z",
+      "updated_at": "2026-09-06T14:30:11.550927Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "4c244c98-97f3-4c32-987a-eb8614a2d413",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "millionschaw@gmail.com",
+      "email_confirmed_at": "2026-08-30T11:29:09.641177Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-08-30T11:27:48.975335Z",
+      "confirmed_at": "2026-08-30T11:29:09.641177Z",
+      "last_sign_in_at": "2026-08-30T11:29:09.651361Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "millionschaw@gmail.com",
+        "email_verified": true,
+        "full_name": "Elioenail Kofi Elinam Deku",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "4c244c98-97f3-4c32-987a-eb8614a2d413"
+      },
+      "identities": [
+        {
+          "identity_id": "13263750-fee0-4148-b7ce-e5ad952671c1",
+          "id": "4c244c98-97f3-4c32-987a-eb8614a2d413",
+          "user_id": "4c244c98-97f3-4c32-987a-eb8614a2d413",
+          "identity_data": {
+            "email": "millionschaw@gmail.com",
+            "email_verified": true,
+            "full_name": "Elioenail Kofi Elinam Deku",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "4c244c98-97f3-4c32-987a-eb8614a2d413"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-30T11:27:48.966819Z",
+          "created_at": "2026-08-30T11:27:48.966881Z",
+          "updated_at": "2026-08-30T11:27:48.966881Z",
+          "email": "millionschaw@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-30T11:27:48.934859Z",
+      "updated_at": "2026-08-31T17:22:33.885001Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "4dabca49-fdc3-421a-808f-60144de28b8a",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "kofianan@gmail.com",
+      "phone": "",
+      "confirmation_sent_at": "2026-08-30T11:25:30.967783Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "kofianan@gmail.com",
+        "email_verified": false,
+        "full_name": "Kofi Anan",
+        "owner_pin": "1111",
+        "phone_verified": false,
+        "sub": "4dabca49-fdc3-421a-808f-60144de28b8a"
+      },
+      "identities": [
+        {
+          "identity_id": "b8cbc363-a8a6-42fa-89b1-d39c14edefac",
+          "id": "4dabca49-fdc3-421a-808f-60144de28b8a",
+          "user_id": "4dabca49-fdc3-421a-808f-60144de28b8a",
+          "identity_data": {
+            "email": "kofianan@gmail.com",
+            "email_verified": false,
+            "full_name": "Kofi Anan",
+            "owner_pin": "1111",
+            "phone_verified": false,
+            "sub": "4dabca49-fdc3-421a-808f-60144de28b8a"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-30T11:25:30.957744Z",
+          "created_at": "2026-08-30T11:25:30.957803Z",
+          "updated_at": "2026-08-30T11:25:30.957803Z",
+          "email": "kofianan@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-30T11:25:30.932075Z",
+      "updated_at": "2026-08-30T11:25:32.636949Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "319cf78c-d1b8-4eea-b482-291d10b45231",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "oseirani@gmail.com",
+      "email_confirmed_at": "2026-08-21T16:44:49.556048Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-08-21T16:44:08.066324Z",
+      "confirmed_at": "2026-08-21T16:44:49.556048Z",
+      "last_sign_in_at": "2026-08-21T16:44:49.580878Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "oseirani@gmail.com",
+        "email_verified": true,
+        "full_name": "Rani Osei",
+        "owner_pin": "1234",
+        "phone_verified": false,
+        "sub": "319cf78c-d1b8-4eea-b482-291d10b45231"
+      },
+      "identities": [
+        {
+          "identity_id": "a83c23e0-5f5c-489f-9415-c2a467017a8d",
+          "id": "319cf78c-d1b8-4eea-b482-291d10b45231",
+          "user_id": "319cf78c-d1b8-4eea-b482-291d10b45231",
+          "identity_data": {
+            "email": "oseirani@gmail.com",
+            "email_verified": true,
+            "full_name": "Rani Osei",
+            "owner_pin": "1234",
+            "phone_verified": false,
+            "sub": "319cf78c-d1b8-4eea-b482-291d10b45231"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-21T16:44:08.054807Z",
+          "created_at": "2026-08-21T16:44:08.054903Z",
+          "updated_at": "2026-08-21T16:44:08.054903Z",
+          "email": "oseirani@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-21T16:44:08.008343Z",
+      "updated_at": "2026-08-22T15:44:41.367733Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "a79d96a0-6a2c-43bf-bc85-005058fa29bc",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "mikeiltakyi79@gmail.com",
+      "email_confirmed_at": "2026-08-20T21:59:48.443807Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-08-20T21:59:20.413542Z",
+      "confirmed_at": "2026-08-20T21:59:48.443807Z",
+      "last_sign_in_at": "2026-08-20T21:59:48.461298Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "mikeiltakyi79@gmail.com",
+        "email_verified": true,
+        "full_name": "Mikeil Takyi",
+        "owner_pin": "6789",
+        "phone_verified": false,
+        "sub": "a79d96a0-6a2c-43bf-bc85-005058fa29bc"
+      },
+      "identities": [
+        {
+          "identity_id": "060d013d-91e5-4b65-be47-b824ddf1f0b7",
+          "id": "a79d96a0-6a2c-43bf-bc85-005058fa29bc",
+          "user_id": "a79d96a0-6a2c-43bf-bc85-005058fa29bc",
+          "identity_data": {
+            "email": "mikeiltakyi79@gmail.com",
+            "email_verified": true,
+            "full_name": "Mikeil Takyi",
+            "owner_pin": "6789",
+            "phone_verified": false,
+            "sub": "a79d96a0-6a2c-43bf-bc85-005058fa29bc"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-20T21:59:20.403545Z",
+          "created_at": "2026-08-20T21:59:20.403607Z",
+          "updated_at": "2026-08-20T21:59:20.403607Z",
+          "email": "mikeiltakyi79@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-20T21:59:20.361576Z",
+      "updated_at": "2026-08-21T10:37:45.984265Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "13520d78-daaa-418e-88a1-9b770b453a26",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "raildistress@gmail.com",
+      "email_confirmed_at": "2026-08-20T20:23:48.829244Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-08-20T20:23:10.120657Z",
+      "confirmed_at": "2026-08-20T20:23:48.829244Z",
+      "last_sign_in_at": "2026-08-20T20:41:04.048039Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "raildistress@gmail.com",
+        "email_verified": true,
+        "full_name": "Nii Shemaiah",
+        "owner_pin": "55165",
+        "phone_verified": false,
+        "sub": "13520d78-daaa-418e-88a1-9b770b453a26"
+      },
+      "identities": [
+        {
+          "identity_id": "fea1c5d4-83f4-4f62-bd3b-a97bb7b84c10",
+          "id": "13520d78-daaa-418e-88a1-9b770b453a26",
+          "user_id": "13520d78-daaa-418e-88a1-9b770b453a26",
+          "identity_data": {
+            "email": "raildistress@gmail.com",
+            "email_verified": true,
+            "full_name": "Nii Shemaiah",
+            "owner_pin": "55165",
+            "phone_verified": false,
+            "sub": "13520d78-daaa-418e-88a1-9b770b453a26"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-20T20:22:04.968119Z",
+          "created_at": "2026-08-20T20:22:04.968182Z",
+          "updated_at": "2026-08-20T20:22:04.968182Z",
+          "email": "raildistress@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-20T20:22:04.919459Z",
+      "updated_at": "2026-08-21T16:23:30.29556Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "1855bf67-5674-4caa-aba6-1b1c00cc7314",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "ekoccu@gmail.com",
+      "email_confirmed_at": "2026-08-20T19:37:19.226204Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-08-20T19:36:22.144961Z",
+      "confirmed_at": "2026-08-20T19:37:19.226204Z",
+      "last_sign_in_at": "2026-08-20T19:37:19.238402Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "ekoccu@gmail.com",
+        "email_verified": true,
+        "full_name": "Major",
+        "owner_pin": "055563",
+        "phone_verified": false,
+        "sub": "1855bf67-5674-4caa-aba6-1b1c00cc7314"
+      },
+      "identities": [
+        {
+          "identity_id": "cbe99c31-4914-475d-8dbc-545bd08c8087",
+          "id": "1855bf67-5674-4caa-aba6-1b1c00cc7314",
+          "user_id": "1855bf67-5674-4caa-aba6-1b1c00cc7314",
+          "identity_data": {
+            "email": "ekoccu@gmail.com",
+            "email_verified": true,
+            "full_name": "Major",
+            "owner_pin": "055563",
+            "phone_verified": false,
+            "sub": "1855bf67-5674-4caa-aba6-1b1c00cc7314"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-20T19:08:11.506333Z",
+          "created_at": "2026-08-20T19:08:11.5064Z",
+          "updated_at": "2026-08-20T19:08:11.5064Z",
+          "email": "ekoccu@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-20T19:08:11.465279Z",
+      "updated_at": "2026-08-26T09:01:18.648584Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "09c426c6-bc54-413d-acf6-92f9d4e05c41",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "divinemagelland@gmail.com",
+      "email_confirmed_at": "2026-08-20T14:17:38.520639Z",
+      "phone": "",
+      "confirmation_sent_at": "2026-08-20T14:16:13.932844Z",
+      "confirmed_at": "2026-08-20T14:17:38.520639Z",
+      "last_sign_in_at": "2026-08-20T14:17:38.526342Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "divinemagelland@gmail.com",
+        "email_verified": true,
+        "full_name": "Divimsah",
+        "owner_pin": "1688",
+        "phone_verified": false,
+        "sub": "09c426c6-bc54-413d-acf6-92f9d4e05c41"
+      },
+      "identities": [
+        {
+          "identity_id": "c2d70e1d-10e3-40ba-aba9-2d9e4216b59e",
+          "id": "09c426c6-bc54-413d-acf6-92f9d4e05c41",
+          "user_id": "09c426c6-bc54-413d-acf6-92f9d4e05c41",
+          "identity_data": {
+            "email": "divinemagelland@gmail.com",
+            "email_verified": true,
+            "full_name": "Divimsah",
+            "owner_pin": "1688",
+            "phone_verified": false,
+            "sub": "09c426c6-bc54-413d-acf6-92f9d4e05c41"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-20T14:16:13.922393Z",
+          "created_at": "2026-08-20T14:16:13.922455Z",
+          "updated_at": "2026-08-20T14:16:13.922455Z",
+          "email": "divinemagelland@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-20T14:16:13.900352Z",
+      "updated_at": "2026-08-20T17:11:07.467605Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "emma@gmail.com",
+      "email_confirmed_at": "2026-08-19T23:25:19.587972Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T23:25:19.587972Z",
+      "last_sign_in_at": "2026-08-19T23:25:19.593748Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "emma@gmail.com",
+        "email_verified": true,
+        "full_name": "Emma",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2"
+      },
+      "identities": [
+        {
+          "identity_id": "60779168-acf2-49d8-ad6d-4168157b95fc",
+          "id": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2",
+          "user_id": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2",
+          "identity_data": {
+            "email": "emma@gmail.com",
+            "email_verified": false,
+            "full_name": "Emma",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T23:25:19.57695Z",
+          "created_at": "2026-08-19T23:25:19.577034Z",
+          "updated_at": "2026-08-19T23:25:19.577034Z",
+          "email": "emma@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T23:25:19.550143Z",
+      "updated_at": "2026-08-19T23:25:19.600252Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "cfad187b-7466-4a59-8627-76493d259c2a",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "boss@gmail.com",
+      "email_confirmed_at": "2026-08-19T22:51:21.365622Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T22:51:21.365622Z",
+      "last_sign_in_at": "2026-08-19T22:51:21.373556Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "boss@gmail.com",
+        "email_verified": true,
+        "full_name": "Boss",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "cfad187b-7466-4a59-8627-76493d259c2a"
+      },
+      "identities": [
+        {
+          "identity_id": "236da8c2-918a-43c3-b3dd-dc406d17c814",
+          "id": "cfad187b-7466-4a59-8627-76493d259c2a",
+          "user_id": "cfad187b-7466-4a59-8627-76493d259c2a",
+          "identity_data": {
+            "email": "boss@gmail.com",
+            "email_verified": false,
+            "full_name": "Boss",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "cfad187b-7466-4a59-8627-76493d259c2a"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T22:51:21.359889Z",
+          "created_at": "2026-08-19T22:51:21.360065Z",
+          "updated_at": "2026-08-19T22:51:21.360065Z",
+          "email": "boss@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T22:51:21.334478Z",
+      "updated_at": "2026-08-19T22:51:21.388172Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "49ceaff4-02c4-45dc-83b7-62ede5f69abd",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "robert@gmail.com",
+      "email_confirmed_at": "2026-08-19T20:02:31.626676Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T20:02:31.626676Z",
+      "last_sign_in_at": "2026-08-19T20:02:31.635093Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "robert@gmail.com",
+        "email_verified": true,
+        "full_name": "Robert",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "49ceaff4-02c4-45dc-83b7-62ede5f69abd"
+      },
+      "identities": [
+        {
+          "identity_id": "920c919c-0476-4dd5-8bc6-901953f367b6",
+          "id": "49ceaff4-02c4-45dc-83b7-62ede5f69abd",
+          "user_id": "49ceaff4-02c4-45dc-83b7-62ede5f69abd",
+          "identity_data": {
+            "email": "robert@gmail.com",
+            "email_verified": false,
+            "full_name": "Robert",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "49ceaff4-02c4-45dc-83b7-62ede5f69abd"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T20:02:31.61818Z",
+          "created_at": "2026-08-19T20:02:31.618304Z",
+          "updated_at": "2026-08-19T20:02:31.618304Z",
+          "email": "robert@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T20:02:31.584136Z",
+      "updated_at": "2026-08-19T23:03:05.672695Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "afiroseline15@gmail.com",
+      "email_confirmed_at": "2026-08-19T18:54:41.612941Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T18:54:41.612941Z",
+      "last_sign_in_at": "2026-08-19T18:54:41.626183Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "afiroseline15@gmail.com",
+        "email_verified": true,
+        "full_name": "Rosie M",
+        "owner_pin": "4514",
+        "phone_verified": false,
+        "sub": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058"
+      },
+      "identities": [
+        {
+          "identity_id": "435079a7-c037-4f0a-8a69-09b624d14c3f",
+          "id": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058",
+          "user_id": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058",
+          "identity_data": {
+            "email": "afiroseline15@gmail.com",
+            "email_verified": false,
+            "full_name": "Rosie M",
+            "owner_pin": "4514",
+            "phone_verified": false,
+            "sub": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T18:54:41.606142Z",
+          "created_at": "2026-08-19T18:54:41.606216Z",
+          "updated_at": "2026-08-19T18:54:41.606216Z",
+          "email": "afiroseline15@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T18:54:41.567791Z",
+      "updated_at": "2026-10-15T19:27:44.536377Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "f1b02c3b-5d05-4cdd-8144-971c71163d69",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "mikeiltakyi11@icloud.com",
+      "email_confirmed_at": "2026-08-19T15:16:30.101874Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T15:16:30.101874Z",
+      "last_sign_in_at": "2026-08-19T15:16:30.11208Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "mikeiltakyi11@icloud.com",
+        "email_verified": true,
+        "full_name": "Mikeil takyi",
+        "owner_pin": "2459",
+        "phone_verified": false,
+        "sub": "f1b02c3b-5d05-4cdd-8144-971c71163d69"
+      },
+      "identities": [
+        {
+          "identity_id": "c02e9a11-1877-4439-9a68-57f12f138727",
+          "id": "f1b02c3b-5d05-4cdd-8144-971c71163d69",
+          "user_id": "f1b02c3b-5d05-4cdd-8144-971c71163d69",
+          "identity_data": {
+            "email": "mikeiltakyi11@icloud.com",
+            "email_verified": false,
+            "full_name": "Mikeil takyi",
+            "owner_pin": "2459",
+            "phone_verified": false,
+            "sub": "f1b02c3b-5d05-4cdd-8144-971c71163d69"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T15:16:30.0831Z",
+          "created_at": "2026-08-19T15:16:30.083163Z",
+          "updated_at": "2026-08-19T15:16:30.083163Z",
+          "email": "mikeiltakyi11@icloud.com"
+        }
+      ],
+      "created_at": "2026-08-19T15:16:30.03763Z",
+      "updated_at": "2026-09-09T11:03:23.520292Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "millicentadonu7@gmail.com",
+      "email_confirmed_at": "2026-08-19T14:42:48.663074Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T14:42:48.663074Z",
+      "last_sign_in_at": "2026-08-19T14:42:48.669177Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "millicentadonu7@gmail.com",
+        "email_verified": true,
+        "full_name": "Nathaniel",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d"
+      },
+      "identities": [
+        {
+          "identity_id": "2e034e0b-ca4b-49c2-8ac6-55b03caf2905",
+          "id": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d",
+          "user_id": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d",
+          "identity_data": {
+            "email": "millicentadonu7@gmail.com",
+            "email_verified": false,
+            "full_name": "Nathaniel",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T14:42:48.653079Z",
+          "created_at": "2026-08-19T14:42:48.65313Z",
+          "updated_at": "2026-08-19T14:42:48.65313Z",
+          "email": "millicentadonu7@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T14:42:48.640622Z",
+      "updated_at": "2026-08-19T20:36:10.005705Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "f7298c97-7703-4098-8e55-a019999532ad",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "ayeokem@gmail.com",
+      "email_confirmed_at": "2026-08-19T14:15:27.275196Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T14:15:27.275196Z",
+      "last_sign_in_at": "2026-08-31T17:08:47.397788Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "business_profile": {
+          "address": "",
+          "bank_account": "00464838437540",
+          "bank_name": "Cal bank",
+          "email": "ayeokem@gmail.com",
+          "momo_network": "MTN MoMo",
+          "momo_number": "0598680056",
+          "phone": ""
+        },
+        "email": "ayeokem@gmail.com",
+        "email_verified": true,
+        "full_name": "Nii",
+        "owner_pin": "3103",
+        "phone_verified": false,
+        "sub": "f7298c97-7703-4098-8e55-a019999532ad"
+      },
+      "identities": [
+        {
+          "identity_id": "a82d7b35-2e28-4777-b35e-d1f08ca165b0",
+          "id": "f7298c97-7703-4098-8e55-a019999532ad",
+          "user_id": "f7298c97-7703-4098-8e55-a019999532ad",
+          "identity_data": {
+            "email": "ayeokem@gmail.com",
+            "email_verified": false,
+            "full_name": "Nii",
+            "owner_pin": "3103",
+            "phone_verified": false,
+            "sub": "f7298c97-7703-4098-8e55-a019999532ad"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T14:15:27.269834Z",
+          "created_at": "2026-08-19T14:15:27.269887Z",
+          "updated_at": "2026-08-19T14:15:27.269887Z",
+          "email": "ayeokem@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T14:15:27.25067Z",
+      "updated_at": "2026-09-10T17:05:18.768491Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "8292e132-43e8-4838-979d-83ea7be20c0d",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "pizzagigs@gmail.com",
+      "email_confirmed_at": "2026-08-19T12:15:40.529307Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T12:15:40.529307Z",
+      "last_sign_in_at": "2026-08-23T09:46:45.67231Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "pizzagigs@gmail.com",
+        "email_verified": true,
+        "full_name": "Darko Joseph",
+        "owner_pin": "00881",
+        "phone_verified": false,
+        "sub": "8292e132-43e8-4838-979d-83ea7be20c0d"
+      },
+      "identities": [
+        {
+          "identity_id": "649f733b-80b4-434c-a666-fbdb767cf53d",
+          "id": "8292e132-43e8-4838-979d-83ea7be20c0d",
+          "user_id": "8292e132-43e8-4838-979d-83ea7be20c0d",
+          "identity_data": {
+            "email": "pizzagigs@gmail.com",
+            "email_verified": false,
+            "full_name": "Darko Joseph",
+            "owner_pin": "00881",
+            "phone_verified": false,
+            "sub": "8292e132-43e8-4838-979d-83ea7be20c0d"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T12:15:40.520888Z",
+          "created_at": "2026-08-19T12:15:40.520946Z",
+          "updated_at": "2026-08-19T12:15:40.520946Z",
+          "email": "pizzagigs@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T12:15:40.493188Z",
+      "updated_at": "2026-08-24T13:10:57.186666Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "adonumillicent183@gmail.com",
+      "email_confirmed_at": "2026-08-19T10:14:27.694487Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T10:14:27.694487Z",
+      "last_sign_in_at": "2026-08-19T10:14:27.70746Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "adonumillicent183@gmail.com",
+        "email_verified": true,
+        "full_name": "Millicent Emma",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f"
+      },
+      "identities": [
+        {
+          "identity_id": "295567e4-977c-4692-889d-59dce205f499",
+          "id": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f",
+          "user_id": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f",
+          "identity_data": {
+            "email": "adonumillicent183@gmail.com",
+            "email_verified": false,
+            "full_name": "Millicent Emma",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T10:14:27.685794Z",
+          "created_at": "2026-08-19T10:14:27.685861Z",
+          "updated_at": "2026-08-19T10:14:27.685861Z",
+          "email": "adonumillicent183@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T10:14:27.649388Z",
+      "updated_at": "2026-08-19T10:14:27.730639Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "1b99c9a2-de9c-4230-8069-319bb4f90934",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "addonana@gmail.com",
+      "email_confirmed_at": "2026-08-19T02:13:18.541602Z",
+      "phone": "",
+      "confirmed_at": "2026-08-19T02:13:18.541602Z",
+      "last_sign_in_at": "2026-08-19T02:13:18.55081Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "addonana@gmail.com",
+        "email_verified": true,
+        "full_name": "Dr. Addo",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "1b99c9a2-de9c-4230-8069-319bb4f90934"
+      },
+      "identities": [
+        {
+          "identity_id": "8b5c3ad6-fd9b-4919-87b1-960f9719220b",
+          "id": "1b99c9a2-de9c-4230-8069-319bb4f90934",
+          "user_id": "1b99c9a2-de9c-4230-8069-319bb4f90934",
+          "identity_data": {
+            "email": "addonana@gmail.com",
+            "email_verified": false,
+            "full_name": "Dr. Addo",
+            "owner_pin": "0000",
+            "phone_verified": false,
+            "sub": "1b99c9a2-de9c-4230-8069-319bb4f90934"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-19T02:13:18.530509Z",
+          "created_at": "2026-08-19T02:13:18.530568Z",
+          "updated_at": "2026-08-19T02:13:18.530568Z",
+          "email": "addonana@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-19T02:13:18.508233Z",
+      "updated_at": "2026-08-19T02:13:18.554609Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "68e2c326-01bc-45ca-8107-6ec418a1457c",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "bhsisk@gmail.com",
+      "email_confirmed_at": "2026-08-18T23:58:03.51794Z",
+      "phone": "",
+      "confirmed_at": "2026-08-18T23:58:03.51794Z",
+      "last_sign_in_at": "2026-08-18T23:58:03.528155Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "bhsisk@gmail.com",
+        "email_verified": true,
+        "full_name": "Eli",
+        "phone_verified": false,
+        "sub": "68e2c326-01bc-45ca-8107-6ec418a1457c"
+      },
+      "identities": [
+        {
+          "identity_id": "5d4e5cee-cdd7-4e4c-9257-6043c4c8b0fe",
+          "id": "68e2c326-01bc-45ca-8107-6ec418a1457c",
+          "user_id": "68e2c326-01bc-45ca-8107-6ec418a1457c",
+          "identity_data": {
+            "email": "bhsisk@gmail.com",
+            "email_verified": false,
+            "full_name": "Eli",
+            "phone_verified": false,
+            "sub": "68e2c326-01bc-45ca-8107-6ec418a1457c"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-18T23:58:03.509698Z",
+          "created_at": "2026-08-18T23:58:03.509776Z",
+          "updated_at": "2026-08-18T23:58:03.509776Z",
+          "email": "bhsisk@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-18T23:58:03.476587Z",
+      "updated_at": "2026-08-18T23:58:03.539193Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "0e35a792-e860-4ecf-b293-5a292fe3fb70",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "brownmensah@gmail.com",
+      "email_confirmed_at": "2026-08-18T16:01:20.43406Z",
+      "phone": "",
+      "confirmed_at": "2026-08-18T16:01:20.43406Z",
+      "last_sign_in_at": "2026-08-18T16:01:20.443668Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "brownmensah@gmail.com",
+        "email_verified": true,
+        "full_name": "Mr Brown ",
+        "phone_verified": false,
+        "sub": "0e35a792-e860-4ecf-b293-5a292fe3fb70"
+      },
+      "identities": [
+        {
+          "identity_id": "8bfc262a-381f-4ed7-bfc8-708a976af844",
+          "id": "0e35a792-e860-4ecf-b293-5a292fe3fb70",
+          "user_id": "0e35a792-e860-4ecf-b293-5a292fe3fb70",
+          "identity_data": {
+            "email": "brownmensah@gmail.com",
+            "email_verified": false,
+            "full_name": "Mr Brown ",
+            "phone_verified": false,
+            "sub": "0e35a792-e860-4ecf-b293-5a292fe3fb70"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-18T16:01:20.427433Z",
+          "created_at": "2026-08-18T16:01:20.427493Z",
+          "updated_at": "2026-08-18T16:01:20.427493Z",
+          "email": "brownmensah@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-18T16:01:20.395443Z",
+      "updated_at": "2026-08-18T16:01:20.452833Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "cc45168a-5111-459f-8c63-a8e6bf74f3da",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "peter@gmail.com",
+      "email_confirmed_at": "2026-08-17T12:10:41.695726Z",
+      "phone": "",
+      "confirmed_at": "2026-08-17T12:10:41.695726Z",
+      "last_sign_in_at": "2026-08-17T12:10:41.703992Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "peter@gmail.com",
+        "email_verified": true,
+        "full_name": "Peter",
+        "phone_verified": false,
+        "sub": "cc45168a-5111-459f-8c63-a8e6bf74f3da"
+      },
+      "identities": [
+        {
+          "identity_id": "68e649cd-9266-481e-af45-63d7a2e524be",
+          "id": "cc45168a-5111-459f-8c63-a8e6bf74f3da",
+          "user_id": "cc45168a-5111-459f-8c63-a8e6bf74f3da",
+          "identity_data": {
+            "email": "peter@gmail.com",
+            "email_verified": false,
+            "full_name": "Peter",
+            "phone_verified": false,
+            "sub": "cc45168a-5111-459f-8c63-a8e6bf74f3da"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-17T12:10:41.69084Z",
+          "created_at": "2026-08-17T12:10:41.690896Z",
+          "updated_at": "2026-08-17T12:10:41.690896Z",
+          "email": "peter@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-17T12:10:41.673739Z",
+      "updated_at": "2026-08-17T13:53:58.66641Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "f7d1455b-c4f4-4753-afbb-844e46d20513",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "dede@gmail.com",
+      "email_confirmed_at": "2026-08-12T16:26:18.483313Z",
+      "phone": "",
+      "confirmed_at": "2026-08-12T16:26:18.483313Z",
+      "last_sign_in_at": "2026-08-12T16:27:28.782138Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "dede@gmail.com",
+        "email_verified": true,
+        "full_name": "Dede",
+        "phone_verified": false,
+        "sub": "f7d1455b-c4f4-4753-afbb-844e46d20513"
+      },
+      "identities": [
+        {
+          "identity_id": "9f241c04-96d1-4ce2-afc6-6c47e703f059",
+          "id": "f7d1455b-c4f4-4753-afbb-844e46d20513",
+          "user_id": "f7d1455b-c4f4-4753-afbb-844e46d20513",
+          "identity_data": {
+            "email": "dede@gmail.com",
+            "email_verified": false,
+            "full_name": "Dede",
+            "phone_verified": false,
+            "sub": "f7d1455b-c4f4-4753-afbb-844e46d20513"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-12T16:26:18.477981Z",
+          "created_at": "2026-08-12T16:26:18.478073Z",
+          "updated_at": "2026-08-12T16:26:18.478073Z",
+          "email": "dede@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-12T16:26:18.464212Z",
+      "updated_at": "2026-08-12T19:25:36.939135Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "9bbb85aa-a219-446a-976a-ffdccfad6df2",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "melinda@gmail.com",
+      "email_confirmed_at": "2026-08-11T13:12:03.989403Z",
+      "phone": "",
+      "confirmed_at": "2026-08-11T13:12:03.989403Z",
+      "last_sign_in_at": "2026-08-11T13:13:34.13087Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "melinda@gmail.com",
+        "email_verified": true,
+        "full_name": "Melinda",
+        "phone_verified": false,
+        "sub": "9bbb85aa-a219-446a-976a-ffdccfad6df2"
+      },
+      "identities": [
+        {
+          "identity_id": "9294e47c-915f-4302-bf05-234b982ab189",
+          "id": "9bbb85aa-a219-446a-976a-ffdccfad6df2",
+          "user_id": "9bbb85aa-a219-446a-976a-ffdccfad6df2",
+          "identity_data": {
+            "email": "melinda@gmail.com",
+            "email_verified": false,
+            "full_name": "Melinda",
+            "phone_verified": false,
+            "sub": "9bbb85aa-a219-446a-976a-ffdccfad6df2"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-11T13:12:03.975565Z",
+          "created_at": "2026-08-11T13:12:03.975637Z",
+          "updated_at": "2026-08-11T13:12:03.975637Z",
+          "email": "melinda@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-11T13:12:03.955924Z",
+      "updated_at": "2026-08-12T16:25:19.730648Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "6190f44c-55e5-499a-86a9-97ca7c922680",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "yeokemadonu@gmail.com",
+      "email_confirmed_at": "2026-08-09T20:15:38.53972Z",
+      "phone": "",
+      "confirmed_at": "2026-08-09T20:15:38.53972Z",
+      "last_sign_in_at": "2026-08-09T20:15:38.547398Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "yeokemadonu@gmail.com",
+        "email_verified": true,
+        "full_name": "Yeokem",
+        "phone_verified": false,
+        "sub": "6190f44c-55e5-499a-86a9-97ca7c922680"
+      },
+      "identities": [
+        {
+          "identity_id": "aa00bcd7-f739-4051-ad8c-bb003dd6e272",
+          "id": "6190f44c-55e5-499a-86a9-97ca7c922680",
+          "user_id": "6190f44c-55e5-499a-86a9-97ca7c922680",
+          "identity_data": {
+            "email": "yeokemadonu@gmail.com",
+            "email_verified": false,
+            "full_name": "Yeokem",
+            "phone_verified": false,
+            "sub": "6190f44c-55e5-499a-86a9-97ca7c922680"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-09T20:15:38.533322Z",
+          "created_at": "2026-08-09T20:15:38.533372Z",
+          "updated_at": "2026-08-09T20:15:38.533372Z",
+          "email": "yeokemadonu@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-09T20:15:38.523827Z",
+      "updated_at": "2026-08-09T20:15:38.551503Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "adonumillicent193@gmail.com",
+      "email_confirmed_at": "2026-08-09T16:16:43.601891Z",
+      "phone": "",
+      "confirmed_at": "2026-08-09T16:16:43.601891Z",
+      "recovery_sent_at": "2026-08-09T20:17:12.493151Z",
+      "last_sign_in_at": "2026-08-29T15:23:59.638275Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "adonumillicent193@gmail.com",
+        "email_verified": true,
+        "full_name": "Millimas Pasteries",
+        "phone_verified": false,
+        "sub": "21b4515b-290f-4130-92f9-c5709e2392d8"
+      },
+      "identities": [
+        {
+          "identity_id": "ececbb28-446c-48ee-b017-ca1f47749201",
+          "id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+          "user_id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+          "identity_data": {
+            "email": "adonumillicent193@gmail.com",
+            "email_verified": false,
+            "full_name": "Millimas Pasteries",
+            "phone_verified": false,
+            "sub": "21b4515b-290f-4130-92f9-c5709e2392d8"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-09T16:16:43.598214Z",
+          "created_at": "2026-08-09T16:16:43.598266Z",
+          "updated_at": "2026-08-09T16:16:43.598266Z",
+          "email": "adonumillicent193@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-09T16:16:43.577169Z",
+      "updated_at": "2026-09-28T07:17:53.12953Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "nathanieldeku@gmail.com",
+      "email_confirmed_at": "2026-08-09T16:10:19.273611Z",
+      "phone": "",
+      "confirmed_at": "2026-08-09T16:10:19.273611Z",
+      "last_sign_in_at": "2026-08-09T16:13:14.853653Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "nathanieldeku@gmail.com",
+        "email_verified": true,
+        "full_name": "Nathaniel",
+        "phone_verified": false,
+        "sub": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5"
+      },
+      "identities": [
+        {
+          "identity_id": "e6f2bd75-5cfb-4d41-b4cb-0d7129ee10f6",
+          "id": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5",
+          "user_id": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5",
+          "identity_data": {
+            "email": "nathanieldeku@gmail.com",
+            "email_verified": false,
+            "full_name": "Nathaniel",
+            "phone_verified": false,
+            "sub": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-09T16:10:19.265301Z",
+          "created_at": "2026-08-09T16:10:19.265364Z",
+          "updated_at": "2026-08-09T16:10:19.265364Z",
+          "email": "nathanieldeku@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-09T16:10:19.223184Z",
+      "updated_at": "2026-08-09T16:13:14.866322Z",
+      "is_anonymous": false
+    },
+    {
+      "id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "rosie@gmail.com",
+      "email_confirmed_at": "2026-08-09T15:07:46.120371Z",
+      "phone": "",
+      "confirmed_at": "2026-08-09T15:07:46.120371Z",
+      "last_sign_in_at": "2026-08-13T13:57:09.382899Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "rosie@gmail.com",
+        "email_verified": true,
+        "full_name": "Rosie",
+        "phone_verified": false,
+        "sub": "c5737118-5d04-4e50-8a72-80e4337a73f6"
+      },
+      "identities": [
+        {
+          "identity_id": "369cc9e6-9c2f-4b2c-b39e-b6c2d607c512",
+          "id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+          "user_id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+          "identity_data": {
+            "email": "rosie@gmail.com",
+            "email_verified": false,
+            "full_name": "Rosie",
+            "phone_verified": false,
+            "sub": "c5737118-5d04-4e50-8a72-80e4337a73f6"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-08-09T15:07:46.114103Z",
+          "created_at": "2026-08-09T15:07:46.114175Z",
+          "updated_at": "2026-08-09T15:07:46.114175Z",
+          "email": "rosie@gmail.com"
+        }
+      ],
+      "created_at": "2026-08-09T15:07:46.088383Z",
+      "updated_at": "2026-08-13T13:57:09.424102Z",
+      "is_anonymous": false
+    }
+  ],
+  "businesses": [
+    {
+      "id": "4c68230e-aa7e-4630-b51c-e788d5b0b71c",
+      "user_id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+      "name": "Leos ",
+      "industry": "Food and beverage",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T16:09:12.603231+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "0163cc9d-f1ff-47d0-889e-271754d8637f",
+      "user_id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+      "name": "Leos ",
+      "industry": "Food and beverage",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T16:09:15.265292+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "29de6489-043c-4e42-97f4-6691222722ff",
+      "user_id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+      "name": "Leos ",
+      "industry": "Food and beverage",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T16:09:16.43187+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "fa29920a-2032-4d51-91f5-96873245915b",
+      "user_id": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5",
+      "name": "Photography",
+      "industry": "Services",
+      "currency": "GHS",
+      "fiscal_year_start": "July",
+      "created_at": "2026-08-09T16:10:55.221627+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "8e926e63-22e4-4eb3-b3a6-c10188db20a1",
+      "user_id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+      "name": "millilas",
+      "industry": "Food and beverage",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T16:16:57.556294+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "44206764-5a61-460c-922c-04c51965443e",
+      "user_id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+      "name": "g",
+      "industry": "Food and beverage",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T20:04:35.456615+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "d773f1a7-7435-4674-bd6d-647f6f447b62",
+      "user_id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+      "name": "g",
+      "industry": "Food and beverage",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T20:04:37.199462+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "6d2807e2-c75a-43ff-8f69-6f7b2b8ee25a",
+      "user_id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+      "name": "Emma's Bakery",
+      "industry": "Food and beverage",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T20:11:14.249068+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "c9632d0f-b963-4afb-ac22-144a71c42a83",
+      "user_id": "9bbb85aa-a219-446a-976a-ffdccfad6df2",
+      "name": "Melinda Exports",
+      "industry": "Transportation and logistics",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-11T13:12:27.156837+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "0a58c323-2264-48e4-8c21-2d44e146dc3c",
+      "user_id": "f7d1455b-c4f4-4753-afbb-844e46d20513",
+      "name": "Fidd",
+      "industry": "Retail",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-12T16:26:45.830198+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "72a302d7-a0c7-4253-897b-c418b30c4068",
+      "user_id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+      "name": "Rosie's Cosmeics",
+      "industry": "Services",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-09T15:08:17.046795+00:00",
+      "tax_filing_frequency": "quarterly",
+      "next_tax_filing_date": "2026-08-13",
+      "tax_id": "779020",
+      "business_type": null
+    },
+    {
+      "id": "2f260cad-b0e0-485b-9a54-c8390d6f863d",
+      "user_id": "09c426c6-bc54-413d-acf6-92f9d4e05c41",
+      "name": "DivimsahImport",
+      "industry": "General Trading & Import/Export",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-20T14:19:46.3363+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "14d4903b-2066-4485-b419-582ef3f8a7d2",
+      "user_id": "1855bf67-5674-4caa-aba6-1b1c00cc7314",
+      "name": "Majorlite",
+      "industry": "IT, Software, Graphic Design & Digital Agency",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-20T19:38:34.377462+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "9b09d0cf-ac79-44bd-82b1-c6608ffea972",
+      "user_id": "13520d78-daaa-418e-88a1-9b770b453a26",
+      "name": "Pets and grooming",
+      "industry": "Beauty Salon, Barbershop & Cosmetics",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-20T20:25:18.545248+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "dd349824-5132-41ca-8144-d3c6ff060e67",
+      "user_id": "a79d96a0-6a2c-43bf-bc85-005058fa29bc",
+      "name": "perfectstat",
+      "industry": "Education, Schools & Training Centers",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-20T22:00:41.295548+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "763d7695-e5ec-4adb-a412-6ce171684e59",
+      "user_id": "319cf78c-d1b8-4eea-b482-291d10b45231",
+      "name": "Rani Drugs",
+      "industry": "Retail & Supermarket / Provision Shop",
+      "currency": "USD",
+      "fiscal_year_start": "October",
+      "created_at": "2026-08-21T16:45:14.598888+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "dafb3d58-c311-4d51-8dc1-6f44dfc95754",
+      "user_id": "cc45168a-5111-459f-8c63-a8e6bf74f3da",
+      "name": "Peter and Sons",
+      "industry": "Transportation and logistics",
+      "currency": "USD",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-17T12:11:05.197246+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "cd06a32a-596f-4245-a80a-76c176d03940",
+      "user_id": "0e35a792-e860-4ecf-b293-5a292fe3fb70",
+      "name": "Browns Enterprise",
+      "industry": "Other",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-18T16:02:26.505128+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "c0272d56-f396-4995-a613-2368bc1f9320",
+      "user_id": "68e2c326-01bc-45ca-8107-6ec418a1457c",
+      "name": "bzi",
+      "industry": "Agriculture",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-18T23:58:21.344253+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "2eccecf5-98aa-4add-8bfa-64b9b855b1df",
+      "user_id": "1b99c9a2-de9c-4230-8069-319bb4f90934",
+      "name": "Addo Int",
+      "industry": "Other",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-19T02:13:42.651732+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "user_id": "f7298c97-7703-4098-8e55-a019999532ad",
+      "name": "NextTech Solutions",
+      "industry": "IT, Software, Graphic Design & Digital Agency",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-19T14:16:52.326031+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": "sole_proprietorship"
+    },
+    {
+      "id": "0e6ce4bd-90f5-4722-aea4-931c9278795d",
+      "user_id": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f",
+      "name": "Millimas",
+      "industry": "Food & Beverage / Restaurant / Bar / Bakery",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-19T10:15:07.95572+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "a092281f-f5e4-491c-b27f-3a752452bd7a",
+      "user_id": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865",
+      "name": "My Enterprise",
+      "industry": "Commercial Retail & Wholesale",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-09-06T15:06:12.498312+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": "sole_proprietorship"
+    },
+    {
+      "id": "f7016fc6-bd79-466f-af5a-02d4904bcf76",
+      "user_id": "8292e132-43e8-4838-979d-83ea7be20c0d",
+      "name": "Pizza Gigs",
+      "industry": "Food & Beverage / Restaurant / Bar / Bakery",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-19T12:16:29.780467+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "4f19fcba-1a3f-4ea6-81d9-9bb12fb52f06",
+      "user_id": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d",
+      "name": "Nats logistics ",
+      "industry": "Agriculture, Poultry & Farming",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-19T14:43:31.222182+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "ff5d3cec-d587-4f4e-861f-7dc129c6666c",
+      "user_id": "f1b02c3b-5d05-4cdd-8144-971c71163d69",
+      "name": "Musks ",
+      "industry": "Retail & Supermarket / Provision Shop",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-19T15:16:50.79147+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "d63071b0-9dd5-4d72-92b1-cf28c3eedd5d",
+      "user_id": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058",
+      "name": "Rosie's lingerie",
+      "industry": "Fashion, Boutique & Apparel / Tailoring",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-08-19T18:55:07.361461+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "user_id": "49ceaff4-02c4-45dc-83b7-62ede5f69abd",
+      "name": "A&S mart",
+      "industry": "Retail & Supermarket / Provision Shop",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-19T20:02:57.9957+00:00",
+      "tax_filing_frequency": "quarterly",
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": "sole_proprietorship"
+    },
+    {
+      "id": "6147d6f4-8bc1-41a6-8b9a-b858248784aa",
+      "user_id": "cfad187b-7466-4a59-8627-76493d259c2a",
+      "name": "Boss Int",
+      "industry": "General Trading & Import/Export",
+      "currency": "GHS",
+      "fiscal_year_start": "August",
+      "created_at": "2026-08-19T22:51:35.22685+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "a4a99e11-4752-476b-8a8d-635d54236d07",
+      "user_id": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865",
+      "name": "My Enterprise",
+      "industry": "Commercial Retail & Wholesale",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-09-06T15:06:12.596324+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": "sole_proprietorship"
+    },
+    {
+      "id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "user_id": "645f5197-f765-477b-b2e2-5af9c2aa4299",
+      "name": "My Enterprise",
+      "industry": "Commercial Retail & Wholesale",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-09-25T07:33:02.322352+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": "sole_proprietorship"
+    },
+    {
+      "id": "058fa1fd-3f6b-463f-a925-670ed080bad1",
+      "user_id": "79417bdf-3d00-4697-9b10-296ea8871b66",
+      "name": "My Enterprise",
+      "industry": "Commercial Retail & Wholesale",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-09-28T08:39:07.11118+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": "sole_proprietorship"
+    },
+    {
+      "id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "user_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "name": "Mivako",
+      "industry": "Transportation, Haulage & Logistics",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-10-09T22:18:34.849189+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "4c94d66b-b5fa-4d62-835e-e7b4e64f788f",
+      "user_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "name": "Mivako",
+      "industry": "Transportation, Haulage & Logistics",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-10-09T22:19:10.681208+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "1dbc1b84-59f5-46b8-9f23-5e88ad03b6f7",
+      "user_id": "00a9835f-a846-48ac-8cd0-401b42fee2c7",
+      "name": "Mivako Farms Ltd",
+      "industry": "Agriculture, Poultry & Farming",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-10-13T22:47:23.207811+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    },
+    {
+      "id": "ded6edf2-ba2d-4782-a645-ae2e798073e0",
+      "user_id": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e",
+      "name": "My Enterprise",
+      "industry": "Commercial Retail & Wholesale",
+      "currency": "GHS",
+      "fiscal_year_start": "January",
+      "created_at": "2026-10-16T15:20:35.115601+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": "sole_proprietorship"
+    },
+    {
+      "id": "80f93e4a-085e-45fc-814d-8a5853a36da0",
+      "user_id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+      "name": "Mivako airbnb",
+      "industry": "Hospitality, Hotels & Guest Houses",
+      "currency": "GHS",
+      "fiscal_year_start": "July",
+      "created_at": "2026-10-16T15:35:46.429352+00:00",
+      "tax_filing_frequency": null,
+      "next_tax_filing_date": null,
+      "tax_id": null,
+      "business_type": null
+    }
+  ],
+  "transactions": [
+    {
+      "id": "b233cad8-1340-4586-ba23-949829359159",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "vendor": "Supplier Settlement: Fan milk",
+      "amount": 800,
+      "type": "operating_expense",
+      "category": "Accounts Payable Settlement | MOMO",
+      "transaction_date": "2026-08-31",
+      "document_url": null,
+      "created_at": "2026-08-31T17:13:50.108177+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "24dc2777-598e-44e9-b30d-c1d51f1ab257",
+      "business_id": "72a302d7-a0c7-4253-897b-c418b30c4068",
+      "vendor": "Book",
+      "amount": 60,
+      "type": "revenue",
+      "category": "sales",
+      "transaction_date": "2026-08-09",
+      "document_url": null,
+      "created_at": "2026-08-09T15:10:44.798301+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "ea75895e-4730-491e-b5ba-2b80162325dd",
+      "business_id": "72a302d7-a0c7-4253-897b-c418b30c4068",
+      "vendor": "table",
+      "amount": 100,
+      "type": "operating_expense",
+      "category": "purchase",
+      "transaction_date": "2026-08-09",
+      "document_url": null,
+      "created_at": "2026-08-09T15:11:12.408634+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "d77b1f7b-61ec-4001-87dd-bee15762f538",
+      "business_id": "fa29920a-2032-4d51-91f5-96873245915b",
+      "vendor": "Camera",
+      "amount": 2000,
+      "type": "operating_expense",
+      "category": "Purchases",
+      "transaction_date": "2026-08-09",
+      "document_url": null,
+      "created_at": "2026-08-09T16:13:33.664374+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "ccefa05c-ce63-4e29-b35b-bf50cc901f3e",
+      "business_id": "fa29920a-2032-4d51-91f5-96873245915b",
+      "vendor": "Wedding reception",
+      "amount": 4000,
+      "type": "revenue",
+      "category": "Services",
+      "transaction_date": "2026-08-09",
+      "document_url": null,
+      "created_at": "2026-08-09T16:14:07.690783+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "1e1b1dab-b918-4c01-a5bb-09a0070b02d5",
+      "business_id": "8e926e63-22e4-4eb3-b3a6-c10188db20a1",
+      "vendor": "Meat pie",
+      "amount": 500,
+      "type": "revenue",
+      "category": "Sales",
+      "transaction_date": "2026-08-09",
+      "document_url": null,
+      "created_at": "2026-08-09T16:17:20.552374+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "40e0c829-cc5e-4d6b-8699-7375a15a8183",
+      "business_id": "8e926e63-22e4-4eb3-b3a6-c10188db20a1",
+      "vendor": "Flour ",
+      "amount": 200,
+      "type": "operating_expense",
+      "category": "Purchase",
+      "transaction_date": "2026-08-09",
+      "document_url": null,
+      "created_at": "2026-08-09T16:17:50.289795+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "7a413cec-05e9-417c-99d4-6040193a9458",
+      "business_id": "8e926e63-22e4-4eb3-b3a6-c10188db20a1",
+      "vendor": "Drink",
+      "amount": 600,
+      "type": "revenue",
+      "category": "Sale",
+      "transaction_date": "2026-08-09",
+      "document_url": null,
+      "created_at": "2026-08-09T20:11:43.750824+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "0819b75a-f337-4be7-a55f-8520fa851ebc",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Opening Stock: Imported Inventory (3 Items)",
+      "amount": 10650,
+      "type": "current_asset",
+      "category": "Opening Stock",
+      "transaction_date": "2026-09-25",
+      "document_url": null,
+      "created_at": "2026-09-25T07:38:31.132+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "4ad95101-b43c-4b10-b6ad-4a6c79783f20",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Desk Lamp",
+      "amount": 27.99,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:32.148922+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "dbc66396-5349-4764-9dd3-9a9bec00e617",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Water Bottle",
+      "amount": 24,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:35.230411+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "53b42807-9e8d-4a56-93b7-4994bf6191f2",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Wireless Keyboard",
+      "amount": 34.99,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:38.202184+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "ac9ec0b3-55a4-4a0d-ac07-542cd58a3189",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Sale: Cooking Oil 1L (x23)",
+      "amount": 805,
+      "type": "revenue",
+      "category": "Sales",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:47:31.491442+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "db78b341-50e7-443e-9785-f99175930572",
+      "business_id": "72a302d7-a0c7-4253-897b-c418b30c4068",
+      "vendor": "Fhg",
+      "amount": 500,
+      "type": "operating_expense",
+      "category": "Expense",
+      "transaction_date": "2026-08-11",
+      "document_url": null,
+      "created_at": "2026-08-11T13:13:11.471757+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "a436c43b-f601-4c2f-b8a6-84f41e78dab0",
+      "business_id": "c9632d0f-b963-4afb-ac22-144a71c42a83",
+      "vendor": "Ghh",
+      "amount": 500,
+      "type": "operating_expense",
+      "category": "Purchase",
+      "transaction_date": "2026-08-11",
+      "document_url": null,
+      "created_at": "2026-08-11T13:14:00.121057+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "1fa866dc-2c55-4430-a283-dfcdb3447e6a",
+      "business_id": "0a58c323-2264-48e4-8c21-2d44e146dc3c",
+      "vendor": "Table",
+      "amount": 500,
+      "type": "operating_expense",
+      "category": "Purchases",
+      "transaction_date": "2026-08-12",
+      "document_url": null,
+      "created_at": "2026-08-12T16:28:25.260852+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "069252ce-0863-4215-8c84-65396d1d2c87",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Supplier Settlement: Vaccine",
+      "amount": 250,
+      "type": "operating_expense",
+      "category": "Accounts Payable Settlement | CASH",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:34:00.486756+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "35dd9d90-16df-4fbf-aba5-c7c513710f11",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Sale: Basmati Rice 5kg (x10)",
+      "amount": 1100,
+      "type": "operating_expense",
+      "category": "Sales",
+      "transaction_date": "2026-09-25",
+      "document_url": null,
+      "created_at": "2026-09-25T07:40:03.379079+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "839f67e6-5d65-44ff-ba3c-3ee030fc6167",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Supplier: Transport",
+      "amount": 50,
+      "type": "short_term_liability",
+      "category": "Accounts Payable",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:34:35.007128+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "7db6448d-2eae-419b-8999-12781921eb11",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Supplier Settlement: Transport",
+      "amount": 50,
+      "type": "operating_expense",
+      "category": "Accounts Payable Settlement | CASH",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:34:43.761088+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "33a5b429-ac81-4485-a5b1-0af06b614453",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "vendor": "NEWLUCKY ELECTRICALS CO. LTD.",
+      "amount": 520,
+      "type": "cost_of_goods",
+      "category": "Electrical Supplies",
+      "transaction_date": "2026-09-02",
+      "document_url": null,
+      "created_at": "2026-09-02T16:57:52.198374+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "de751e0c-562e-4eb0-bc01-85534d3755b4",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Invoice Payment: #INV-0001 (Rejoice)",
+      "amount": 100,
+      "type": "revenue",
+      "category": "Invoicing — Cash",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:24:15.545536+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "636cda88-ef5b-470b-b870-b3825c7225ec",
+      "business_id": "80f93e4a-085e-45fc-814d-8a5853a36da0",
+      "vendor": "FAR MELCOM 01",
+      "amount": 1440.91,
+      "type": "cost_of_goods",
+      "category": "Inventory Restock",
+      "transaction_date": "2026-10-01",
+      "document_url": null,
+      "created_at": "2026-10-16T15:41:24.522059+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "30f57290-261f-4062-9d54-3019fd8f8cbc",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Sale: Basmati Rice 5kg (x1)",
+      "amount": 110,
+      "type": "revenue",
+      "category": "Sales",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:43:24.601288+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "f9cb0f89-8664-478e-ae08-4e85a0437001",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Supplier: Feeding",
+      "amount": 50,
+      "type": "short_term_liability",
+      "category": "Accounts Payable",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:26:46.225915+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "34d892a4-10c0-4460-bc53-ea721f6fe4d7",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "vendor": "Supplier Settlement: Adama",
+      "amount": 50,
+      "type": "operating_expense",
+      "category": "Accounts Payable Settlement | MOMO",
+      "transaction_date": "2026-08-31",
+      "document_url": null,
+      "created_at": "2026-08-31T17:47:13.806275+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "74c141f8-42af-4b4e-ad2b-37af9d1a32bc",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Wireless Mouse",
+      "amount": 39.98,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:29.801579+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "9e601d48-83f4-4554-ba66-061827fc02ab",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Bluetooth Headphones",
+      "amount": 59,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:32.814939+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "97b08fcd-3a09-4664-be1f-1f2de25e1238",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Phone Case",
+      "amount": 15.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:36.051712+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "5426233e-5585-4d82-8797-7e761f71635a",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Desk Organizer",
+      "amount": 18.25,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:38.741586+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "f6080590-9535-4af3-a235-b62cee51a554",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Supplier Settlement: Feeding",
+      "amount": 50,
+      "type": "operating_expense",
+      "category": "Accounts Payable Settlement | CASH",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:27:26.352525+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "309a34bb-9b31-4552-9d75-0f23babbe268",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "USB-C Cable",
+      "amount": 25.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:30.559932+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "e0ea26f0-5967-43ed-9525-a69f36066358",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Printer Paper (Ream)",
+      "amount": 25.96,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:33.279904+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "c87796eb-2037-4272-a9a1-20cc3cc5dccc",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Backpack",
+      "amount": 45,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:36.498682+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "1dd49694-d303-4b0b-b8c2-738e68019df8",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "LED Light Strip",
+      "amount": 26.8,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:39.197196+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "34826c99-924d-4674-b292-7874ffba39de",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Supplier Settlement: Feeding",
+      "amount": 50,
+      "type": "operating_expense",
+      "category": "Accounts Payable Settlement | CASH",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:29:31.093153+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "4ca61ae2-5346-47d1-8626-679873942b9e",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Notebook (A5)",
+      "amount": 16.25,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:31.030117+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "9f92db38-f6fb-45cd-8224-aed7a707ff96",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Ballpoint Pens (12pk)",
+      "amount": 14.97,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:33.845183+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "82797a9c-3741-4cb6-a5cf-f293a5bd482b",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "HDMI Cable",
+      "amount": 19.98,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:37.172943+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "2ce91dc4-5056-492e-806a-b576478b14be",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Invoice Payment: #INV-0003 (John)",
+      "amount": 500,
+      "type": "revenue",
+      "category": "Invoicing — Cash",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:31:55.205626+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "76f19e45-c392-462e-b86f-538fab168916",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Invoice Payment: #INV-0002 (John)",
+      "amount": 500,
+      "type": "revenue",
+      "category": "Invoicing — Bank / MoMo",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:32:21.906035+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "c51332c6-7527-42d2-8416-3279e2a3dc02",
+      "business_id": "d63071b0-9dd5-4d72-92b1-cf28c3eedd5d",
+      "vendor": "University Health Services Directorate - University of Ghana, Legon",
+      "amount": 35,
+      "type": "operating_expense",
+      "category": "Medical Expense",
+      "transaction_date": "2026-07-16",
+      "document_url": null,
+      "created_at": "2026-08-19T19:19:32.048935+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "a660f76c-bb11-4099-80e8-0fbfbea666dd",
+      "business_id": "d63071b0-9dd5-4d72-92b1-cf28c3eedd5d",
+      "vendor": "University Health Services Directorate - University of Ghana, Legon",
+      "amount": 35,
+      "type": "operating_expense",
+      "category": "Medical Expense",
+      "transaction_date": "2026-07-16",
+      "document_url": null,
+      "created_at": "2026-08-19T19:20:10.307392+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "1cb9be0b-df69-4588-942a-1e236e71f6f9",
+      "business_id": "d63071b0-9dd5-4d72-92b1-cf28c3eedd5d",
+      "vendor": "Mylorea",
+      "amount": 500000,
+      "type": "cost_of_goods",
+      "category": "Sales",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T19:35:25.806091+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "e182e060-1a24-4b0e-9fbe-696e57286a4f",
+      "business_id": "d63071b0-9dd5-4d72-92b1-cf28c3eedd5d",
+      "vendor": "Mylorea",
+      "amount": 500000,
+      "type": "cost_of_goods",
+      "category": "Sales",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T19:36:17.383988+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "a2117c25-392e-4366-ac51-e1fd008aa4a3",
+      "business_id": "d63071b0-9dd5-4d72-92b1-cf28c3eedd5d",
+      "vendor": "Zzz",
+      "amount": 20000,
+      "type": "revenue",
+      "category": "Sales",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T19:37:04.20747+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "d5800102-2ee3-4984-8877-d5d7c9b02239",
+      "business_id": "d63071b0-9dd5-4d72-92b1-cf28c3eedd5d",
+      "vendor": "Leo's lingerie depot",
+      "amount": 5000,
+      "type": "cost_of_goods",
+      "category": "Sales",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T19:39:42.407965+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "fb719815-690e-45dd-9df2-594b6717ca8f",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Wireless Mouse",
+      "amount": 39.98,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:48.234197+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "3692e9a5-c272-4e00-95cc-01ea90251b87",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "USB-C Cable",
+      "amount": 25.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:48.78306+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "0612baeb-879c-4784-9008-d36069a22d40",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Notebook (A5)",
+      "amount": 16.25,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:49.335179+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "4c8a4107-fe9d-475d-a32f-b9d3bf6d6142",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Coffee Beans (1kg)",
+      "amount": 29.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:49.77838+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "fca096c3-7b6c-400e-852b-280b3ff73c3a",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Desk Lamp",
+      "amount": 27.99,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:50.294773+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "68dab0b7-3a84-43f9-868f-df679beed9f3",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Bluetooth Headphones",
+      "amount": 59,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:51.028178+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "6476b5d1-e9fa-4524-bdb6-c02f05e06461",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Printer Paper (Ream)",
+      "amount": 25.96,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:51.651737+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "733a783c-00fb-433d-808a-139fc0be63af",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Ballpoint Pens (12pk)",
+      "amount": 14.97,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:52.087382+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "8d5d164f-44b5-4aa0-8830-f20f0f4cef4f",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "External Hard Drive 1TB",
+      "amount": 64.99,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:52.603525+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "aa2c546e-0d70-411e-95dd-fe12c54fa901",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Water Bottle",
+      "amount": 24,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:53.064565+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "1240c065-2e2c-4c8c-8d44-d508a963bcc1",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Phone Case",
+      "amount": 15.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:53.53642+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "32e0b1c3-a02e-43e8-8e7a-aa3131005e56",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Backpack",
+      "amount": 45,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:54.072852+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "c86589ea-b372-4bd5-9066-35bd298f7e40",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "HDMI Cable",
+      "amount": 19.98,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:54.54272+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "a02bfa99-f3a4-4379-bae7-d4d4195854d5",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Sticky Notes (Pack)",
+      "amount": 16.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:54.97775+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "0279f061-17d5-43aa-aaee-dc12052a6a5f",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Wireless Keyboard",
+      "amount": 34.99,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:55.4262+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "f8a414ea-3555-4b02-b2ed-f5f4799f9b2b",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Desk Organizer",
+      "amount": 18.25,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:55.904416+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "4d4f22e7-5f70-4974-b3d1-41e34cd6fa32",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "LED Light Strip",
+      "amount": 26.8,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:04:56.363338+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "7ae28f44-bde8-41d4-a63a-44165e1e3249",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "vendor": "Sale: Notebook (A5) (x1)",
+      "amount": 4.23,
+      "type": "revenue",
+      "category": "Sales",
+      "transaction_date": "2026-08-19",
+      "document_url": null,
+      "created_at": "2026-08-19T20:05:16.393583+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "46e18c72-d699-41ae-bf75-fafc510ca603",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Coffee Beans (1kg)",
+      "amount": 29.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:31.696387+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "32b80d51-9815-43e6-ba77-de40ce8f1a73",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "External Hard Drive 1TB",
+      "amount": 64.99,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:34.487432+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "76cdf926-01e7-4d5d-a218-a74a6743ccaa",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Sticky Notes (Pack)",
+      "amount": 16.5,
+      "type": "current_asset",
+      "category": "Inventory restock",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:46:37.706625+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "c23280e7-a845-4ecb-afa0-3a59a41b4a7b",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "vendor": "Supplier: Adama",
+      "amount": 0,
+      "type": "short_term_liability",
+      "category": "Accounts Payable",
+      "transaction_date": "2026-09-28",
+      "document_url": null,
+      "created_at": "2026-09-28T21:48:55.745295+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "1c7b1862-ce42-4a03-8ac7-91c71c5721b8",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "vendor": "Supplier: Vaccine",
+      "amount": 0,
+      "type": "short_term_liability",
+      "category": "Accounts Payable",
+      "transaction_date": "2026-10-09",
+      "document_url": null,
+      "created_at": "2026-10-09T22:33:06.731245+00:00",
+      "depreciation_rate": null,
+      "payment_method": "bank"
+    },
+    {
+      "id": "01187c47-7508-4039-a26d-056a7e6f109e",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "vendor": "Food",
+      "amount": 240,
+      "type": "operating_expense",
+      "category": null,
+      "transaction_date": "2026-08-28",
+      "document_url": null,
+      "created_at": "2026-08-29T21:12:45.607654+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "6b81c998-0fa3-45cb-b26b-7e4d1f3762b3",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "vendor": "Food",
+      "amount": 240,
+      "type": "operating_expense",
+      "category": null,
+      "transaction_date": "2026-08-28",
+      "document_url": null,
+      "created_at": "2026-08-30T20:16:03.051503+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "dca6edfc-40b9-4f19-bf3a-7d778535886b",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "vendor": "Hardware store",
+      "amount": 70,
+      "type": "cost_of_goods",
+      "category": null,
+      "transaction_date": "2026-08-30",
+      "document_url": null,
+      "created_at": "2026-08-30T20:18:44.877301+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    },
+    {
+      "id": "f97ec69b-f637-4d16-8d7a-11a89eb2b976",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "vendor": "Fueling station",
+      "amount": 400,
+      "type": "operating_expense",
+      "category": null,
+      "transaction_date": "2026-08-28",
+      "document_url": null,
+      "created_at": "2026-08-30T20:19:56.487308+00:00",
+      "depreciation_rate": null,
+      "payment_method": "cash"
+    }
+  ],
+  "inventory_items": [
+    {
+      "id": "5be9774a-adc6-48e6-a99b-b1944a5570ff",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Sugar 1kg",
+      "quantity": 200,
+      "unit_cost": 18,
+      "unit_price": 22.5,
+      "created_at": "2026-09-25T07:38:30.331788+00:00",
+      "updated_at": "2026-09-25T07:38:30.331788+00:00",
+      "barcode": "8901234567892"
+    },
+    {
+      "id": "51d66ee0-8271-40b4-a2e2-c2c88b1d7d1f",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Basmati Rice 5kg",
+      "quantity": 39,
+      "unit_cost": 85,
+      "unit_price": 110,
+      "created_at": "2026-09-25T07:38:30.331788+00:00",
+      "updated_at": "2026-09-25T07:38:30.331788+00:00",
+      "barcode": "8901234567890"
+    },
+    {
+      "id": "cbeae85a-6ec6-4ae0-b301-89e8ef0deef1",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Desk Lamp",
+      "quantity": 1,
+      "unit_cost": 27.99,
+      "unit_price": 36.39,
+      "created_at": "2026-09-28T21:46:31.926262+00:00",
+      "updated_at": "2026-09-28T21:46:32.148922+00:00",
+      "barcode": null
+    },
+    {
+      "id": "6de0d31f-36d6-47e4-91b8-d39b27ee63fe",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Water Bottle",
+      "quantity": 2,
+      "unit_cost": 12,
+      "unit_price": 15.6,
+      "created_at": "2026-09-28T21:46:34.739409+00:00",
+      "updated_at": "2026-09-28T21:46:35.230411+00:00",
+      "barcode": null
+    },
+    {
+      "id": "4c7301fc-d4c2-43e8-8ee3-5eb13513d35c",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Wireless Keyboard",
+      "quantity": 1,
+      "unit_cost": 34.99,
+      "unit_price": 45.49,
+      "created_at": "2026-09-28T21:46:37.899352+00:00",
+      "updated_at": "2026-09-28T21:46:38.202184+00:00",
+      "barcode": null
+    },
+    {
+      "id": "58fa56f9-b3f8-4bdc-88c8-8d545009a66f",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Cooking Oil 1L",
+      "quantity": 77,
+      "unit_cost": 28,
+      "unit_price": 35,
+      "created_at": "2026-09-25T07:38:30.331788+00:00",
+      "updated_at": "2026-09-25T07:38:30.331788+00:00",
+      "barcode": "8901234567891"
+    },
+    {
+      "id": "363e70e2-26f0-4cfa-b076-ee728b99dc32",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Wireless Mouse",
+      "quantity": 2,
+      "unit_cost": 19.99,
+      "unit_price": 25.99,
+      "created_at": "2026-08-19T20:04:48.004507+00:00",
+      "updated_at": "2026-08-19T20:04:48.234197+00:00",
+      "barcode": null
+    },
+    {
+      "id": "7fbb5fb0-20e5-41f1-a1dc-97608eefbda1",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Desk Lamp",
+      "quantity": 1,
+      "unit_cost": 27.99,
+      "unit_price": 36.39,
+      "created_at": "2026-08-19T20:04:50.06519+00:00",
+      "updated_at": "2026-08-19T20:04:50.294773+00:00",
+      "barcode": null
+    },
+    {
+      "id": "9cabf1da-8060-499b-8c40-c11979e7ea8c",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Bluetooth Headphones",
+      "quantity": 1,
+      "unit_cost": 59,
+      "unit_price": 76.7,
+      "created_at": "2026-08-19T20:04:50.598943+00:00",
+      "updated_at": "2026-08-19T20:04:51.028178+00:00",
+      "barcode": null
+    },
+    {
+      "id": "a903013c-ad73-4e61-9506-512468f23fda",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Backpack",
+      "quantity": 1,
+      "unit_cost": 45,
+      "unit_price": 58.5,
+      "created_at": "2026-08-19T20:04:53.845981+00:00",
+      "updated_at": "2026-08-19T20:04:54.072852+00:00",
+      "barcode": null
+    },
+    {
+      "id": "a106fc88-5df1-47f4-a2ad-98f2572f8d4c",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "HDMI Cable",
+      "quantity": 2,
+      "unit_cost": 9.99,
+      "unit_price": 12.99,
+      "created_at": "2026-08-19T20:04:54.335358+00:00",
+      "updated_at": "2026-08-19T20:04:54.54272+00:00",
+      "barcode": null
+    },
+    {
+      "id": "c71182d9-dced-4077-a584-af8a458d6cec",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Wireless Mouse",
+      "quantity": 2,
+      "unit_cost": 19.99,
+      "unit_price": 25.99,
+      "created_at": "2026-09-28T21:46:29.474018+00:00",
+      "updated_at": "2026-09-28T21:46:29.801579+00:00",
+      "barcode": null
+    },
+    {
+      "id": "b6c59dc3-43c9-4044-824c-6100ba6bb84d",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Bluetooth Headphones",
+      "quantity": 1,
+      "unit_cost": 59,
+      "unit_price": 76.7,
+      "created_at": "2026-09-28T21:46:32.401414+00:00",
+      "updated_at": "2026-09-28T21:46:32.814939+00:00",
+      "barcode": null
+    },
+    {
+      "id": "40b72981-fb6b-454a-a28b-15ea409df0e3",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Phone Case",
+      "quantity": 1,
+      "unit_cost": 15.5,
+      "unit_price": 20.15,
+      "created_at": "2026-09-28T21:46:35.742665+00:00",
+      "updated_at": "2026-09-28T21:46:36.051712+00:00",
+      "barcode": null
+    },
+    {
+      "id": "59cc6e02-e9b9-4c95-8222-00ec72abd6ac",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Desk Organizer",
+      "quantity": 1,
+      "unit_cost": 18.25,
+      "unit_price": 23.73,
+      "created_at": "2026-09-28T21:46:38.527772+00:00",
+      "updated_at": "2026-09-28T21:46:38.741586+00:00",
+      "barcode": null
+    },
+    {
+      "id": "7f8f4bd4-458b-4be4-9dba-7f3e6bb1d619",
+      "business_id": "a4a99e11-4752-476b-8a8d-635d54236d07",
+      "name": "Ghana Rubber Products Ltd - Raw Materials",
+      "quantity": 1,
+      "unit_cost": 18500,
+      "unit_price": 23125,
+      "created_at": "2026-09-06T15:07:31.444+00:00",
+      "updated_at": "2026-09-06T15:07:32.230205+00:00",
+      "barcode": ""
+    },
+    {
+      "id": "9a68e675-8e2d-4263-a4d8-8d8fdedf8182",
+      "business_id": "a4a99e11-4752-476b-8a8d-635d54236d07",
+      "name": "Olam Agri Ghana - Inventory Goods",
+      "quantity": 1,
+      "unit_cost": 45000,
+      "unit_price": 56250,
+      "created_at": "2026-09-06T15:07:31.444+00:00",
+      "updated_at": "2026-09-06T15:07:32.230205+00:00",
+      "barcode": ""
+    },
+    {
+      "id": "4d548cf6-3843-4e73-a272-4afd7e8ed3d0",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "USB-C Cable",
+      "quantity": 3,
+      "unit_cost": 8.5,
+      "unit_price": 11.05,
+      "created_at": "2026-09-28T21:46:30.29922+00:00",
+      "updated_at": "2026-09-28T21:46:30.559932+00:00",
+      "barcode": null
+    },
+    {
+      "id": "1bc2571d-8e54-418d-bcb7-c0f2de3b2280",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "USB-C Cable",
+      "quantity": 3,
+      "unit_cost": 8.5,
+      "unit_price": 11.05,
+      "created_at": "2026-08-19T20:04:48.500307+00:00",
+      "updated_at": "2026-08-19T20:04:48.78306+00:00",
+      "barcode": null
+    },
+    {
+      "id": "36123c75-f601-4dd7-8595-54fa2bc22593",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Printer Paper (Ream)",
+      "quantity": 4,
+      "unit_cost": 6.49,
+      "unit_price": 8.44,
+      "created_at": "2026-08-19T20:04:51.378424+00:00",
+      "updated_at": "2026-08-19T20:04:51.651737+00:00",
+      "barcode": null
+    },
+    {
+      "id": "59d53cd4-019c-49d1-b8c7-801c85fdfa34",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "External Hard Drive 1TB",
+      "quantity": 1,
+      "unit_cost": 64.99,
+      "unit_price": 84.49,
+      "created_at": "2026-08-19T20:04:52.352339+00:00",
+      "updated_at": "2026-08-19T20:04:52.603525+00:00",
+      "barcode": null
+    },
+    {
+      "id": "b369f666-1e42-4e7a-ac58-0f9fc75d5eb7",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Sticky Notes (Pack)",
+      "quantity": 6,
+      "unit_cost": 2.75,
+      "unit_price": 3.58,
+      "created_at": "2026-08-19T20:04:54.773325+00:00",
+      "updated_at": "2026-08-19T20:04:54.97775+00:00",
+      "barcode": null
+    },
+    {
+      "id": "c606e81a-a05e-4a8c-a763-bf65cc8b7f02",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Printer Paper (Ream)",
+      "quantity": 4,
+      "unit_cost": 6.49,
+      "unit_price": 8.44,
+      "created_at": "2026-09-28T21:46:33.066732+00:00",
+      "updated_at": "2026-09-28T21:46:33.279904+00:00",
+      "barcode": null
+    },
+    {
+      "id": "fcc292ed-90e1-406c-99eb-03cef50fce13",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Backpack",
+      "quantity": 1,
+      "unit_cost": 45,
+      "unit_price": 58.5,
+      "created_at": "2026-09-28T21:46:36.267325+00:00",
+      "updated_at": "2026-09-28T21:46:36.498682+00:00",
+      "barcode": null
+    },
+    {
+      "id": "9a99d997-1576-4d52-b5fa-993626de4a81",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Desk Organizer",
+      "quantity": 1,
+      "unit_cost": 18.25,
+      "unit_price": 23.73,
+      "created_at": "2026-08-19T20:04:55.665585+00:00",
+      "updated_at": "2026-08-19T20:04:55.904416+00:00",
+      "barcode": null
+    },
+    {
+      "id": "d5d7f815-70f2-4111-8f4b-7e38faa86454",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "LED Light Strip",
+      "quantity": 2,
+      "unit_cost": 13.4,
+      "unit_price": 17.42,
+      "created_at": "2026-09-28T21:46:38.98534+00:00",
+      "updated_at": "2026-09-28T21:46:39.197196+00:00",
+      "barcode": null
+    },
+    {
+      "id": "8909893d-dda4-463e-8384-e4a462969008",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "name": "Yogurt ",
+      "quantity": 10,
+      "unit_cost": 50,
+      "unit_price": 67.5,
+      "created_at": "2026-08-31T17:46:26.411473+00:00",
+      "updated_at": "2026-08-31T17:46:26.411473+00:00",
+      "barcode": null
+    },
+    {
+      "id": "2a46f285-c227-42c0-a73f-901aa98668db",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Ballpoint Pens (12pk)",
+      "quantity": 3,
+      "unit_cost": 4.99,
+      "unit_price": 6.49,
+      "created_at": "2026-08-19T20:04:51.843818+00:00",
+      "updated_at": "2026-08-19T20:04:52.087382+00:00",
+      "barcode": null
+    },
+    {
+      "id": "6c9b484f-ff53-4279-bba5-361a9c32f1c9",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Water Bottle",
+      "quantity": 2,
+      "unit_cost": 12,
+      "unit_price": 15.6,
+      "created_at": "2026-08-19T20:04:52.840614+00:00",
+      "updated_at": "2026-08-19T20:04:53.064565+00:00",
+      "barcode": null
+    },
+    {
+      "id": "f307e496-676c-4b0e-9d59-67d7c06d8fff",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Wireless Keyboard",
+      "quantity": 1,
+      "unit_cost": 34.99,
+      "unit_price": 45.49,
+      "created_at": "2026-08-19T20:04:55.20119+00:00",
+      "updated_at": "2026-08-19T20:04:55.4262+00:00",
+      "barcode": null
+    },
+    {
+      "id": "68ef21b6-8eb0-43f4-836d-fff476b2f2c8",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "LED Light Strip",
+      "quantity": 2,
+      "unit_cost": 13.4,
+      "unit_price": 17.42,
+      "created_at": "2026-08-19T20:04:56.143042+00:00",
+      "updated_at": "2026-08-19T20:04:56.363338+00:00",
+      "barcode": null
+    },
+    {
+      "id": "590a24db-48be-4894-8580-6a7af626b11a",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Notebook (A5)",
+      "quantity": 4,
+      "unit_cost": 3.25,
+      "unit_price": 4.23,
+      "created_at": "2026-08-19T20:04:49.054518+00:00",
+      "updated_at": "2026-08-19T20:04:49.335179+00:00",
+      "barcode": null
+    },
+    {
+      "id": "75304036-ccf3-464e-a362-b29e0ba20796",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Notebook (A5)",
+      "quantity": 5,
+      "unit_cost": 3.25,
+      "unit_price": 4.23,
+      "created_at": "2026-09-28T21:46:30.796241+00:00",
+      "updated_at": "2026-09-28T21:46:31.030117+00:00",
+      "barcode": null
+    },
+    {
+      "id": "5c155ce3-fb40-4207-90a9-11ff0bf16caf",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Ballpoint Pens (12pk)",
+      "quantity": 3,
+      "unit_cost": 4.99,
+      "unit_price": 6.49,
+      "created_at": "2026-09-28T21:46:33.453745+00:00",
+      "updated_at": "2026-09-28T21:46:33.845183+00:00",
+      "barcode": null
+    },
+    {
+      "id": "e65f23c3-ce35-4af0-bf78-ef43081f2123",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "HDMI Cable",
+      "quantity": 2,
+      "unit_cost": 9.99,
+      "unit_price": 12.99,
+      "created_at": "2026-09-28T21:46:37.002976+00:00",
+      "updated_at": "2026-09-28T21:46:37.172943+00:00",
+      "barcode": null
+    },
+    {
+      "id": "3f3d1e82-f248-46fc-bb48-18ea3ce35052",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Coffee Beans (1kg)",
+      "quantity": 2,
+      "unit_cost": 14.75,
+      "unit_price": 19.18,
+      "created_at": "2026-08-19T20:04:49.560424+00:00",
+      "updated_at": "2026-08-19T20:04:49.77838+00:00",
+      "barcode": null
+    },
+    {
+      "id": "82fc70b5-ef76-4d4d-9cb7-8c25a9157d2a",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "name": "Phone Case",
+      "quantity": 1,
+      "unit_cost": 15.5,
+      "unit_price": 20.15,
+      "created_at": "2026-08-19T20:04:53.306895+00:00",
+      "updated_at": "2026-08-19T20:04:53.53642+00:00",
+      "barcode": null
+    },
+    {
+      "id": "f7685680-17be-4571-b854-d988ea4b7389",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Coffee Beans (1kg)",
+      "quantity": 2,
+      "unit_cost": 14.75,
+      "unit_price": 19.18,
+      "created_at": "2026-09-28T21:46:31.270465+00:00",
+      "updated_at": "2026-09-28T21:46:31.696387+00:00",
+      "barcode": null
+    },
+    {
+      "id": "867f1da0-0149-4cc2-8063-754860bbde3d",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "External Hard Drive 1TB",
+      "quantity": 1,
+      "unit_cost": 64.99,
+      "unit_price": 84.49,
+      "created_at": "2026-09-28T21:46:34.26365+00:00",
+      "updated_at": "2026-09-28T21:46:34.487432+00:00",
+      "barcode": null
+    },
+    {
+      "id": "21f5df40-4189-432a-b6f8-0aba1fdb54be",
+      "business_id": "298602dd-a7a4-4723-bd40-4099f356f5b1",
+      "name": "Sticky Notes (Pack)",
+      "quantity": 6,
+      "unit_cost": 2.75,
+      "unit_price": 3.58,
+      "created_at": "2026-09-28T21:46:37.487572+00:00",
+      "updated_at": "2026-09-28T21:46:37.706625+00:00",
+      "barcode": null
+    }
+  ],
+  "invoices": [
+    {
+      "id": "5ca42045-d96d-49fd-b7a3-a0b887f7a7b1",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "invoice_number": "INV-0001",
+      "customer_name": "Rejoice",
+      "customer_email": "Eliyaanaa84@gmail.com",
+      "amount": 100,
+      "description": "Phone: 0423125292",
+      "due_date": "2026-10-23",
+      "status": "paid",
+      "paid_at": "2026-10-09T22:24:14.905+00:00",
+      "transaction_id": null,
+      "created_at": "2026-10-09T22:23:00.039762+00:00"
+    },
+    {
+      "id": "40958436-3ac9-4539-b16b-3bfda865e55d",
+      "business_id": "dafb3d58-c311-4d51-8dc1-6f44dfc95754",
+      "invoice_number": "INV-0001",
+      "customer_name": "Nathaniel Deku",
+      "customer_email": "nathanieldeku01@gmail.com",
+      "amount": 3000,
+      "description": "Credit sales",
+      "due_date": "2026-08-19",
+      "status": "sent",
+      "paid_at": null,
+      "transaction_id": null,
+      "created_at": "2026-08-17T13:55:13.645625+00:00"
+    },
+    {
+      "id": "89364a59-d210-41df-8b83-c26d46b1b772",
+      "business_id": "b9d13079-06f1-4ed7-b9e4-cdae65fb8ace",
+      "invoice_number": "INV-0001",
+      "customer_name": "Ama",
+      "customer_email": null,
+      "amount": 600,
+      "description": "Credit sales | Phone: 0553958062",
+      "due_date": "2026-09-02",
+      "status": "sent",
+      "paid_at": null,
+      "transaction_id": null,
+      "created_at": "2026-08-19T20:07:40.186155+00:00"
+    },
+    {
+      "id": "9b8c9620-9b42-4d4d-a106-d8ce60ec2fbc",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "invoice_number": "INV-0003",
+      "customer_name": "John",
+      "customer_email": "hyggh@gmail.com",
+      "amount": 500,
+      "description": "Phone: 0565596684",
+      "due_date": "2026-10-23",
+      "status": "paid",
+      "paid_at": "2026-10-09T22:31:54.693+00:00",
+      "transaction_id": null,
+      "created_at": "2026-10-09T22:30:52.334651+00:00"
+    },
+    {
+      "id": "f46367a2-27f2-4422-a67e-fffe0d23b7f4",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "invoice_number": "INV-0002",
+      "customer_name": "John",
+      "customer_email": "hyggh@gmail.com",
+      "amount": 500,
+      "description": "Phone: 0565596684",
+      "due_date": "2026-10-23",
+      "status": "paid",
+      "paid_at": "2026-10-09T22:32:21.386+00:00",
+      "transaction_id": null,
+      "created_at": "2026-10-09T22:30:51.225464+00:00"
+    },
+    {
+      "id": "a81ff656-3358-4414-8494-da3f6a0ee9db",
+      "business_id": "14d4903b-2066-4485-b419-582ef3f8a7d2",
+      "invoice_number": "INV-0001",
+      "customer_name": "Yeokem",
+      "customer_email": null,
+      "amount": 500,
+      "description": "Ajax siren | Phone: 0551659550",
+      "due_date": "2026-09-05",
+      "status": "sent",
+      "paid_at": null,
+      "transaction_id": null,
+      "created_at": "2026-08-22T06:20:21.234146+00:00"
+    },
+    {
+      "id": "6827756d-1bde-4ca6-b33e-4787154a7d0b",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "invoice_number": "INV-0001",
+      "customer_name": "Bob",
+      "customer_email": "ayeokem@gmail.com",
+      "amount": 600,
+      "description": "Credit sales | Phone: 0551659550",
+      "due_date": "2026-08-01",
+      "status": "sent",
+      "paid_at": null,
+      "transaction_id": null,
+      "created_at": "2026-08-31T17:18:21.818478+00:00"
+    }
+  ],
+  "business_members": [
+    {
+      "id": "b069b8ad-f2ae-4474-b10f-c116f336b6d8",
+      "business_id": "6277fc02-e60c-4db8-bf96-052fadc45f46",
+      "name": "Joe",
+      "email": "jdod@gmail.com",
+      "role": "employee",
+      "phone": null,
+      "branch": "Main Branch",
+      "salary": 600,
+      "created_at": "2026-08-31T17:47:58.966961+00:00"
+    }
+  ],
+  "inventory_sales": [],
+  "audit_logs": [
+    {
+      "id": "2e961a48-8bb8-4f6e-ad16-9fdffb6d64e2",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "owner (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "business_profile",
+      "entity_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "entity_name": "Mivako",
+      "description": "Created the business workspace \"Mivako\" (Transportation, Haulage & Logistics) with GHS as the recording currency and the fiscal year starting January.",
+      "old_value": null,
+      "new_value": {
+        "name": "Mivako",
+        "currency": "GHS",
+        "industry": "Transportation, Haulage & Logistics",
+        "fiscal_year_start": "January"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:18:35.258+00:00"
+    },
+    {
+      "id": "4372d38d-6005-45a4-95f8-ee66bee562fe",
+      "business_id": "4c94d66b-b5fa-4d62-835e-e7b4e64f788f",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "owner (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "business_profile",
+      "entity_id": "4c94d66b-b5fa-4d62-835e-e7b4e64f788f",
+      "entity_name": "Mivako",
+      "description": "Created the business workspace \"Mivako\" (Transportation, Haulage & Logistics) with GHS as the recording currency and the fiscal year starting January.",
+      "old_value": null,
+      "new_value": {
+        "name": "Mivako",
+        "currency": "GHS",
+        "industry": "Transportation, Haulage & Logistics",
+        "fiscal_year_start": "January"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:19:11.082+00:00"
+    },
+    {
+      "id": "9d2285b4-2eac-4954-8764-c2f4f1aeefb3",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "invoice",
+      "entity_id": "INV-0001",
+      "entity_name": "Rejoice",
+      "description": "Created invoice INV-0001 for Rejoice with a total amount of 100.00 in status sent, due 2026-10-23.",
+      "old_value": null,
+      "new_value": null,
+      "metadata": {
+        "amount": 100,
+        "status": "sent",
+        "due_date": "2026-10-23",
+        "customer_name": "Rejoice",
+        "customer_email": "Eliyaanaa84@gmail.com",
+        "customer_phone": null,
+        "invoice_number": "INV-0001"
+      },
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:23:00.504+00:00"
+    },
+    {
+      "id": "7feb08dc-58f6-4103-bd4a-e96a5a708233",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "UPDATE",
+      "entity_type": "invoice",
+      "entity_id": "5ca42045-d96d-49fd-b7a3-a0b887f7a7b1",
+      "entity_name": "Rejoice",
+      "description": "Marked invoice #INV-0001 (Rejoice, GHS 100.00) as paid on 2026-10-09 via cash; revenue logged as \"Invoice Payment: #INV-0001 (Rejoice)\".",
+      "old_value": {
+        "status": "sent"
+      },
+      "new_value": {
+        "amount": 100,
+        "status": "paid",
+        "paid_at": "2026-10-09T22:24:14.905Z",
+        "payment_method": "cash"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:24:16.037+00:00"
+    },
+    {
+      "id": "66fbc285-4001-45d3-8d92-427ccf347a5c",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "transaction",
+      "entity_id": "supplier:sup_1791584805654_66fz",
+      "entity_name": "Feeding",
+      "description": "Onboarded supplier Feeding with an opening payable of 50.00 booked as short_term_liability under Accounts Payable on 2026-10-09.",
+      "old_value": null,
+      "new_value": {
+        "debt_type": "inventory",
+        "supplier_id": "sup_1791584805654_66fz",
+        "supplier_name": "Feeding",
+        "synced_online": true,
+        "liability_type": "short_term_liability",
+        "opening_balance": 50,
+        "transaction_date": "2026-10-09"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:26:46.656+00:00"
+    },
+    {
+      "id": "6f2d1897-35f4-47ef-b9c7-15d2091cbef6",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "DISBURSE_PAYOUT",
+      "entity_type": "supplier_payout",
+      "entity_id": "pv_1791584846145_eijx",
+      "entity_name": "Feeding",
+      "description": "Paid supplier Feeding: voucher PV-2026-001, gross 50, withholding tax 0, net disbursed 50 via cash from Cash Drawer. Balance still owed to supplier after this payment: 0.",
+      "old_value": null,
+      "new_value": {
+        "amountPaid": 50,
+        "paymentMethod": "cash",
+        "voucherNumber": "PV-2026-001",
+        "paymentReference": "BILL-845402",
+        "netAmountDisbursed": 50,
+        "withholdingTaxRate": 0,
+        "remainingBalanceOwed": 0,
+        "withholdingTaxAmount": 0
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:27:26.769+00:00"
+    },
+    {
+      "id": "51746b28-bfcf-48b2-abab-fb4341675578",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "DISBURSE_PAYOUT",
+      "entity_type": "supplier_payout",
+      "entity_id": "pv_1791584970883_t8bs",
+      "entity_name": "Feeding",
+      "description": "Paid supplier Feeding: voucher PV-2026-002, gross 50, withholding tax 0, net disbursed 50 via cash from Cash Drawer. Balance still owed to supplier after this payment: 0.",
+      "old_value": null,
+      "new_value": {
+        "amountPaid": 50,
+        "paymentMethod": "cash",
+        "voucherNumber": "PV-2026-002",
+        "paymentReference": "BILL-970224",
+        "netAmountDisbursed": 50,
+        "withholdingTaxRate": 0,
+        "remainingBalanceOwed": 0,
+        "withholdingTaxAmount": 0
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:29:31.508+00:00"
+    },
+    {
+      "id": "f5f27e05-1330-4bf6-94ff-2a6c0010ac09",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "invoice",
+      "entity_id": "INV-0002",
+      "entity_name": "John",
+      "description": "Created invoice INV-0002 for John with a total amount of 500.00 in status sent, due 2026-10-23.",
+      "old_value": null,
+      "new_value": null,
+      "metadata": {
+        "amount": 500,
+        "status": "sent",
+        "due_date": "2026-10-23",
+        "customer_name": "John",
+        "customer_email": "hyggh@gmail.com",
+        "customer_phone": null,
+        "invoice_number": "INV-0002"
+      },
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:30:51.589+00:00"
+    },
+    {
+      "id": "82503f92-961e-48c8-a992-ae0d217830ea",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "invoice",
+      "entity_id": "INV-0003",
+      "entity_name": "John",
+      "description": "Created invoice INV-0003 for John with a total amount of 500.00 in status sent, due 2026-10-23.",
+      "old_value": null,
+      "new_value": null,
+      "metadata": {
+        "amount": 500,
+        "status": "sent",
+        "due_date": "2026-10-23",
+        "customer_name": "John",
+        "customer_email": "hyggh@gmail.com",
+        "customer_phone": null,
+        "invoice_number": "INV-0003"
+      },
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:30:52.738+00:00"
+    },
+    {
+      "id": "37738c08-0532-4bd5-bada-933864a9e250",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "UPDATE",
+      "entity_type": "invoice",
+      "entity_id": "9b8c9620-9b42-4d4d-a106-d8ce60ec2fbc",
+      "entity_name": "John",
+      "description": "Marked invoice #INV-0003 (John, GHS 500.00) as paid on 2026-10-09 via cash; revenue logged as \"Invoice Payment: #INV-0003 (John)\".",
+      "old_value": {
+        "status": "sent"
+      },
+      "new_value": {
+        "amount": 500,
+        "status": "paid",
+        "paid_at": "2026-10-09T22:31:54.693Z",
+        "payment_method": "cash"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:31:55.592+00:00"
+    },
+    {
+      "id": "09c32828-ba15-409d-b597-1eb9536a150e",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "EXPORT_REPORT",
+      "entity_type": "invoice",
+      "entity_id": "invoice:INV-0002",
+      "entity_name": "John",
+      "description": "Exported invoice PDF #INV-0002 for John totalling GHS 500.00 of Mivako.",
+      "old_value": null,
+      "new_value": null,
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:32:19.054+00:00"
+    },
+    {
+      "id": "6e0e620d-fe4a-438c-bb19-8b76ad6f572e",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "UPDATE",
+      "entity_type": "invoice",
+      "entity_id": "f46367a2-27f2-4422-a67e-fffe0d23b7f4",
+      "entity_name": "John",
+      "description": "Marked invoice #INV-0002 (John, GHS 500.00) as paid on 2026-10-09 via bank / MoMo; revenue logged as \"Invoice Payment: #INV-0002 (John)\".",
+      "old_value": {
+        "status": "sent"
+      },
+      "new_value": {
+        "amount": 500,
+        "status": "paid",
+        "paid_at": "2026-10-09T22:32:21.386Z",
+        "payment_method": "bank"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:32:22.276+00:00"
+    },
+    {
+      "id": "f58bf9e5-9a0b-41db-802b-9f4c2faa8291",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "transaction",
+      "entity_id": "supplier:sup_1791585186044_vugw",
+      "entity_name": "Vaccine",
+      "description": "Onboarded supplier Vaccine with an opening payable of 0.00 booked as short_term_liability under Accounts Payable on 2026-10-09.",
+      "old_value": null,
+      "new_value": {
+        "debt_type": "inventory",
+        "supplier_id": "sup_1791585186044_vugw",
+        "supplier_name": "Vaccine",
+        "synced_online": true,
+        "liability_type": "short_term_liability",
+        "opening_balance": 0,
+        "transaction_date": "2026-10-09"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:33:07.412+00:00"
+    },
+    {
+      "id": "d76bf903-9f3c-43f4-88ee-b09abb374410",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "DISBURSE_PAYOUT",
+      "entity_type": "supplier_payout",
+      "entity_id": "pv_1791585240274_vn46",
+      "entity_name": "Vaccine",
+      "description": "Paid supplier Vaccine: voucher PV-2026-003, gross 250, withholding tax 0, net disbursed 250 via cash from Cash Drawer. Balance still owed to supplier after this payment: 0.",
+      "old_value": null,
+      "new_value": {
+        "amountPaid": 250,
+        "paymentMethod": "cash",
+        "voucherNumber": "PV-2026-003",
+        "paymentReference": "BILL-239357",
+        "netAmountDisbursed": 250,
+        "withholdingTaxRate": 0,
+        "remainingBalanceOwed": 0,
+        "withholdingTaxAmount": 0
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:34:00.925+00:00"
+    },
+    {
+      "id": "2a4cb735-3ca0-458f-b20c-41012ecbd7c1",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "transaction",
+      "entity_id": "supplier:sup_1791585274197_sfs0",
+      "entity_name": "Transport",
+      "description": "Onboarded supplier Transport with an opening payable of 50.00 booked as short_term_liability under Accounts Payable on 2026-10-09.",
+      "old_value": null,
+      "new_value": {
+        "debt_type": "inventory",
+        "supplier_id": "sup_1791585274197_sfs0",
+        "supplier_name": "Transport",
+        "synced_online": true,
+        "liability_type": "short_term_liability",
+        "opening_balance": 50,
+        "transaction_date": "2026-10-09"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:34:35.429+00:00"
+    },
+    {
+      "id": "eadd9287-24e1-4809-94b0-f275533b02d9",
+      "business_id": "1dbf89c6-91d0-4509-a84e-9c1f5ebe8714",
+      "actor_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "actor_email": "eliyaanaa84@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "DISBURSE_PAYOUT",
+      "entity_type": "supplier_payout",
+      "entity_id": "pv_1791585283548_mhsk",
+      "entity_name": "Transport",
+      "description": "Paid supplier Transport: voucher PV-2026-004, gross 50, withholding tax 0, net disbursed 50 via cash from Cash Drawer. Balance still owed to supplier after this payment: 0.",
+      "old_value": null,
+      "new_value": {
+        "amountPaid": 50,
+        "paymentMethod": "cash",
+        "voucherNumber": "PV-2026-004",
+        "paymentReference": "BILL-282900",
+        "netAmountDisbursed": 50,
+        "withholdingTaxRate": 0,
+        "remainingBalanceOwed": 0,
+        "withholdingTaxAmount": 0
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-09T22:34:44.168+00:00"
+    },
+    {
+      "id": "de9322ad-f1d5-46ea-9da6-d5606d775a02",
+      "business_id": "1dbc1b84-59f5-46b8-9f23-5e88ad03b6f7",
+      "actor_id": "00a9835f-a846-48ac-8cd0-401b42fee2c7",
+      "actor_email": "prevail246@gmail.com",
+      "actor_role": "owner (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "business_profile",
+      "entity_id": "1dbc1b84-59f5-46b8-9f23-5e88ad03b6f7",
+      "entity_name": "Mivako Farms Ltd",
+      "description": "Created the business workspace \"Mivako Farms Ltd\" (Agriculture, Poultry & Farming) with GHS as the recording currency and the fiscal year starting January.",
+      "old_value": null,
+      "new_value": {
+        "name": "Mivako Farms Ltd",
+        "currency": "GHS",
+        "industry": "Agriculture, Poultry & Farming",
+        "fiscal_year_start": "January"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-13T22:47:23.7+00:00"
+    },
+    {
+      "id": "deb50dab-b653-4be6-9c96-18b07eb3eeb2",
+      "business_id": "80f93e4a-085e-45fc-814d-8a5853a36da0",
+      "actor_id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+      "actor_email": "memoriesm415@gmail.com",
+      "actor_role": "owner (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "business_profile",
+      "entity_id": "80f93e4a-085e-45fc-814d-8a5853a36da0",
+      "entity_name": "Mivako airbnb",
+      "description": "Created the business workspace \"Mivako airbnb\" (Hospitality, Hotels & Guest Houses) with GHS as the recording currency and the fiscal year starting July.",
+      "old_value": null,
+      "new_value": {
+        "name": "Mivako airbnb",
+        "currency": "GHS",
+        "industry": "Hospitality, Hotels & Guest Houses",
+        "fiscal_year_start": "July"
+      },
+      "metadata": null,
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-16T15:35:46.909+00:00"
+    },
+    {
+      "id": "249a517f-5ea9-4fc2-ae07-d3e97efb192d",
+      "business_id": "80f93e4a-085e-45fc-814d-8a5853a36da0",
+      "actor_id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+      "actor_email": "memoriesm415@gmail.com",
+      "actor_role": "unknown (client-reported)",
+      "action_type": "CREATE",
+      "entity_type": "transaction",
+      "entity_id": "transaction:80f93e4a-085e-45fc-814d-8a5853a36da0:2026-10-01:FAR MELCOM 01",
+      "entity_name": "FAR MELCOM 01",
+      "description": "Captured receipt entry for FAR MELCOM 01 of GHS 1440.91 saved as transaction type cost_of_goods in category Inventory Restock on 2026-10-01, paid via cash.",
+      "old_value": null,
+      "new_value": null,
+      "metadata": {
+        "type": "cost_of_goods",
+        "amount": 1440.91,
+        "vendor": "FAR MELCOM 01",
+        "category": "Inventory Restock",
+        "currency": "GHS",
+        "line_items": 1,
+        "receipt_file": "file:///data/user/0/com.ams.accounting/cache/ImagePicker/80cbc4d5-2342-40b2-88ec-bdc8978cf977.jpeg",
+        "payment_method": "cash",
+        "transaction_date": "2026-10-01",
+        "depreciation_rate": null
+      },
+      "ip_or_device": "Mobile Expo Native App",
+      "created_at": "2026-10-16T15:41:25.082+00:00"
+    }
+  ],
+  "identities": [
+    {
+      "identity_id": "f7d9ec37-e63e-486a-95ee-d9034115a1e4",
+      "id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+      "user_id": "672f7fa4-7c8d-437a-ae48-8546a7ff269c",
+      "identity_data": {
+        "email": "memoriesm415@gmail.com",
+        "email_verified": true,
+        "full_name": "Melody",
+        "phone_verified": false,
+        "sub": "672f7fa4-7c8d-437a-ae48-8546a7ff269c"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-10-16T15:33:59.065342Z",
+      "created_at": "2026-10-16T15:33:59.065412Z",
+      "updated_at": "2026-10-16T15:33:59.065412Z",
+      "email": "memoriesm415@gmail.com"
+    },
+    {
+      "identity_id": "3ce474e8-793a-4be3-8ec1-c93d6158c76c",
+      "id": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e",
+      "user_id": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e",
+      "identity_data": {
+        "email": "vahodokpo73@gmail.com",
+        "email_verified": true,
+        "full_name": "Prevail",
+        "owner_pin": "1234",
+        "phone_verified": false,
+        "sub": "cb637ca2-3a2f-495a-b14a-3f29c4ad7c6e"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-10-16T15:20:01.701974Z",
+      "created_at": "2026-10-16T15:20:01.702033Z",
+      "updated_at": "2026-10-16T15:20:01.702033Z",
+      "email": "vahodokpo73@gmail.com"
+    },
+    {
+      "identity_id": "ad6fe589-ae16-4428-ab52-c43eb2062a02",
+      "id": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3",
+      "user_id": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3",
+      "identity_data": {
+        "email": "leokofiderksen@gmail.com",
+        "email_verified": false,
+        "full_name": "Leo Kofi Derksen",
+        "owner_pin": "9276",
+        "phone_verified": false,
+        "sub": "9154ff3d-957e-4835-81d3-a1ac4f8b0fa3"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-10-15T20:05:15.963587Z",
+      "created_at": "2026-10-15T20:05:15.963646Z",
+      "updated_at": "2026-10-15T20:05:15.963646Z",
+      "email": "leokofiderksen@gmail.com"
+    },
+    {
+      "identity_id": "b3af03a9-211e-4484-9bc8-17da1052b82b",
+      "id": "7b13013c-8f86-409f-a5d7-2a53c6a4311b",
+      "user_id": "7b13013c-8f86-409f-a5d7-2a53c6a4311b",
+      "identity_data": {
+        "app_mode": "lite",
+        "email": "lite_test_1791997176511@amslite.local",
+        "email_verified": false,
+        "phone_number": "0240000000",
+        "phone_verified": false,
+        "sub": "7b13013c-8f86-409f-a5d7-2a53c6a4311b"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-10-14T16:59:37.670646Z",
+      "created_at": "2026-10-14T16:59:37.670706Z",
+      "updated_at": "2026-10-14T16:59:37.670706Z",
+      "email": "lite_test_1791997176511@amslite.local"
+    },
+    {
+      "identity_id": "bc6e4130-78e2-4c04-b04d-a905b31d0281",
+      "id": "00a9835f-a846-48ac-8cd0-401b42fee2c7",
+      "user_id": "00a9835f-a846-48ac-8cd0-401b42fee2c7",
+      "identity_data": {
+        "email": "prevail246@gmail.com",
+        "email_verified": true,
+        "full_name": "Mivako ltd",
+        "phone_verified": false,
+        "sub": "00a9835f-a846-48ac-8cd0-401b42fee2c7"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-10-13T22:43:43.976285Z",
+      "created_at": "2026-10-13T22:43:43.976343Z",
+      "updated_at": "2026-10-13T22:43:43.976343Z",
+      "email": "prevail246@gmail.com"
+    },
+    {
+      "identity_id": "e21cc70b-8726-4417-a38d-508d8b39acd3",
+      "id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "user_id": "09fe3d05-f11c-4af9-a22b-206a75970465",
+      "identity_data": {
+        "email": "eliyaanaa84@gmail.com",
+        "email_verified": true,
+        "full_name": "Mivako",
+        "phone_verified": false,
+        "sub": "09fe3d05-f11c-4af9-a22b-206a75970465"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-10-09T22:15:45.16361Z",
+      "created_at": "2026-10-09T22:15:45.163668Z",
+      "updated_at": "2026-10-09T22:15:45.163668Z",
+      "email": "eliyaanaa84@gmail.com"
+    },
+    {
+      "identity_id": "eeb6660e-3ab5-436b-8887-b19f3de214e0",
+      "id": "79417bdf-3d00-4697-9b10-296ea8871b66",
+      "user_id": "79417bdf-3d00-4697-9b10-296ea8871b66",
+      "identity_data": {
+        "email": "flowerindelle@gmail.com",
+        "email_verified": true,
+        "full_name": "flower",
+        "owner_pin": "1210",
+        "phone_verified": false,
+        "sub": "79417bdf-3d00-4697-9b10-296ea8871b66"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-09-28T08:38:35.452754Z",
+      "created_at": "2026-09-28T08:38:35.452823Z",
+      "updated_at": "2026-09-28T08:38:35.452823Z",
+      "email": "flowerindelle@gmail.com"
+    },
+    {
+      "identity_id": "453d460c-b39d-49b1-be17-fd043bad9207",
+      "id": "645f5197-f765-477b-b2e2-5af9c2aa4299",
+      "user_id": "645f5197-f765-477b-b2e2-5af9c2aa4299",
+      "identity_data": {
+        "email": "accmadesimple01@gmail.com",
+        "email_verified": true,
+        "full_name": "Rejoice",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "645f5197-f765-477b-b2e2-5af9c2aa4299"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-09-25T07:31:51.394776Z",
+      "created_at": "2026-09-25T07:31:51.394864Z",
+      "updated_at": "2026-09-25T07:31:51.394864Z",
+      "email": "accmadesimple01@gmail.com"
+    },
+    {
+      "identity_id": "b7eb84a1-9f80-4acf-a5b3-d70082246349",
+      "id": "a6f71eab-b960-4aac-b05e-48c2667e2ee4",
+      "user_id": "a6f71eab-b960-4aac-b05e-48c2667e2ee4",
+      "identity_data": {
+        "email": "accmadeaimple01@gmail.com",
+        "email_verified": false,
+        "full_name": "Rejoice",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "a6f71eab-b960-4aac-b05e-48c2667e2ee4"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-09-25T07:29:52.2165Z",
+      "created_at": "2026-09-25T07:29:52.216554Z",
+      "updated_at": "2026-09-25T07:29:52.216554Z",
+      "email": "accmadeaimple01@gmail.com"
+    },
+    {
+      "identity_id": "a70ba60b-487e-4060-96d1-ade450a27f7e",
+      "id": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865",
+      "user_id": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865",
+      "identity_data": {
+        "email": "elioenailderksen@gmail.com",
+        "email_verified": true,
+        "full_name": "Kofi Deku",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "a4bc788d-e8fd-44c6-8ce0-c4ad65d29865"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-09-06T11:17:12.509501Z",
+      "created_at": "2026-09-06T11:17:12.509571Z",
+      "updated_at": "2026-09-06T11:17:12.509571Z",
+      "email": "elioenailderksen@gmail.com"
+    },
+    {
+      "identity_id": "13263750-fee0-4148-b7ce-e5ad952671c1",
+      "id": "4c244c98-97f3-4c32-987a-eb8614a2d413",
+      "user_id": "4c244c98-97f3-4c32-987a-eb8614a2d413",
+      "identity_data": {
+        "email": "millionschaw@gmail.com",
+        "email_verified": true,
+        "full_name": "Elioenail Kofi Elinam Deku",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "4c244c98-97f3-4c32-987a-eb8614a2d413"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-30T11:27:48.966819Z",
+      "created_at": "2026-08-30T11:27:48.966881Z",
+      "updated_at": "2026-08-30T11:27:48.966881Z",
+      "email": "millionschaw@gmail.com"
+    },
+    {
+      "identity_id": "b8cbc363-a8a6-42fa-89b1-d39c14edefac",
+      "id": "4dabca49-fdc3-421a-808f-60144de28b8a",
+      "user_id": "4dabca49-fdc3-421a-808f-60144de28b8a",
+      "identity_data": {
+        "email": "kofianan@gmail.com",
+        "email_verified": false,
+        "full_name": "Kofi Anan",
+        "owner_pin": "1111",
+        "phone_verified": false,
+        "sub": "4dabca49-fdc3-421a-808f-60144de28b8a"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-30T11:25:30.957744Z",
+      "created_at": "2026-08-30T11:25:30.957803Z",
+      "updated_at": "2026-08-30T11:25:30.957803Z",
+      "email": "kofianan@gmail.com"
+    },
+    {
+      "identity_id": "a83c23e0-5f5c-489f-9415-c2a467017a8d",
+      "id": "319cf78c-d1b8-4eea-b482-291d10b45231",
+      "user_id": "319cf78c-d1b8-4eea-b482-291d10b45231",
+      "identity_data": {
+        "email": "oseirani@gmail.com",
+        "email_verified": true,
+        "full_name": "Rani Osei",
+        "owner_pin": "1234",
+        "phone_verified": false,
+        "sub": "319cf78c-d1b8-4eea-b482-291d10b45231"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-21T16:44:08.054807Z",
+      "created_at": "2026-08-21T16:44:08.054903Z",
+      "updated_at": "2026-08-21T16:44:08.054903Z",
+      "email": "oseirani@gmail.com"
+    },
+    {
+      "identity_id": "060d013d-91e5-4b65-be47-b824ddf1f0b7",
+      "id": "a79d96a0-6a2c-43bf-bc85-005058fa29bc",
+      "user_id": "a79d96a0-6a2c-43bf-bc85-005058fa29bc",
+      "identity_data": {
+        "email": "mikeiltakyi79@gmail.com",
+        "email_verified": true,
+        "full_name": "Mikeil Takyi",
+        "owner_pin": "6789",
+        "phone_verified": false,
+        "sub": "a79d96a0-6a2c-43bf-bc85-005058fa29bc"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-20T21:59:20.403545Z",
+      "created_at": "2026-08-20T21:59:20.403607Z",
+      "updated_at": "2026-08-20T21:59:20.403607Z",
+      "email": "mikeiltakyi79@gmail.com"
+    },
+    {
+      "identity_id": "fea1c5d4-83f4-4f62-bd3b-a97bb7b84c10",
+      "id": "13520d78-daaa-418e-88a1-9b770b453a26",
+      "user_id": "13520d78-daaa-418e-88a1-9b770b453a26",
+      "identity_data": {
+        "email": "raildistress@gmail.com",
+        "email_verified": true,
+        "full_name": "Nii Shemaiah",
+        "owner_pin": "55165",
+        "phone_verified": false,
+        "sub": "13520d78-daaa-418e-88a1-9b770b453a26"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-20T20:22:04.968119Z",
+      "created_at": "2026-08-20T20:22:04.968182Z",
+      "updated_at": "2026-08-20T20:22:04.968182Z",
+      "email": "raildistress@gmail.com"
+    },
+    {
+      "identity_id": "cbe99c31-4914-475d-8dbc-545bd08c8087",
+      "id": "1855bf67-5674-4caa-aba6-1b1c00cc7314",
+      "user_id": "1855bf67-5674-4caa-aba6-1b1c00cc7314",
+      "identity_data": {
+        "email": "ekoccu@gmail.com",
+        "email_verified": true,
+        "full_name": "Major",
+        "owner_pin": "055563",
+        "phone_verified": false,
+        "sub": "1855bf67-5674-4caa-aba6-1b1c00cc7314"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-20T19:08:11.506333Z",
+      "created_at": "2026-08-20T19:08:11.5064Z",
+      "updated_at": "2026-08-20T19:08:11.5064Z",
+      "email": "ekoccu@gmail.com"
+    },
+    {
+      "identity_id": "c2d70e1d-10e3-40ba-aba9-2d9e4216b59e",
+      "id": "09c426c6-bc54-413d-acf6-92f9d4e05c41",
+      "user_id": "09c426c6-bc54-413d-acf6-92f9d4e05c41",
+      "identity_data": {
+        "email": "divinemagelland@gmail.com",
+        "email_verified": true,
+        "full_name": "Divimsah",
+        "owner_pin": "1688",
+        "phone_verified": false,
+        "sub": "09c426c6-bc54-413d-acf6-92f9d4e05c41"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-20T14:16:13.922393Z",
+      "created_at": "2026-08-20T14:16:13.922455Z",
+      "updated_at": "2026-08-20T14:16:13.922455Z",
+      "email": "divinemagelland@gmail.com"
+    },
+    {
+      "identity_id": "60779168-acf2-49d8-ad6d-4168157b95fc",
+      "id": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2",
+      "user_id": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2",
+      "identity_data": {
+        "email": "emma@gmail.com",
+        "email_verified": false,
+        "full_name": "Emma",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "b35e6d9f-bbab-4f44-aa4e-da4368dce1d2"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T23:25:19.57695Z",
+      "created_at": "2026-08-19T23:25:19.577034Z",
+      "updated_at": "2026-08-19T23:25:19.577034Z",
+      "email": "emma@gmail.com"
+    },
+    {
+      "identity_id": "236da8c2-918a-43c3-b3dd-dc406d17c814",
+      "id": "cfad187b-7466-4a59-8627-76493d259c2a",
+      "user_id": "cfad187b-7466-4a59-8627-76493d259c2a",
+      "identity_data": {
+        "email": "boss@gmail.com",
+        "email_verified": false,
+        "full_name": "Boss",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "cfad187b-7466-4a59-8627-76493d259c2a"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T22:51:21.359889Z",
+      "created_at": "2026-08-19T22:51:21.360065Z",
+      "updated_at": "2026-08-19T22:51:21.360065Z",
+      "email": "boss@gmail.com"
+    },
+    {
+      "identity_id": "920c919c-0476-4dd5-8bc6-901953f367b6",
+      "id": "49ceaff4-02c4-45dc-83b7-62ede5f69abd",
+      "user_id": "49ceaff4-02c4-45dc-83b7-62ede5f69abd",
+      "identity_data": {
+        "email": "robert@gmail.com",
+        "email_verified": false,
+        "full_name": "Robert",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "49ceaff4-02c4-45dc-83b7-62ede5f69abd"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T20:02:31.61818Z",
+      "created_at": "2026-08-19T20:02:31.618304Z",
+      "updated_at": "2026-08-19T20:02:31.618304Z",
+      "email": "robert@gmail.com"
+    },
+    {
+      "identity_id": "435079a7-c037-4f0a-8a69-09b624d14c3f",
+      "id": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058",
+      "user_id": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058",
+      "identity_data": {
+        "email": "afiroseline15@gmail.com",
+        "email_verified": false,
+        "full_name": "Rosie M",
+        "owner_pin": "4514",
+        "phone_verified": false,
+        "sub": "da6d92fe-b7f9-4f9a-a5db-bdbcf48b9058"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T18:54:41.606142Z",
+      "created_at": "2026-08-19T18:54:41.606216Z",
+      "updated_at": "2026-08-19T18:54:41.606216Z",
+      "email": "afiroseline15@gmail.com"
+    },
+    {
+      "identity_id": "c02e9a11-1877-4439-9a68-57f12f138727",
+      "id": "f1b02c3b-5d05-4cdd-8144-971c71163d69",
+      "user_id": "f1b02c3b-5d05-4cdd-8144-971c71163d69",
+      "identity_data": {
+        "email": "mikeiltakyi11@icloud.com",
+        "email_verified": false,
+        "full_name": "Mikeil takyi",
+        "owner_pin": "2459",
+        "phone_verified": false,
+        "sub": "f1b02c3b-5d05-4cdd-8144-971c71163d69"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T15:16:30.0831Z",
+      "created_at": "2026-08-19T15:16:30.083163Z",
+      "updated_at": "2026-08-19T15:16:30.083163Z",
+      "email": "mikeiltakyi11@icloud.com"
+    },
+    {
+      "identity_id": "2e034e0b-ca4b-49c2-8ac6-55b03caf2905",
+      "id": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d",
+      "user_id": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d",
+      "identity_data": {
+        "email": "millicentadonu7@gmail.com",
+        "email_verified": false,
+        "full_name": "Nathaniel",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "688cb8b7-1a3c-4b13-88a6-b25b47260c0d"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T14:42:48.653079Z",
+      "created_at": "2026-08-19T14:42:48.65313Z",
+      "updated_at": "2026-08-19T14:42:48.65313Z",
+      "email": "millicentadonu7@gmail.com"
+    },
+    {
+      "identity_id": "a82d7b35-2e28-4777-b35e-d1f08ca165b0",
+      "id": "f7298c97-7703-4098-8e55-a019999532ad",
+      "user_id": "f7298c97-7703-4098-8e55-a019999532ad",
+      "identity_data": {
+        "email": "ayeokem@gmail.com",
+        "email_verified": false,
+        "full_name": "Nii",
+        "owner_pin": "3103",
+        "phone_verified": false,
+        "sub": "f7298c97-7703-4098-8e55-a019999532ad"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T14:15:27.269834Z",
+      "created_at": "2026-08-19T14:15:27.269887Z",
+      "updated_at": "2026-08-19T14:15:27.269887Z",
+      "email": "ayeokem@gmail.com"
+    },
+    {
+      "identity_id": "649f733b-80b4-434c-a666-fbdb767cf53d",
+      "id": "8292e132-43e8-4838-979d-83ea7be20c0d",
+      "user_id": "8292e132-43e8-4838-979d-83ea7be20c0d",
+      "identity_data": {
+        "email": "pizzagigs@gmail.com",
+        "email_verified": false,
+        "full_name": "Darko Joseph",
+        "owner_pin": "00881",
+        "phone_verified": false,
+        "sub": "8292e132-43e8-4838-979d-83ea7be20c0d"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T12:15:40.520888Z",
+      "created_at": "2026-08-19T12:15:40.520946Z",
+      "updated_at": "2026-08-19T12:15:40.520946Z",
+      "email": "pizzagigs@gmail.com"
+    },
+    {
+      "identity_id": "295567e4-977c-4692-889d-59dce205f499",
+      "id": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f",
+      "user_id": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f",
+      "identity_data": {
+        "email": "adonumillicent183@gmail.com",
+        "email_verified": false,
+        "full_name": "Millicent Emma",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "8231f6c5-6a59-4e3d-8349-29ebf02ce41f"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T10:14:27.685794Z",
+      "created_at": "2026-08-19T10:14:27.685861Z",
+      "updated_at": "2026-08-19T10:14:27.685861Z",
+      "email": "adonumillicent183@gmail.com"
+    },
+    {
+      "identity_id": "8b5c3ad6-fd9b-4919-87b1-960f9719220b",
+      "id": "1b99c9a2-de9c-4230-8069-319bb4f90934",
+      "user_id": "1b99c9a2-de9c-4230-8069-319bb4f90934",
+      "identity_data": {
+        "email": "addonana@gmail.com",
+        "email_verified": false,
+        "full_name": "Dr. Addo",
+        "owner_pin": "0000",
+        "phone_verified": false,
+        "sub": "1b99c9a2-de9c-4230-8069-319bb4f90934"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-19T02:13:18.530509Z",
+      "created_at": "2026-08-19T02:13:18.530568Z",
+      "updated_at": "2026-08-19T02:13:18.530568Z",
+      "email": "addonana@gmail.com"
+    },
+    {
+      "identity_id": "5d4e5cee-cdd7-4e4c-9257-6043c4c8b0fe",
+      "id": "68e2c326-01bc-45ca-8107-6ec418a1457c",
+      "user_id": "68e2c326-01bc-45ca-8107-6ec418a1457c",
+      "identity_data": {
+        "email": "bhsisk@gmail.com",
+        "email_verified": false,
+        "full_name": "Eli",
+        "phone_verified": false,
+        "sub": "68e2c326-01bc-45ca-8107-6ec418a1457c"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-18T23:58:03.509698Z",
+      "created_at": "2026-08-18T23:58:03.509776Z",
+      "updated_at": "2026-08-18T23:58:03.509776Z",
+      "email": "bhsisk@gmail.com"
+    },
+    {
+      "identity_id": "8bfc262a-381f-4ed7-bfc8-708a976af844",
+      "id": "0e35a792-e860-4ecf-b293-5a292fe3fb70",
+      "user_id": "0e35a792-e860-4ecf-b293-5a292fe3fb70",
+      "identity_data": {
+        "email": "brownmensah@gmail.com",
+        "email_verified": false,
+        "full_name": "Mr Brown ",
+        "phone_verified": false,
+        "sub": "0e35a792-e860-4ecf-b293-5a292fe3fb70"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-18T16:01:20.427433Z",
+      "created_at": "2026-08-18T16:01:20.427493Z",
+      "updated_at": "2026-08-18T16:01:20.427493Z",
+      "email": "brownmensah@gmail.com"
+    },
+    {
+      "identity_id": "68e649cd-9266-481e-af45-63d7a2e524be",
+      "id": "cc45168a-5111-459f-8c63-a8e6bf74f3da",
+      "user_id": "cc45168a-5111-459f-8c63-a8e6bf74f3da",
+      "identity_data": {
+        "email": "peter@gmail.com",
+        "email_verified": false,
+        "full_name": "Peter",
+        "phone_verified": false,
+        "sub": "cc45168a-5111-459f-8c63-a8e6bf74f3da"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-17T12:10:41.69084Z",
+      "created_at": "2026-08-17T12:10:41.690896Z",
+      "updated_at": "2026-08-17T12:10:41.690896Z",
+      "email": "peter@gmail.com"
+    },
+    {
+      "identity_id": "9f241c04-96d1-4ce2-afc6-6c47e703f059",
+      "id": "f7d1455b-c4f4-4753-afbb-844e46d20513",
+      "user_id": "f7d1455b-c4f4-4753-afbb-844e46d20513",
+      "identity_data": {
+        "email": "dede@gmail.com",
+        "email_verified": false,
+        "full_name": "Dede",
+        "phone_verified": false,
+        "sub": "f7d1455b-c4f4-4753-afbb-844e46d20513"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-12T16:26:18.477981Z",
+      "created_at": "2026-08-12T16:26:18.478073Z",
+      "updated_at": "2026-08-12T16:26:18.478073Z",
+      "email": "dede@gmail.com"
+    },
+    {
+      "identity_id": "9294e47c-915f-4302-bf05-234b982ab189",
+      "id": "9bbb85aa-a219-446a-976a-ffdccfad6df2",
+      "user_id": "9bbb85aa-a219-446a-976a-ffdccfad6df2",
+      "identity_data": {
+        "email": "melinda@gmail.com",
+        "email_verified": false,
+        "full_name": "Melinda",
+        "phone_verified": false,
+        "sub": "9bbb85aa-a219-446a-976a-ffdccfad6df2"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-11T13:12:03.975565Z",
+      "created_at": "2026-08-11T13:12:03.975637Z",
+      "updated_at": "2026-08-11T13:12:03.975637Z",
+      "email": "melinda@gmail.com"
+    },
+    {
+      "identity_id": "aa00bcd7-f739-4051-ad8c-bb003dd6e272",
+      "id": "6190f44c-55e5-499a-86a9-97ca7c922680",
+      "user_id": "6190f44c-55e5-499a-86a9-97ca7c922680",
+      "identity_data": {
+        "email": "yeokemadonu@gmail.com",
+        "email_verified": false,
+        "full_name": "Yeokem",
+        "phone_verified": false,
+        "sub": "6190f44c-55e5-499a-86a9-97ca7c922680"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-09T20:15:38.533322Z",
+      "created_at": "2026-08-09T20:15:38.533372Z",
+      "updated_at": "2026-08-09T20:15:38.533372Z",
+      "email": "yeokemadonu@gmail.com"
+    },
+    {
+      "identity_id": "ececbb28-446c-48ee-b017-ca1f47749201",
+      "id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+      "user_id": "21b4515b-290f-4130-92f9-c5709e2392d8",
+      "identity_data": {
+        "email": "adonumillicent193@gmail.com",
+        "email_verified": false,
+        "full_name": "Millimas Pasteries",
+        "phone_verified": false,
+        "sub": "21b4515b-290f-4130-92f9-c5709e2392d8"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-09T16:16:43.598214Z",
+      "created_at": "2026-08-09T16:16:43.598266Z",
+      "updated_at": "2026-08-09T16:16:43.598266Z",
+      "email": "adonumillicent193@gmail.com"
+    },
+    {
+      "identity_id": "e6f2bd75-5cfb-4d41-b4cb-0d7129ee10f6",
+      "id": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5",
+      "user_id": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5",
+      "identity_data": {
+        "email": "nathanieldeku@gmail.com",
+        "email_verified": false,
+        "full_name": "Nathaniel",
+        "phone_verified": false,
+        "sub": "8517ebd9-ca4c-451a-8e54-2755cdfaaae5"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-09T16:10:19.265301Z",
+      "created_at": "2026-08-09T16:10:19.265364Z",
+      "updated_at": "2026-08-09T16:10:19.265364Z",
+      "email": "nathanieldeku@gmail.com"
+    },
+    {
+      "identity_id": "369cc9e6-9c2f-4b2c-b39e-b6c2d607c512",
+      "id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+      "user_id": "c5737118-5d04-4e50-8a72-80e4337a73f6",
+      "identity_data": {
+        "email": "rosie@gmail.com",
+        "email_verified": false,
+        "full_name": "Rosie",
+        "phone_verified": false,
+        "sub": "c5737118-5d04-4e50-8a72-80e4337a73f6"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-08-09T15:07:46.114103Z",
+      "created_at": "2026-08-09T15:07:46.114175Z",
+      "updated_at": "2026-08-09T15:07:46.114175Z",
+      "email": "rosie@gmail.com"
+    }
+  ]
+}

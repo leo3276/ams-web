@@ -125,23 +125,23 @@ export default function SettingsPage() {
         if (info.status === 'checking') {
           setUpdaterStatus('Checking GitHub Releases for updates…');
         } else if (info.status === 'available') {
-          setUpdaterStatus(`New update v${info.version} found! Downloading in background…`);
+          setUpdaterStatus(`New update v${info.version} found! Downloading fast…`);
         } else if (info.status === 'downloading') {
-          setUpdaterStatus(`Downloading update: ${info.percent}%`);
+          setUpdaterStatus(`Downloading update v${info.version || 'latest'}: ${info.percent}%`);
         } else if (info.status === 'downloaded') {
           setUpdateReady(info.version || 'latest');
-          setUpdaterStatus(`✓ Update v${info.version} downloaded! Restart to apply.`);
+          setUpdaterStatus(`✓ Update v${info.version} downloaded and ready! Click "Apply & Restart" to install.`);
         } else if (info.status === 'up-to-date') {
-          setUpdaterStatus('✓ You are running the latest version.');
+          setUpdaterStatus(`✓ You are running the latest version (v${info.version || appVersion}).`);
         } else if (info.status === 'error') {
-          setUpdaterStatus('Auto-update notice: ' + (info.error || 'Check completed.'));
+          setUpdaterStatus('Update check notice: ' + (info.error || 'Could not reach update server.'));
         }
       });
       return () => {
         if (typeof unsub === 'function') unsub();
       };
     }
-  }, []);
+  }, [appVersion]);
 
   const handleCheckForUpdates = async () => {
     setCheckingUpdate(true);
@@ -152,16 +152,13 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined' && (window as any).electronAPI?.checkForUpdates) {
       try {
         const res = await (window as any).electronAPI.checkForUpdates();
-        if (res?.status === 'error') {
+        if (res?.status === 'up-to-date') {
+          setUpdaterStatus(`✓ You are running the latest version (v${res.version || appVersion}).`);
+        } else if (res?.status === 'downloaded') {
+          setUpdateReady(res.version || 'latest');
+          setUpdaterStatus(`✓ Update v${res.version} downloaded and ready! Click "Apply & Restart" to install.`);
+        } else if (res?.status === 'error') {
           setUpdaterStatus('Could not check updates: ' + (res.message || 'Offline or network error'));
-        } else if (res?.status === 'dev-mode') {
-          // In development mode, check GitHub directly
-          const gh = await fetch('https://api.github.com/repos/leo3276/ams-web/releases/latest');
-          if (gh.ok) {
-            const data = await gh.json();
-            const latest = (data.tag_name || '').replace(/^v/, '');
-            setUpdaterStatus(`Latest published release is v${latest}.`);
-          }
         }
       } catch (err: any) {
         setUpdaterStatus('Update check notice: ' + (err?.message || 'Check complete.'));
@@ -294,11 +291,166 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Settings &amp; Workstation Preferences</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Manage business profile, receipts header, and AI knowledge search</p>
+          <p className="text-xs text-slate-500 mt-0.5">Manage Dark Mode &amp; Eye Care, fast updates, business profile, and AI search</p>
         </div>
         <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 uppercase">
           {role} Workspace
         </span>
+      </div>
+
+      {/* DARK MODE & EYE CARE STUDIO (TOP PRIORITY IN SETTINGS) */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+              <Icon name={theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'eye'} size={16} />
+            </span>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Dark Mode &amp; Eye Care Studio</h2>
+              <p className="text-[11px] text-slate-500">
+                Engineered with low-halation contrast and zero blue-light options to protect your eyes during extended ledger work
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Quick Eye-Care Shield Toggle */}
+            <button
+              type="button"
+              onClick={() => setTheme(theme === 'comfort' ? 'dark' : 'comfort')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                theme === 'comfort'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+              title="Toggle Warm Night Eye-Care Filter"
+            >
+              <Icon name="eye" size={13} />
+              <span>{theme === 'comfort' ? 'Eye Care: ON' : 'Enable Eye Care'}</span>
+            </button>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+              {theme === 'light' ? 'Daylight' : theme === 'dark' ? 'Dark Mode' : 'Eye Care'}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          {([
+            {
+              id: 'light',
+              title: 'Daylight Ledger',
+              subtitle: 'Crisp paper & slate ink for bright offices',
+              icon: 'sun',
+              previewBg: '#F8FAFC',
+              previewCard: '#FFFFFF',
+              previewBorder: '#E2E8F0',
+              previewText: '#0F172A',
+              previewAccent: '#0F172A',
+            },
+            {
+              id: 'dark',
+              title: 'Dark Mode (Obsidian)',
+              subtitle: 'Deep carbon & soft alabaster chalk',
+              icon: 'moon',
+              previewBg: '#0C0E12',
+              previewCard: '#13161C',
+              previewBorder: '#252E42',
+              previewText: '#ECEEF2',
+              previewAccent: '#3B4866',
+            },
+            {
+              id: 'comfort',
+              title: 'Eye Care (Warm Night)',
+              subtitle: 'Zero blue-light circadian espresso ledger',
+              icon: 'eye',
+              previewBg: '#11100E',
+              previewCard: '#181614',
+              previewBorder: '#302923',
+              previewText: '#ECE7DF',
+              previewAccent: '#5C4D40',
+            },
+          ] as {
+            id: ThemeMode;
+            title: string;
+            subtitle: string;
+            icon: string;
+            previewBg: string;
+            previewCard: string;
+            previewBorder: string;
+            previewText: string;
+            previewAccent: string;
+          }[]).map((opt) => {
+            const active = theme === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setTheme(opt.id)}
+                className={`text-left p-3.5 rounded-2xl border transition cursor-pointer flex flex-col justify-between gap-3 ${
+                  active
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'
+                }`}
+              >
+                {/* Visual Swatch Mini-Ledger Preview */}
+                <div
+                  className="w-full h-14 rounded-xl p-2.5 flex flex-col justify-between border"
+                  style={{
+                    backgroundColor: opt.previewBg,
+                    borderColor: opt.previewBorder,
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: opt.previewAccent }}
+                      />
+                      <span
+                        className="h-1.5 w-12 rounded-full opacity-85"
+                        style={{ backgroundColor: opt.previewText }}
+                      />
+                    </div>
+                    <span className="h-1.5 w-6 rounded-full bg-emerald-400/80" />
+                  </div>
+                  <div
+                    className="w-full h-5 rounded-md border px-2 flex items-center justify-between"
+                    style={{
+                      backgroundColor: opt.previewCard,
+                      borderColor: opt.previewBorder,
+                    }}
+                  >
+                    <span
+                      className="h-1 w-10 rounded-full opacity-50"
+                      style={{ backgroundColor: opt.previewText }}
+                    />
+                    <span
+                      className="h-1 w-5 rounded-full opacity-75"
+                      style={{ backgroundColor: opt.previewText }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <Icon name={opt.icon} size={13} className={active ? 'text-slate-300' : 'text-slate-500'} />
+                      <p className="text-xs font-bold">{opt.title}</p>
+                    </div>
+                    <p className={`text-[11px] mt-0.5 leading-snug ${active ? 'text-slate-300' : 'text-slate-500'}`}>
+                      {opt.subtitle}
+                    </p>
+                  </div>
+                  {active && (
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-white/10 text-white border border-white/20 shrink-0">
+                      Active
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* MINIMALIST AI ASSISTANT SEARCH BAR */}
@@ -546,144 +698,6 @@ export default function SettingsPage() {
           </button>
         </div>
       </form>
-
-      {/* Appearance & Eye-Comfort Mode */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
-              <Icon name={theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'eye'} size={16} />
-            </span>
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Appearance &amp; Eye-Comfort Studio</h2>
-              <p className="text-[11px] text-slate-500">
-                Engineered with low-halation contrast to prevent eye strain during extended ledger reviews
-              </p>
-            </div>
-          </div>
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
-            {theme === 'light' ? 'Daylight' : theme === 'dark' ? 'Obsidian Velvet' : 'Warm Night Care'}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          {([
-            {
-              id: 'light',
-              title: 'Daylight Ledger',
-              subtitle: 'Crisp paper & slate ink for bright offices',
-              icon: 'sun',
-              previewBg: '#F8FAFC',
-              previewCard: '#FFFFFF',
-              previewBorder: '#E2E8F0',
-              previewText: '#0F172A',
-              previewAccent: '#0F172A',
-            },
-            {
-              id: 'dark',
-              title: 'Obsidian Velvet',
-              subtitle: 'Deep carbon & soft alabaster chalk',
-              icon: 'moon',
-              previewBg: '#0C0E12',
-              previewCard: '#13161C',
-              previewBorder: '#252E42',
-              previewText: '#ECEEF2',
-              previewAccent: '#3B4866',
-            },
-            {
-              id: 'comfort',
-              title: 'Warm Night Care',
-              subtitle: 'Zero blue-light circadian espresso ledger',
-              icon: 'eye',
-              previewBg: '#11100E',
-              previewCard: '#181614',
-              previewBorder: '#302923',
-              previewText: '#ECE7DF',
-              previewAccent: '#5C4D40',
-            },
-          ] as {
-            id: ThemeMode;
-            title: string;
-            subtitle: string;
-            icon: string;
-            previewBg: string;
-            previewCard: string;
-            previewBorder: string;
-            previewText: string;
-            previewAccent: string;
-          }[]).map((opt) => {
-            const active = theme === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setTheme(opt.id)}
-                className={`text-left p-3.5 rounded-2xl border transition cursor-pointer flex flex-col justify-between gap-3 ${
-                  active
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'
-                }`}
-              >
-                {/* Visual Swatch Mini-Ledger Preview */}
-                <div
-                  className="w-full h-14 rounded-xl p-2.5 flex flex-col justify-between border"
-                  style={{
-                    backgroundColor: opt.previewBg,
-                    borderColor: opt.previewBorder,
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: opt.previewAccent }}
-                      />
-                      <span
-                        className="h-1.5 w-12 rounded-full opacity-85"
-                        style={{ backgroundColor: opt.previewText }}
-                      />
-                    </div>
-                    <span className="h-1.5 w-6 rounded-full bg-emerald-400/80" />
-                  </div>
-                  <div
-                    className="w-full h-5 rounded-md border px-2 flex items-center justify-between"
-                    style={{
-                      backgroundColor: opt.previewCard,
-                      borderColor: opt.previewBorder,
-                    }}
-                  >
-                    <span
-                      className="h-1 w-10 rounded-full opacity-50"
-                      style={{ backgroundColor: opt.previewText }}
-                    />
-                    <span
-                      className="h-1 w-5 rounded-full opacity-75"
-                      style={{ backgroundColor: opt.previewText }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <Icon name={opt.icon} size={13} className={active ? 'text-slate-300' : 'text-slate-500'} />
-                      <p className="text-xs font-bold">{opt.title}</p>
-                    </div>
-                    <p className={`text-[11px] mt-0.5 leading-snug ${active ? 'text-slate-300' : 'text-slate-500'}`}>
-                      {opt.subtitle}
-                    </p>
-                  </div>
-                  {active && (
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-white/10 text-white border border-white/20 shrink-0">
-                      Active
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Build & Workstation Information */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">

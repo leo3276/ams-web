@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { RoleProvider, useUserRole, UserRole } from '@/lib/RoleContext';
 import { ArchetypeProvider } from '@/lib/ArchetypeContext';
+import { useTheme, ThemeMode } from '@/lib/ThemeContext';
 import { Icon } from '@/components/Icons';
 import { getCachedBusiness, getOfflineTransactionQueue, flushOfflineTransactionsToSupabase, clearAllLocalBusinessData } from '@/lib/offlineStore';
 import WebWalkthroughModal, { WEB_WALKTHROUGH_STORAGE_KEY } from '@/components/WebWalkthroughModal';
@@ -23,6 +24,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [businessName, setBusinessName] = useState('AMS Retail Workstation');
   const { role, setRole, canSwitchRoles } = useUserRole();
+  const { theme, setTheme, cycleTheme } = useTheme();
 
   useEffect(() => {
     const handleOnline = async () => {
@@ -240,7 +242,34 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-0.5">
+        <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-1.5">
+          {/* Eye-Comfort Theme Switcher */}
+          <div className="p-1 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-3 gap-0.5">
+            {([
+              { id: 'light', label: 'Light', icon: 'sun', tip: 'Crisp Daylight Ledger' },
+              { id: 'dark', label: 'Obsidian', icon: 'moon', tip: 'Obsidian Velvet (Low-Glare Dark)' },
+              { id: 'comfort', label: 'Eye Care', icon: 'eye', tip: 'Warm Night Care (Zero Blue-Light)' },
+            ] as { id: ThemeMode; label: string; icon: string; tip: string }[]).map((m) => {
+              const isSelected = theme === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setTheme(m.id)}
+                  title={m.tip}
+                  className={`py-1.5 px-1 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 transition cursor-pointer ${
+                    isSelected
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon name={m.icon} size={11} />
+                  <span>{m.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <Link
             href="/settings"
             className="flex items-center justify-between px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition font-medium"
@@ -250,7 +279,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
               <span>Settings</span>
             </div>
             <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200/60">
-              v1.0.9
+              v1.1.1
             </span>
           </Link>
           <button
@@ -278,7 +307,15 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={cycleTheme}
+            title={`Theme: ${theme === 'light' ? 'Daylight' : theme === 'dark' ? 'Obsidian Velvet' : 'Warm Night Care'} (Click to switch)`}
+            className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition flex items-center gap-1 text-[10px] font-semibold"
+          >
+            <Icon name={theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'eye'} size={13} />
+          </button>
           <button
             onClick={() => setShowWalkthrough(true)}
             className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1"

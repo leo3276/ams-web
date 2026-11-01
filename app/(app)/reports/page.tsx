@@ -856,43 +856,54 @@ export default function ReportsPage() {
       <div className="flex items-center gap-1.5 border-b border-border pb-2 overflow-x-auto print:hidden">
         <button
           onClick={() => setTab('all')}
-          className={`px-3.5 py-1.5 text-xs rounded-lg font-bold transition ${
-            tab === 'all' ? 'bg-accentText text-white' : 'text-textSecondary hover:bg-surface1'
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg font-bold transition cursor-pointer ${
+            tab === 'all'
+              ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <Icon name="file" size={14} /> Continuous All-in-One View
+          <Icon name="file" size={14} />
+          <span>Continuous All-in-One View</span>
         </button>
         <button
           onClick={() => setTab('pnl')}
-          className={`px-3.5 py-1.5 text-xs rounded-lg font-bold transition ${
-            tab === 'pnl' ? 'bg-accentText text-white' : 'text-textSecondary hover:bg-surface1'
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg font-bold transition cursor-pointer ${
+            tab === 'pnl'
+              ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          Profit &amp; Loss
+          <span>Profit &amp; Loss</span>
         </button>
         <button
           onClick={() => setTab('balance_sheet')}
-          className={`px-3.5 py-1.5 text-xs rounded-lg font-bold transition ${
-            tab === 'balance_sheet' ? 'bg-accentText text-white' : 'text-textSecondary hover:bg-surface1'
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg font-bold transition cursor-pointer ${
+            tab === 'balance_sheet'
+              ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          Balance Sheet
+          <span>Balance Sheet</span>
         </button>
         <button
           onClick={() => setTab('cash_flow')}
-          className={`px-3.5 py-1.5 text-xs rounded-lg font-bold transition ${
-            tab === 'cash_flow' ? 'bg-accentText text-white' : 'text-textSecondary hover:bg-surface1'
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg font-bold transition cursor-pointer ${
+            tab === 'cash_flow'
+              ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          Cash Flow
+          <span>Cash Flow</span>
         </button>
         <button
           onClick={() => setTab('trial_balance')}
-          className={`px-3.5 py-1.5 text-xs rounded-lg font-bold transition ${
-            tab === 'trial_balance' ? 'bg-accentText text-white' : 'text-textSecondary hover:bg-surface1'
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg font-bold transition cursor-pointer ${
+            tab === 'trial_balance'
+              ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          Trial Balance
+          <span>Trial Balance</span>
         </button>
       </div>
 

@@ -243,33 +243,6 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar Footer */}
         <div className="pt-3 border-t border-slate-100 mt-auto flex flex-col gap-1.5">
-          {/* Eye-Comfort Theme Switcher */}
-          <div className="p-1 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-3 gap-0.5">
-            {([
-              { id: 'light', label: 'Light', icon: 'sun', tip: 'Crisp Daylight Ledger' },
-              { id: 'dark', label: 'Obsidian', icon: 'moon', tip: 'Obsidian Velvet (Low-Glare Dark)' },
-              { id: 'comfort', label: 'Eye Care', icon: 'eye', tip: 'Warm Night Care (Zero Blue-Light)' },
-            ] as { id: ThemeMode; label: string; icon: string; tip: string }[]).map((m) => {
-              const isSelected = theme === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setTheme(m.id)}
-                  title={m.tip}
-                  className={`py-1.5 px-1 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 transition cursor-pointer ${
-                    isSelected
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <Icon name={m.icon} size={11} />
-                  <span>{m.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
           <Link
             href="/settings"
             className="flex items-center justify-between px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition font-medium"

@@ -159,7 +159,8 @@ html.dark .bg-slate-800,
 html.dark .bg-zinc-900,
 html.dark .bg-zinc-800,
 html.dark .bg-textPrimary,
-html.dark .bg-accent {
+html.dark .bg-accent,
+html.dark .bg-accentText {
   background-color: var(--btn-primary-bg) !important;
   border-color: var(--btn-primary-border) !important;
   color: #F8FAFC !important;
@@ -169,7 +170,8 @@ html.dark .bg-accent {
 html.dark .hover\:bg-slate-800:hover,
 html.dark .hover\:bg-slate-900:hover,
 html.dark .hover\:bg-zinc-800:hover,
-html.dark .hover\:bg-zinc-900:hover {
+html.dark .hover\:bg-zinc-900:hover,
+html.dark .hover\:bg-accentText:hover {
   background-color: var(--btn-primary-hover) !important;
   color: #FFFFFF !important;
 }

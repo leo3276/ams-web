@@ -1100,8 +1100,8 @@ export default function InventoryPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setStockFilter('all')}
-            className={`px-3 py-1 text-xs rounded-full font-medium transition ${
-              stockFilter === 'all' ? 'bg-accentText text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
+            className={`px-3 py-1 text-xs rounded-full font-medium transition cursor-pointer ${
+              stockFilter === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'bg-surface1 text-textSecondary hover:bg-surface-hover hover:text-textPrimary'
             }`}
           >
             All Items ({realRows.length})
@@ -1443,7 +1443,7 @@ export default function InventoryPage() {
           <div className="bg-surface0 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-border space-y-5">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-accentText text-white text-[10px] font-black rounded uppercase">
+                <span className="px-2 py-0.5 bg-slate-900 text-white text-[10px] font-black rounded uppercase">
                   BARCODE MATCHED
                 </span>
                 <span className="font-mono text-xs text-textSecondary">{scannedItem.barcode || 'NO-SKU'}</span>
@@ -1536,7 +1536,7 @@ export default function InventoryPage() {
               <button
                 onClick={handleExecuteQuickRestock}
                 disabled={actionProcessing}
-                className="py-3 px-4 bg-accentText hover:opacity-90 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
+                className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
               >
                 {actionProcessing ? 'Processing…' : 'Restock (+Stock)'}
               </button>

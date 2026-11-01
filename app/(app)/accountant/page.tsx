@@ -774,32 +774,32 @@ export default function AccountantPage() {
           <div className="flex items-center gap-1 bg-surface2 p-1 rounded-lg border border-border overflow-x-auto">
             <button
               onClick={() => setSelectedStatementTab('pnl')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
-                selectedStatementTab === 'pnl' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${
+                selectedStatementTab === 'pnl' ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Icon name="trending" size={12} /> Profit &amp; Loss
             </button>
             <button
               onClick={() => setSelectedStatementTab('balance_sheet')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
-                selectedStatementTab === 'balance_sheet' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${
+                selectedStatementTab === 'balance_sheet' ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Icon name="briefcase" size={12} /> Balance Sheet
             </button>
             <button
               onClick={() => setSelectedStatementTab('cash_flow')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
-                selectedStatementTab === 'cash_flow' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${
+                selectedStatementTab === 'cash_flow' ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Icon name="cash" size={12} /> Cash Flow
             </button>
             <button
               onClick={() => setSelectedStatementTab('trial_balance')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${
-                selectedStatementTab === 'trial_balance' ? 'bg-accentText text-white shadow-xs' : 'text-textSecondary hover:text-textPrimary'
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${
+                selectedStatementTab === 'trial_balance' ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Icon name="chart" size={12} /> Trial Balance

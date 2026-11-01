@@ -522,8 +522,8 @@ export default function BookkeepingPage() {
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setTypeFilter('all')}
-            className={`px-3 py-1 text-xs rounded-full font-medium transition ${
-              typeFilter === 'all' ? 'bg-accentText text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
+            className={`px-3 py-1 text-xs rounded-full font-medium transition cursor-pointer ${
+              typeFilter === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'bg-surface1 text-textSecondary hover:bg-surface-hover hover:text-textPrimary'
             }`}
           >
             All Types ({realRows.length})
@@ -562,16 +562,16 @@ export default function BookkeepingPage() {
           </button>
           <button
             onClick={() => setTypeFilter('current_asset')}
-            className={`px-3 py-1 text-xs rounded-full font-medium transition ${
-              typeFilter === 'current_asset' ? 'bg-accentText text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
+            className={`px-3 py-1 text-xs rounded-full font-medium transition cursor-pointer ${
+              typeFilter === 'current_asset' ? 'bg-slate-900 text-white shadow-xs' : 'bg-surface1 text-textSecondary hover:bg-surface-hover hover:text-textPrimary'
             }`}
           >
             Current Assets
           </button>
           <button
             onClick={() => setTypeFilter('fixed_asset')}
-            className={`px-3 py-1 text-xs rounded-full font-medium transition ${
-              typeFilter === 'fixed_asset' ? 'bg-accentText text-white' : 'bg-surface1 text-textSecondary hover:bg-border'
+            className={`px-3 py-1 text-xs rounded-full font-medium transition cursor-pointer ${
+              typeFilter === 'fixed_asset' ? 'bg-slate-900 text-white shadow-xs' : 'bg-surface1 text-textSecondary hover:bg-surface-hover hover:text-textPrimary'
             }`}
           >
             Fixed Assets

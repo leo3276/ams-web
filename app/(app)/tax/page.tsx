@@ -344,8 +344,8 @@ export default function TaxPage() {
             <button
               key={p}
               onClick={() => setPreset(p)}
-              className={`px-3 py-1 text-xs rounded-lg font-bold capitalize transition ${
-                preset === p ? 'bg-accentText text-white' : 'bg-surface2 text-textSecondary hover:bg-border'
+              className={`px-3 py-1 text-xs rounded-lg font-bold capitalize transition cursor-pointer ${
+                preset === p ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800' : 'bg-surface2 text-textSecondary hover:bg-surface-hover hover:text-textPrimary'
               }`}
             >
               {p === 'month' ? 'This Month' : p === 'quarter' ? 'This Quarter' : 'Full Year'}

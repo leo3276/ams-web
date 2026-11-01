@@ -105,11 +105,19 @@ export default function SettingsPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [savedMsg, setSavedMsg] = useState(false);
+  const [appVersion, setAppVersion] = useState('1.1.1');
   const [updaterStatus, setUpdaterStatus] = useState<string | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateReady, setUpdateReady] = useState<string | null>(null);
+  const [webDownloadUrl, setWebDownloadUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.getAppVersion) {
+      (window as any).electronAPI.getAppVersion().then((v: string) => {
+        if (v) setAppVersion(v);
+      }).catch(() => {});
+    }
+
     if (typeof window !== 'undefined' && (window as any).electronAPI?.onUpdaterStatus) {
       const unsub = (window as any).electronAPI.onUpdaterStatus((info: any) => {
         if (info.status === 'checking') {
@@ -124,7 +132,7 @@ export default function SettingsPage() {
         } else if (info.status === 'up-to-date') {
           setUpdaterStatus('✓ You are running the latest version.');
         } else if (info.status === 'error') {
-          setUpdaterStatus('Auto-update check completed.');
+          setUpdaterStatus('Auto-update notice: ' + (info.error || 'Check completed.'));
         }
       });
       return () => {
@@ -134,19 +142,51 @@ export default function SettingsPage() {
   }, []);
 
   const handleCheckForUpdates = async () => {
-    if (typeof window === 'undefined' || !(window as any).electronAPI?.checkForUpdates) {
-      setUpdaterStatus('Auto-updates run automatically in the installed desktop workstation.');
+    setCheckingUpdate(true);
+    setUpdaterStatus('Checking GitHub Releases for updates…');
+    setWebDownloadUrl(null);
+
+    // 1. If running inside Electron desktop container
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.checkForUpdates) {
+      try {
+        const res = await (window as any).electronAPI.checkForUpdates();
+        if (res?.status === 'error') {
+          setUpdaterStatus('Could not check updates: ' + (res.message || 'Offline or network error'));
+        } else if (res?.status === 'dev-mode') {
+          // In development mode, check GitHub directly
+          const gh = await fetch('https://api.github.com/repos/leo3276/ams-web/releases/latest');
+          if (gh.ok) {
+            const data = await gh.json();
+            const latest = (data.tag_name || '').replace(/^v/, '');
+            setUpdaterStatus(`Latest published release is v${latest}.`);
+          }
+        }
+      } catch (err: any) {
+        setUpdaterStatus('Update check notice: ' + (err?.message || 'Check complete.'));
+      } finally {
+        setCheckingUpdate(false);
+      }
       return;
     }
-    setCheckingUpdate(true);
-    setUpdaterStatus('Checking for latest release…');
+
+    // 2. If running inside web browser: Query GitHub releases directly
     try {
-      const res = await (window as any).electronAPI.checkForUpdates();
-      if (res?.status === 'error') {
-        setUpdaterStatus('Could not check updates: ' + (res.message || 'Offline or network error'));
+      const res = await fetch('https://api.github.com/repos/leo3276/ams-web/releases/latest');
+      if (res.ok) {
+        const data = await res.json();
+        const latestTag = (data.tag_name || '').replace(/^v/, '');
+        if (latestTag && latestTag !== appVersion) {
+          setUpdaterStatus(`New release v${latestTag} is available! (Current: v${appVersion})`);
+          setUpdateReady(latestTag);
+          setWebDownloadUrl('https://github.com/leo3276/ams-web/releases/tag/v' + latestTag);
+        } else {
+          setUpdaterStatus(`✓ You are running the latest version (v${appVersion}).`);
+        }
+      } else {
+        setUpdaterStatus(`✓ Current version: v${appVersion}. (GitHub check responded ${res.status})`);
       }
     } catch (_e) {
-      setUpdaterStatus('Check complete.');
+      setUpdaterStatus(`✓ Current version: v${appVersion}.`);
     } finally {
       setCheckingUpdate(false);
     }
@@ -518,14 +558,14 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-              v1.0.9 · Release
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200">
+              v{appVersion} · Release
             </span>
-            {updateReady ? (
+            {updateReady && !webDownloadUrl ? (
               <button
                 type="button"
                 onClick={handleRestartToUpdate}
-                className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition animate-pulse flex items-center gap-1.5"
+                className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition animate-pulse flex items-center gap-1.5 cursor-pointer"
               >
                 <Icon name="zap" size={13} /> Restart to Apply v{updateReady}
               </button>
@@ -534,7 +574,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleCheckForUpdates}
                 disabled={checkingUpdate}
-                className="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition disabled:opacity-50 flex items-center gap-1.5"
+                className="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
               >
                 {checkingUpdate ? 'Checking…' : 'Check for Updates'}
               </button>
@@ -543,21 +583,34 @@ export default function SettingsPage() {
         </div>
 
         {updaterStatus && (
-          <div className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+          <div className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
             updateReady 
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
               : 'bg-slate-50 border-slate-200 text-slate-700'
           }`}>
             <span className="font-medium">{updaterStatus}</span>
-            {updateReady && (
-              <button
-                type="button"
-                onClick={handleRestartToUpdate}
-                className="px-2.5 py-1 text-[11px] font-bold bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition"
-              >
-                Restart Now
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {updateReady && !webDownloadUrl && (
+                <button
+                  type="button"
+                  onClick={handleRestartToUpdate}
+                  className="px-3 py-1 text-xs font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+                >
+                  Restart Now
+                </button>
+              )}
+              {webDownloadUrl && (
+                <a
+                  href="https://github.com/leo3276/ams-web/releases/download/v1.1.1/AMS.Software.Setup.1.1.1.exe"
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="px-3 py-1 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition shadow-xs inline-flex items-center gap-1.5"
+                >
+                  <Icon name="download" size={13} /> Download Windows (.exe)
+                </a>
+              )}
+            </div>
           </div>
         )}
 

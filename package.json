@@ -33,6 +33,7 @@
       "package.json"
     ],
     "win": {
+      "artifactName": "AMS.Software.Setup.${version}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -50,6 +51,7 @@
       "icon": "electron/assets/icon.ico"
     },
     "mac": {
+      "artifactName": "AMS.Software-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",

@@ -1,10 +1,16 @@
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const { spawn } = require('child_process');
+
+let autoUpdater = null;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch (_e) {
+  // Graceful fallback to built-in zero-dependency native updater
+}
 
 let mainWindow = null;
 let localServer = null;
@@ -353,55 +359,61 @@ async function runFastDirectUpdateCheck() {
 
 // Auto-Updater configuration & background listener
 function setupAutoUpdater() {
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.differentialDownload = false;
+  if (autoUpdater) {
+    try {
+      autoUpdater.autoDownload = true;
+      autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.differentialDownload = false;
 
-  autoUpdater.on('checking-for-update', () => {
-    console.log('[AutoUpdater] Checking for updates from GitHub...');
-    sendUpdaterStatus({ status: 'checking' });
-  });
+      autoUpdater.on('checking-for-update', () => {
+        console.log('[AutoUpdater] Checking for updates from GitHub...');
+        sendUpdaterStatus({ status: 'checking' });
+      });
 
-  autoUpdater.on('update-available', (info) => {
-    console.log('[AutoUpdater] Update available:', info.version);
-    sendUpdaterStatus({
-      status: 'available',
-      version: info.version,
-    });
-  });
+      autoUpdater.on('update-available', (info) => {
+        console.log('[AutoUpdater] Update available:', info.version);
+        sendUpdaterStatus({
+          status: 'available',
+          version: info.version,
+        });
+      });
 
-  autoUpdater.on('update-not-available', (info) => {
-    console.log('[AutoUpdater] App is up to date:', info.version);
-    sendUpdaterStatus({
-      status: 'up-to-date',
-      version: info.version,
-    });
-  });
+      autoUpdater.on('update-not-available', (info) => {
+        console.log('[AutoUpdater] App is up to date:', info.version);
+        sendUpdaterStatus({
+          status: 'up-to-date',
+          version: info.version,
+        });
+      });
 
-  autoUpdater.on('error', (err) => {
-    console.warn('[AutoUpdater] Fallback to Fast Direct Updater:', err.message);
-    runFastDirectUpdateCheck();
-  });
+      autoUpdater.on('error', (err) => {
+        console.warn('[AutoUpdater] Fallback to Fast Direct Updater:', err.message);
+        runFastDirectUpdateCheck();
+      });
 
-  autoUpdater.on('download-progress', (progressObj) => {
-    sendUpdaterStatus({
-      status: 'downloading',
-      percent: Math.round(progressObj.percent),
-    });
-  });
+      autoUpdater.on('download-progress', (progressObj) => {
+        sendUpdaterStatus({
+          status: 'downloading',
+          percent: Math.round(progressObj.percent),
+        });
+      });
 
-  autoUpdater.on('update-downloaded', (info) => {
-    console.log('[AutoUpdater] Update downloaded successfully:', info.version);
-    sendUpdaterStatus({
-      status: 'downloaded',
-      version: info.version,
-    });
-  });
+      autoUpdater.on('update-downloaded', (info) => {
+        console.log('[AutoUpdater] Update downloaded successfully:', info.version);
+        sendUpdaterStatus({
+          status: 'downloaded',
+          version: info.version,
+        });
+      });
+    } catch (_err) {
+      console.warn('[AutoUpdater] Could not initialize electron-updater, using native updater.');
+    }
+  }
 
-  // Automatically check for updates 6 seconds after window launches
+  // Automatically check for updates 6 seconds after window launches using fast native updater
   if (!isDev) {
     setTimeout(() => {
-      runFastDirectUpdateCheck();
+      runFastDirectUpdateCheck().catch(() => {});
     }, 6000);
   }
 }
@@ -424,7 +436,12 @@ ipcMain.handle('restart-and-install-update', () => {
     }, 400);
     return true;
   }
-  autoUpdater.quitAndInstall(false, true);
+  if (autoUpdater) {
+    try {
+      autoUpdater.quitAndInstall(false, true);
+      return true;
+    } catch (_e) {}
+  }
   return true;
 });
 

@@ -306,7 +306,7 @@ export default function RefundsAndPayoutsPage() {
 
           <button
             onClick={handleOpenBuyBackModal}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <span>Buy Stock from Customer</span>
           </button>
@@ -461,7 +461,7 @@ export default function RefundsAndPayoutsPage() {
                               href={waLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px] hover:bg-emerald-100 transition inline-block"
+                              className="px-2.5 py-1 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/90 shadow-2xs font-semibold text-[11px] transition inline-block cursor-pointer"
                             >
                               Send WhatsApp Slip
                             </a>
@@ -546,7 +546,7 @@ export default function RefundsAndPayoutsPage() {
                         href={waLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-xs hover:bg-emerald-100 transition inline-flex items-center gap-1"
+                        className="px-2.5 py-1.5 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/90 shadow-2xs font-medium text-xs transition inline-flex items-center gap-1 cursor-pointer"
                       >
                         <span>WhatsApp Voucher</span>
                       </a>
@@ -617,7 +617,7 @@ export default function RefundsAndPayoutsPage() {
                   <button
                     type="button"
                     onClick={handleAddRefundItem}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                    className="text-xs font-bold text-neutral-600 hover:text-neutral-900 transition"
                   >
                     + Add Another Item
                   </button>

@@ -46,11 +46,31 @@ export interface LiveLedgerEntry extends Transaction {
   runningBank: number;
 }
 
-function currentMonthRange() {
+export type DashboardPeriodPreset = 'all' | 'month' | 'quarter' | 'year';
+
+function getPeriodRange(preset: DashboardPeriodPreset) {
   const now = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+  if (preset === 'quarter') {
+    const q = Math.floor(now.getMonth() / 3);
+    const start = new Date(now.getFullYear(), q * 3, 1);
+    const end = new Date(now.getFullYear(), (q + 1) * 3, 0);
+    return { start: iso(start), end: iso(end), label: `Q${q + 1} ${now.getFullYear()}` };
+  }
+
+  if (preset === 'year') {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31);
+    return { start: iso(start), end: iso(end), label: `Full Year ${now.getFullYear()}` };
+  }
+
+  if (preset === 'all') {
+    return { start: '1970-01-01', end: '2099-12-31', label: 'All-Time Cumulative' };
+  }
+
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
   return { start: iso(start), end: iso(end), label: now.toLocaleString('default', { month: 'long', year: 'numeric' }) };
 }
 
@@ -71,6 +91,7 @@ export default function DashboardPage() {
   const [currency, setCurrency] = useState('GHS');
   const [businessId, setBusinessId] = useState<string | null>(null);
 
+  const [selectedPeriod, setSelectedPeriod] = useState<DashboardPeriodPreset>('all');
   const [periodLabel, setPeriodLabel] = useState('');
   const [pnl, setPnl] = useState<PnLSummary | null>(null);
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheetSummary | null>(null);
@@ -102,7 +123,7 @@ export default function DashboardPage() {
   };
 
   const loadDashboard = useCallback(async () => {
-    const { start, end, label } = currentMonthRange();
+    const { start, end, label } = getPeriodRange(selectedPeriod);
     setPeriodLabel(label);
 
     // 1. Instantly load from local cache
@@ -512,6 +533,15 @@ export default function DashboardPage() {
     } catch (_err) {
       // offline mode operates smoothly on cache
     }
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ams:dashboard_period') as DashboardPeriodPreset | null;
+      if (saved && ['all', 'month', 'quarter', 'year'].includes(saved)) {
+        setSelectedPeriod(saved);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -592,7 +622,7 @@ export default function DashboardPage() {
   return (
     <div className="max-w-6xl space-y-8">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <Icon name={archetype.icon} size={15} className="text-slate-500" />
@@ -606,25 +636,56 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{archetype.vocabulary.dashboardTitle || 'Executive Financial Dashboard'}</h1>
           <p className="text-xs text-slate-500 mt-1">{archetype.vocabulary.dashboardSubtitle || `Real-time liquidity and live ledger for ${periodLabel}`}</p>
         </div>
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/sales"
-            className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5"
-          >
-            <Icon name={isEducation ? 'book' : 'cart'} size={14} /> {isEducation ? 'Record Fee Inflow' : 'Record Sale'}
-          </Link>
-          <Link
-            href="/invoices"
-            className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-1.5"
-          >
-            <Icon name={isEducation ? 'zap' : 'receipt'} size={14} /> {isEducation ? 'Issue Term Bills' : 'Issue Invoice'}
-          </Link>
-          <Link
-            href="/bookkeeping"
-            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-1.5"
-          >
-            <span>+</span> Add Entry
-          </Link>
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Period Selector Tabs */}
+          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+            {([
+              { id: 'all', label: 'All-Time' },
+              { id: 'month', label: 'This Month' },
+              { id: 'quarter', label: 'Quarter' },
+              { id: 'year', label: 'Year' },
+            ] as { id: DashboardPeriodPreset; label: string }[]).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setSelectedPeriod(tab.id);
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('ams:dashboard_period', tab.id);
+                  }
+                }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                  selectedPeriod === tab.id
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/sales"
+              className="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition shadow-xs flex items-center gap-1.5"
+            >
+              <Icon name={isEducation ? 'book' : 'cart'} size={14} /> {isEducation ? 'Record Fee Inflow' : 'Record Sale'}
+            </Link>
+            <Link
+              href="/invoices"
+              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-1.5"
+            >
+              <Icon name={isEducation ? 'zap' : 'receipt'} size={14} /> {isEducation ? 'Issue Term Bills' : 'Issue Invoice'}
+            </Link>
+            <Link
+              href="/bookkeeping"
+              className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs font-semibold hover:bg-slate-50 transition flex items-center gap-1.5"
+            >
+              <span>+</span> Add Entry
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -900,8 +961,8 @@ export default function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 overflow-x-auto">
-              {filteredEntries.slice(0, 10).map((t) => {
+            <div className="max-h-[460px] overflow-y-auto divide-y divide-slate-100 pr-1 select-none">
+              {filteredEntries.map((t) => {
                 const isBank = t.payment_method === 'bank';
                 const runningBal = isBank ? t.runningBank : t.runningCash;
 
@@ -940,7 +1001,7 @@ export default function DashboardPage() {
           )}
 
           <div className="pt-3 flex items-center justify-between border-t border-slate-100 text-xs">
-            <span className="text-slate-400">Showing {Math.min(10, filteredEntries.length)} of {filteredEntries.length} entries</span>
+            <span className="text-slate-400">Showing {filteredEntries.length} entries</span>
             <Link href="/bookkeeping" className="font-semibold text-slate-800 hover:underline flex items-center gap-1">
               Open General Ledger →
             </Link>
@@ -1094,7 +1155,7 @@ export default function DashboardPage() {
               <Link
                 href="/migrate"
                 onClick={handleDismissModal}
-                className="w-full sm:flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl transition text-center flex items-center justify-center gap-1.5"
+                className="w-full sm:flex-1 py-2.5 px-4 bg-neutral-900 hover:bg-neutral-800 text-white font-semibold text-xs rounded-xl transition text-center flex items-center justify-center gap-1.5"
               >
                 <Icon name="upload" size={14} /> Import Existing Data
               </Link>

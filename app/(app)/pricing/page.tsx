@@ -207,7 +207,7 @@ export default function PricingPage() {
                 }
                 className={`w-full py-3 rounded-xl text-sm font-bold transition ${
                   plan.isPopular
-                    ? 'bg-zinc-900 hover:bg-zinc-800 text-white shadow-sm'
+                    ? 'bg-neutral-900 hover:bg-neutral-800 text-white shadow-sm'
                     : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200 border border-zinc-200'
                 }`}
               >

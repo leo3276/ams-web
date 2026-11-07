@@ -2280,7 +2280,7 @@ export default function MigratePage() {
           <button
             onClick={handleImportAllSheets}
             disabled={isImporting}
-            className="px-4 py-2.5 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition shrink-0 flex items-center gap-1.5 shadow-sm"
+            className="px-4 py-2.5 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition shrink-0 flex items-center gap-1.5 shadow-sm"
           >
             <Icon name="zap" size={13} /> Smart Import All {sheetNames.length} Sheets
           </button>
@@ -2312,32 +2312,32 @@ export default function MigratePage() {
 
           <div className="flex flex-wrap gap-2.5 pt-2 border-t border-slate-100">
             {category === 'sales' && (
-              <Link href="/sales" className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition">
+              <Link href="/sales" className="px-4 py-2 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition">
                 Open Sales Register &rarr;
               </Link>
             )}
             {category === 'expenses' && (
-              <Link href="/bookkeeping" className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition">
+              <Link href="/bookkeeping" className="px-4 py-2 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition">
                 Open Bookkeeping &rarr;
               </Link>
             )}
             {category === 'inventory' && (
-              <Link href="/inventory" className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition">
+              <Link href="/inventory" className="px-4 py-2 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition">
                 Open Inventory &rarr;
               </Link>
             )}
             {category === 'invoices' && (
-              <Link href="/invoices" className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition">
+              <Link href="/invoices" className="px-4 py-2 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition">
                 Open Invoices &rarr;
               </Link>
             )}
             {category === 'customers' && (
-              <Link href="/customers" className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition">
+              <Link href="/customers" className="px-4 py-2 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition">
                 Open Customers &amp; Debtors &rarr;
               </Link>
             )}
             {category === 'suppliers' && (
-              <Link href="/suppliers" className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition">
+              <Link href="/suppliers" className="px-4 py-2 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition">
                 Open Suppliers &amp; Payables &rarr;
               </Link>
             )}
@@ -2769,7 +2769,7 @@ export default function MigratePage() {
             <button
               onClick={handleExecuteImport}
               disabled={isImporting || validCount === 0}
-              className="px-6 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition shadow-sm flex items-center justify-center gap-2"
+              className="px-6 py-3 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition shadow-sm flex items-center justify-center gap-2"
             >
               {isImporting ? (
                 <>

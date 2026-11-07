@@ -1536,7 +1536,7 @@ export default function InventoryPage() {
               <button
                 onClick={handleExecuteQuickRestock}
                 disabled={actionProcessing}
-                className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
+                className="py-3 px-4 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
               >
                 {actionProcessing ? 'Processing…' : 'Restock (+Stock)'}
               </button>

@@ -692,7 +692,7 @@ export default function SettingsPage() {
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            className="px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm transition"
+            className="px-5 py-2.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-sm transition"
           >
             Save Preferences
           </button>
@@ -719,7 +719,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleRestartToUpdate}
-                className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition animate-pulse flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg shadow-2xs transition animate-pulse flex items-center gap-1.5 cursor-pointer"
               >
                 <Icon name="zap" size={13} /> Restart to Apply v{updateReady}
               </button>
@@ -748,7 +748,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleRestartToUpdate}
-                  className="px-3 py-1 text-xs font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+                  className="px-3 py-1 text-xs font-bold bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg transition cursor-pointer shadow-2xs"
                 >
                   Restart Now
                 </button>

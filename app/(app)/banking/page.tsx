@@ -347,13 +347,13 @@ export default function BankingSyncPage() {
           </button>
           <Link
             href="/suppliers"
-            className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
+            className="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
           >
             <Icon name="factory" size={14} /> Pay Supplier Bill
           </Link>
           <button
             onClick={() => setShowAddAccountModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
+            className="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs"
           >
             <span>+</span> Link MoMo Wallet
           </button>
@@ -507,7 +507,7 @@ export default function BankingSyncPage() {
                         ) : (
                           <button
                             onClick={() => handle1ClickMatch(feed.id, feed.suggested_category || 'Revenue', feed.amount)}
-                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition shadow-2xs"
+                            className="px-3 py-1 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer"
                           >
                             ✓ Match &amp; Post Ledger
                           </button>
@@ -630,7 +630,7 @@ export default function BankingSyncPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold"
+                  className="px-5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-bold"
                 >
                   ✓ Link Account
                 </button>
@@ -771,7 +771,7 @@ export default function BankingSyncPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-semibold shadow-2xs transition cursor-pointer"
                 >
                   <Icon name="zap" size={14} /> Authorize &amp; Disburse Funds
                 </button>

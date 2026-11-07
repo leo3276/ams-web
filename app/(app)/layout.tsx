@@ -291,7 +291,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
           </button>
           <button
             onClick={() => setShowWalkthrough(true)}
-            className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-1"
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-neutral-800 border border-neutral-200/90 shadow-2xs hover:bg-neutral-50 transition flex items-center gap-1 cursor-pointer"
           >
             <span>Guide</span>
           </button>

@@ -846,7 +846,7 @@ export default function SuppliersPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleOpenAddSupplier}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
           >
             <span>+ Add Supplier</span>
           </button>
@@ -872,7 +872,7 @@ export default function SuppliersPage() {
 
           <button
             onClick={() => handleOpenPayoutModal()}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
           >
             <span>Pay Supplier Bill</span>
           </button>
@@ -1208,7 +1208,7 @@ export default function SuppliersPage() {
                         href={waLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-xs hover:bg-emerald-100 transition inline-flex items-center gap-1"
+                        className="px-3 py-1.5 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/90 shadow-2xs font-medium text-xs transition inline-flex items-center gap-1 cursor-pointer"
                       >
                         <span>WhatsApp PO</span>
                       </a>
@@ -1361,7 +1361,7 @@ export default function SuppliersPage() {
                               href={waLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[11px] hover:bg-emerald-100 transition inline-block"
+                              className="px-2.5 py-1 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/90 shadow-2xs font-semibold text-[11px] transition inline-block cursor-pointer"
                             >
                               Send WhatsApp Slip
                             </a>
@@ -1489,7 +1489,7 @@ export default function SuppliersPage() {
                     <button
                       type="button"
                       onClick={handleAddFormInventoryItem}
-                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs"
+                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-neutral-900 hover:bg-neutral-800 text-white shadow-2xs transition cursor-pointer"
                     >
                       + Add Item
                     </button>
@@ -1810,9 +1810,9 @@ export default function SuppliersPage() {
                 <button
                   type="button"
                   onClick={handlePopulateLowStockItems}
-                  className="px-3 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs hover:bg-amber-200 transition"
+                  className="px-3 py-1 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/90 shadow-2xs font-semibold text-xs transition cursor-pointer"
                 >
-                  <Icon name="zap" size={13} /> Auto-Add Low-Stock Items
+                  <Icon name="zap" size={13} className="text-neutral-500" /> Auto-Add Low-Stock Items
                 </button>
               </div>
 
@@ -1823,7 +1823,7 @@ export default function SuppliersPage() {
                   <button
                     type="button"
                     onClick={handleAddPOItem}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                    className="text-xs font-bold text-neutral-600 hover:text-neutral-900 transition"
                   >
                     + Add Another Item
                   </button>

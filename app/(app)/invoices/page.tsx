@@ -892,7 +892,7 @@ function InvoicesPageContent() {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={() => handleMarkPaid(paymentModalInvoice, 'cash')}
-                className="py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-xs"
+                className="py-3 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Icon name="cash" size={13} /> Paid in Cash
               </button>

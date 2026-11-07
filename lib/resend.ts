@@ -6,7 +6,7 @@ const apiKey = process.env.RESEND_API_KEY;
 export const resend = apiKey ? new Resend(apiKey) : null;
 
 export const DEFAULT_FROM_EMAIL = 
-  process.env.RESEND_FROM_EMAIL || 'AMS Software <onboarding@resend.dev>';
+  process.env.RESEND_FROM_EMAIL || 'AMS Software <noreply@amsaccounting.site>';
 
 export interface SendEmailParams {
   to: string | string[];

@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   version: process.versions.electron,
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  sendEmail: (payload) => ipcRenderer.invoke('send-email', payload),
   printReceipt: (options) => ipcRenderer.invoke('print-receipt', options),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   restartAndInstallUpdate: () => ipcRenderer.invoke('restart-and-install-update'),

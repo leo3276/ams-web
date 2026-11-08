@@ -25,6 +25,15 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const [businessName, setBusinessName] = useState('AMS Retail Workstation');
   const { role, setRole, canSwitchRoles } = useUserRole();
   const { theme, setTheme, cycleTheme } = useTheme();
+  const [appVersion, setAppVersion] = useState('1.1.3');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.getAppVersion) {
+      (window as any).electronAPI.getAppVersion().then((v: string) => {
+        if (v) setAppVersion(v);
+      }).catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     const handleOnline = async () => {
@@ -252,7 +261,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
               <span>Settings</span>
             </div>
             <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200/60">
-              v1.1.1
+              v{appVersion}
             </span>
           </Link>
           <button

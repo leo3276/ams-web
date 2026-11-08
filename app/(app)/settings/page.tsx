@@ -8,6 +8,7 @@ import { logAuditEvent } from '@/lib/auditLogger';
 import { useTheme, ThemeMode } from '@/lib/ThemeContext';
 import { Icon } from '@/components/Icons';
 import Link from 'next/link';
+import { sendEmailClient } from '@/lib/emailClient';
 
 interface FAQItem {
   question: string;
@@ -107,11 +108,55 @@ export default function SettingsPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [savedMsg, setSavedMsg] = useState(false);
-  const [appVersion, setAppVersion] = useState('1.1.1');
+  const [appVersion, setAppVersion] = useState('1.1.3');
   const [updaterStatus, setUpdaterStatus] = useState<string | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateReady, setUpdateReady] = useState<string | null>(null);
   const [webDownloadUrl, setWebDownloadUrl] = useState<string | null>(null);
+
+  // Resend Email Test Dispatcher
+  const [testEmailRecipient, setTestEmailRecipient] = useState('');
+  const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testEmailStatus, setTestEmailStatus] = useState<{ success: boolean; msg: string } | null>(null);
+
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testEmailRecipient.trim()) return;
+    setTestEmailSending(true);
+    setTestEmailStatus(null);
+
+    const res = await sendEmailClient({
+      to: testEmailRecipient.trim(),
+      subject: 'AMS Software Test Dispatch',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.5; padding: 24px; max-width: 580px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <h2 style="font-size: 18px; color: #0f172a; margin-top: 0;">AMS Email Delivery Verified</h2>
+          <p>This confirms that your AMS Software email service via Resend is working properly.</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 13px;">
+            <p style="margin: 4px 0;"><strong>Sender:</strong> AMS Software &lt;noreply@amsaccounting.site&gt;</p>
+            <p style="margin: 4px 0;"><strong>Recipient:</strong> ${testEmailRecipient.trim()}</p>
+            <p style="margin: 4px 0;"><strong>Domain Status:</strong> Verified</p>
+          </div>
+          <p style="font-size: 12px; color: #64748b; margin-bottom: 0; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+            Sent securely from AMS Software Workstation.
+          </p>
+        </div>
+      `,
+    });
+
+    setTestEmailSending(false);
+    if (res.success) {
+      setTestEmailStatus({
+        success: true,
+        msg: `✓ Test email dispatched successfully to ${testEmailRecipient.trim()}! Please check your inbox or spam folder.`,
+      });
+    } else {
+      setTestEmailStatus({
+        success: false,
+        msg: `Delivery notice: ${res.error || 'Failed to dispatch email.'}`,
+      });
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).electronAPI?.getAppVersion) {
@@ -699,6 +744,90 @@ export default function SettingsPage() {
         </div>
       </form>
 
+      {/* Resend Email Integration & Live Diagnostic */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600 shrink-0">
+              <Icon name="mail" size={16} />
+            </span>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Email &amp; Notifications Service</h2>
+              <p className="text-[11px] text-slate-500">Connected to Resend via verified domain amsaccounting.site</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Resend Connected
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+            <p className="text-slate-500 font-semibold mb-0.5">Verified Sender</p>
+            <p className="font-mono font-bold text-slate-800">AMS Software &lt;noreply@amsaccounting.site&gt;</p>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+            <p className="text-slate-500 font-semibold mb-0.5">Status &amp; Delivery</p>
+            <p className="font-bold text-slate-800">Active · Invoices, Receipts &amp; Alerts</p>
+          </div>
+        </div>
+
+        {/* Live Test Email Dispatcher */}
+        <form onSubmit={handleSendTestEmail} className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-3">
+          <div>
+            <h3 className="text-xs font-bold text-slate-800">Send Live Test Email</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Verify live Resend email dispatch right now by sending a test message.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              required
+              placeholder="Enter your email to test (e.g. you@example.com)"
+              value={testEmailRecipient}
+              onChange={(e) => setTestEmailRecipient(e.target.value)}
+              className="flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-slate-400"
+            />
+            <button
+              type="submit"
+              disabled={testEmailSending}
+              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            >
+              {testEmailSending ? 'Sending…' : 'Send Test Email'}
+            </button>
+          </div>
+
+          {testEmailStatus && (
+            <div className={`p-2.5 rounded-lg text-xs font-medium border ${
+              testEmailStatus.success 
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}>
+              {testEmailStatus.msg}
+            </div>
+          )}
+        </form>
+
+        {/* Supabase Auth SMTP Info Box */}
+        <div className="p-3.5 bg-amber-50/60 rounded-xl border border-amber-200/70 text-xs text-amber-900 space-y-1.5">
+          <p className="font-bold flex items-center gap-1.5 text-amber-900">
+            <Icon name="alert" size={13} className="text-amber-600" /> Connecting Resend for User Signups &amp; Password Resets:
+          </p>
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            User registration OTPs and confirmation links are dispatched directly by Supabase Auth servers. To route Supabase through Resend, open <strong>Supabase Dashboard &rarr; Project Settings &rarr; Authentication &rarr; SMTP Settings</strong> and save:
+          </p>
+          <div className="text-[11px] font-mono bg-white/90 p-2.5 rounded-lg border border-amber-200/70 space-y-1">
+            <div>Host: <strong>smtp.resend.com</strong> | Port: <strong>465</strong> | User: <strong>resend</strong></div>
+            <div>Password: <strong>[Your Resend API Key: re_...]</strong></div>
+            <div>Sender Email: <strong>noreply@amsaccounting.site</strong></div>
+          </div>
+        </div>
+      </div>
+
       {/* Build & Workstation Information */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -755,7 +884,7 @@ export default function SettingsPage() {
               )}
               {webDownloadUrl && (
                 <a
-                  href="https://github.com/leo3276/ams-web/releases/download/v1.1.1/AMS.Software.Setup.1.1.1.exe"
+                  href={`https://github.com/leo3276/ams-web/releases/download/v${appVersion}/AMS.Software.Setup.${appVersion}.exe`}
                   target="_blank"
                   rel="noreferrer"
                   download

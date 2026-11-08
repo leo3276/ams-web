@@ -22,6 +22,7 @@ import {
   isUUID,
 } from '@/lib/offlineStore';
 import { logAuditEvent } from '@/lib/auditLogger';
+import { sendInvoiceEmailClient } from '@/lib/emailClient';
 
 interface LineItem {
   id: string;
@@ -59,6 +60,33 @@ function InvoicesPageContent() {
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+
+  const handleEmailInvoice = async (inv: Invoice) => {
+    let targetEmail = inv.customer_email;
+    if (!targetEmail) {
+      targetEmail = window.prompt(`Enter customer email to dispatch Invoice #${inv.invoice_number}:`);
+      if (!targetEmail || !targetEmail.trim()) return;
+    }
+
+    setSendingEmailId(inv.id);
+    const res = await sendInvoiceEmailClient({
+      customerEmail: targetEmail.trim(),
+      customerName: inv.customer_name || 'Customer',
+      invoiceNumber: inv.invoice_number,
+      totalAmount: inv.amount,
+      currency: currency || 'GHS',
+      dueDate: inv.due_date || undefined,
+      businessName: businessName || 'AMS Software',
+    });
+
+    setSendingEmailId(null);
+    if (res.success) {
+      showNotify('success', `✓ Invoice #${inv.invoice_number} emailed successfully to ${targetEmail.trim()}!`);
+    } else {
+      showNotify('error', `Email notice: ${res.error || 'Failed to dispatch email'}`);
+    }
+  };
 
   // Create Form State
   const [customerName, setCustomerName] = useState('');
@@ -662,6 +690,17 @@ function InvoicesPageContent() {
                           >
                             <span className="hidden sm:inline">{isPaid ? 'Receipt' : 'Reminder'}</span>
                           </a>
+
+                          <button
+                            type="button"
+                            onClick={() => handleEmailInvoice(inv)}
+                            disabled={sendingEmailId === inv.id}
+                            className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200/70 hover:bg-blue-100 text-[11px] font-semibold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            title={inv.customer_email ? `Email invoice to ${inv.customer_email}` : 'Dispatch Invoice via Email'}
+                          >
+                            <Icon name="mail" size={12} />
+                            <span className="hidden sm:inline">{sendingEmailId === inv.id ? 'Sending…' : 'Email'}</span>
+                          </button>
 
                           <button
                             onClick={() => setPreviewInvoice(inv)}

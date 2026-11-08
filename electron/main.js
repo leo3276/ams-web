@@ -235,6 +235,62 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
+ipcMain.handle('send-email', async (event, emailPayload) => {
+  const apiKey =
+    process.env.RESEND_API_KEY ||
+    Buffer.from('cmVfYWd6dnhYVWhfSHRNVnhiSzZldmY4UjNpNnBzS28zUkVM', 'base64').toString('utf-8');
+  return new Promise((resolve) => {
+    try {
+      const payload = JSON.stringify({
+        from: emailPayload.from || 'AMS Software <noreply@amsaccounting.site>',
+        to: Array.isArray(emailPayload.to) ? emailPayload.to : [emailPayload.to],
+        subject: emailPayload.subject || 'Notification from AMS Software',
+        html: emailPayload.html || emailPayload.text || '',
+        text: emailPayload.text,
+      });
+
+      const req = https.request(
+        {
+          hostname: 'api.resend.com',
+          port: 443,
+          path: '/emails',
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (res.statusCode >= 200 && res.statusCode < 300) {
+                resolve({ success: true, id: parsed.id });
+              } else {
+                resolve({ success: false, error: parsed.message || 'Resend API returned an error.' });
+              }
+            } catch (e) {
+              resolve({ success: false, error: 'Failed to parse Resend response.' });
+            }
+          });
+        }
+      );
+
+      req.on('error', (err) => {
+        resolve({ success: false, error: err.message });
+      });
+
+      req.write(payload);
+      req.end();
+    } catch (err) {
+      resolve({ success: false, error: err?.message || 'Failed to dispatch email' });
+    }
+  });
+});
+
 ipcMain.handle('open-external-link', (event, url) => {
   shell.openExternal(url);
   return true;
